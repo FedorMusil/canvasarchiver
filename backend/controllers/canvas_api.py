@@ -30,3 +30,4 @@ def test_connection():
 
 def get_current_time():
     return str(datetime.now())
+
