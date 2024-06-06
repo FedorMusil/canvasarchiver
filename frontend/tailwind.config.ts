@@ -1,12 +1,8 @@
-import defaultTheme from "tailwindcss/defaultTheme";
-import animatePlugin from "tailwindcss-animate";
+import type { Config } from "tailwindcss";
 
-const { fontFamily } = defaultTheme;
-
-/** @type {import('tailwindcss').Config} */
-export default {
+const config: Config = {
   darkMode: ["class"],
-  content: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
+  content: ['./src/**/*.{js,jsx,ts,tsx}'],
   theme: {
     container: {
       center: true,
@@ -56,9 +52,6 @@ export default {
         md: `calc(var(--radius) - 2px)`,
         sm: "calc(var(--radius) - 4px)",
       },
-      fontFamily: {
-        sans: ["var(--font-sans)", ...fontFamily.sans],
-      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -75,5 +68,7 @@ export default {
       },
     },
   },
-  plugins: [animatePlugin],
+  plugins: [require("tailwindcss-animate")],
 };
+
+export default config;
