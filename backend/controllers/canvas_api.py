@@ -1,7 +1,16 @@
 import requests, os
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# If the environment variables are not found in the .env file, get them from the system
+CANVAS_API_TOKEN = os.getenv('CANVAS_API_TOKEN')
+CANVAS_DOMAIN = os.getenv('CANVAS_DOMAIN')
 
 # Make sure there is a .env file in the same directory as this script
+
+load_dotenv()
 
 # Replace with your Canvas API token
 API_TOKEN = os.environ.get('CANVAS_API_TOKEN')
