@@ -3,7 +3,7 @@ import { exampleUsers } from './account-mock';
 import { http, HttpHandler, HttpResponse } from 'msw';
 
 export const annotationHandlers: HttpHandler[] = [
-    http.get('/annotations/*', () => {
+    http.get(`${import.meta.env.VITE_BACKEND_URL}/annotations/*`, () => {
         return HttpResponse.json<Annotation[]>(exampleAnnotations);
     }),
 ];

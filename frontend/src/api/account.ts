@@ -12,11 +12,14 @@ export type User = {
     role: UserRole;
 };
 
-export const getUser = async (courseCode: number): Promise<User> => {
+export const getUser = async ({ queryKey }: { queryKey: [string, number] }): Promise<User> => {
+    const [, courseCode] = queryKey;
+    console.log('courseCode', courseCode);
     const response = await AxiosWrapper({
         method: 'GET',
         url: `/self/${courseCode}`,
     });
+    console.log('response', response);
 
     return response;
 };

@@ -2,7 +2,7 @@ import { http, HttpHandler, HttpResponse } from 'msw';
 import { User, UserRole } from '../api/account';
 
 export const accountHandlers: HttpHandler[] = [
-    http.get('/self/*', () => {
+    http.get(`${import.meta.env.VITE_BACKEND_URL}/self/*`, () => {
         return HttpResponse.json<User>(exampleUsers[Math.floor(Math.random() * exampleUsers.length)]);
     }),
 ];

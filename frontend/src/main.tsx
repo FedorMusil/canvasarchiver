@@ -1,15 +1,21 @@
 import App from './App.tsx';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { worker } from './mock/setupWorker.ts';
 import './globals.css';
 
-if (import.meta.env.MODE === 'development') {
-    worker.start();
+async function enableMocking() {
+    if (import.meta.env.MODE !== 'development') return;
+
+    const { worker } = await import('./mock/setupWorker.ts');
+    return await worker.start({
+        onUnhandledRequest: 'bypass',
+    });
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>
-);
+enableMocking().then(() => {
+    ReactDOM.createRoot(document.getElementById('root')!).render(
+        <React.StrictMode>
+            <App />
+        </React.StrictMode>
+    );
+});

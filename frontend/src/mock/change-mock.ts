@@ -2,7 +2,7 @@ import { Change, ChangeType, ItemTypes } from '../api/change';
 import { http, HttpHandler, HttpResponse } from 'msw';
 
 export const changeHandlers: HttpHandler[] = [
-    http.get('/changes/*', () => {
+    http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/*`, () => {
         return HttpResponse.json<Change[]>(exampleChanges);
     }),
 ];
