@@ -1,4 +1,6 @@
 from flask import Flask
+
+from db.get_db_conn import get_db_conn
 from controllers.canvas_api import get_current_time
 
 app = Flask(__name__)
@@ -7,8 +9,18 @@ app = Flask(__name__)
 # Run the server with `python program.py` and visit the routes in your browser.
 
 @app.route('/')
-def hello_world():
-    return 'Hello, World!'
+def index():
+    conn = get_db_conn()
+    cur = conn.cursor()
+
+    cur.execute('SELECT * FROM users')
+    users = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    print(f'Users: {users}')
+    return str(users)
 
 @app.route('/canvas')
 def canvas():
