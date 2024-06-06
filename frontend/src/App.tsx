@@ -1,22 +1,22 @@
-import { Role, Profile, ProfileDropdown } from './components/profile/ProfileDropdown';
+import Home from './components/pages/Home';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { FC, ReactElement } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
-function App() {
-    const initialProfile: Profile = {
-        account: 'John Doe',
-        course: 'Computer Science',
-        role: Role.Teacher,
-        simRole: Role.Teacher,
-    };
+const App: FC = (): ReactElement => {
+    const queryClient = new QueryClient();
 
     return (
-        <>
-            <div className='flex justify-between items-center p-4'>
-                <div>bruh</div>
-                <ProfileDropdown {...initialProfile} />
-            </div>
-            <div>Hello World!</div>
-        </>
-    );
-}
+        <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+                <Routes>
+                    <Route path='/' element={<Home />} />
+                </Routes>
+            </BrowserRouter>
 
+            {import.meta.env.MODE === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
+        </QueryClientProvider>
+    );
+};
 export default App;
