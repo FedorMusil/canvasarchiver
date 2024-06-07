@@ -1,5 +1,4 @@
 from flask import Flask, send_file
-from flask_cors import CORS
 import ssl
 import os
 
