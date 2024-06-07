@@ -25,6 +25,9 @@ frontend/*.sw?
 
 **/__pycache__
 .github
+.vscode
 
 .env
 ./env
+
+*.exe
