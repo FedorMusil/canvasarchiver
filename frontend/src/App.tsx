@@ -96,11 +96,10 @@ interface Comment {
 interface CommentsProps {
   comments: Comment[];
   parentId?: number | null;
-  isRoot?: boolean;
   user: User;
 }
 
-function Comments({ comments, parentId = null, isRoot = true, user }: CommentsProps) {
+function Comments({ comments, parentId = null, user }: CommentsProps) {
   const [commentList, setCommentList] = useState<Comment[]>(comments);
   const [replyContent, setReplyContent] = useState('');
   const [activeReplyId, setActiveReplyId] = useState<number | null>(null);
@@ -153,15 +152,12 @@ function Comments({ comments, parentId = null, isRoot = true, user }: CommentsPr
     return parent ? parent.author : null;
   };
 
-  const nestedCommentStyle = "ml-4 border-l-2 pl-4 border-gray-200";
-  const outerDivStyle = isRoot ? "bg-white p-6 max-w-md mx-auto rounded-lg border border-gray-200 shadow-md min-h-[920px]" : "";
+  const nestedCommentStyle = "mt-4 p-4 bg-white rounded-lg";
 
   return (
-    <div className={outerDivStyle}>
-      {isRoot && <h5 className="text-lg font-bold leading-none text-center mb-4">Annotated Comments</h5>}
-      {commentList.filter(c => c.parentId === parentId).map((comment: Comment) => (
-        <div key={comment.id} className={`mt-4 p-4 bg-gray-100 rounded-lg ${!isRoot && nestedCommentStyle}`}>
-          {/* Render the content */}
+    <>
+      {commentList.filter(c => c.parentId === parentId).map((comment) => (
+        <div key={comment.id} className={nestedCommentStyle}>
           <p className="text-sm text-gray-700">
             {comment.parentId && (
               <>
@@ -172,7 +168,6 @@ function Comments({ comments, parentId = null, isRoot = true, user }: CommentsPr
           </p>
           <div className="flex justify-between items-center mt-2">
             <p className="text-gray-500 text-xs">{comment.date}</p>
-            {/* Render delete and reply buttons */}
             {comment.isOwner && (
               <button onClick={() => handleDelete(comment.id)}
                 className="text-red-500 hover:text-red-700 font-medium rounded-lg text-sm p-2.5">
@@ -186,14 +181,35 @@ function Comments({ comments, parentId = null, isRoot = true, user }: CommentsPr
             )}
           </div>
           {activeReplyId === comment.id && renderReplyBox(comment.id)}
-          {/* Recursive call to render the subcomment */}
-          <Comments comments={commentList} parentId={comment.id} isRoot={false} user={userInfo[0]} />
+          <Comments comments={commentList} parentId={comment.id} user={user} />
         </div>
       ))}
-    </div>
+    </>
   );
 }
 
 export default function App() {
-  return <Comments comments={commentsData} parentId={null} isRoot={true} user={userInfo[0]} />;
+  const outerDivStyle = "w-1/4 bg-gray-100 p-6 border border-gray-200"; // Basisstijl voor de hele panel
+
+  return (
+    <div className="flex flex-col w-full min-h-[950px] px-40 py-5 bg-white">
+      {/* Course History Section */}
+      <div className="bg-white p-4 mb-2">
+        <h1 className="text-xl font-bold">Course History</h1>
+      </div>
+
+      <div className="border-b border-gray-200"></div>
+      <h3 className="p-2 font-semibold text-lg">Subject Version Control</h3>
+
+      {/* Content Sections */}
+      <div className="flex flex-1">
+        {/* Left Side Empty Space */}
+        <div className="flex-1 border"></div>
+        <div className={outerDivStyle}>
+          <h2 className="text-xl font-bold mb-5">Annotated Comments</h2>
+          <Comments comments={commentsData} parentId={null} user={userInfo[0]} />
+        </div>
+      </div>
+    </div>
+  );
 }
