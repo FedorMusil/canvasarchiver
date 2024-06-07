@@ -1,5 +1,6 @@
 import { FC, ReactElement, useState } from 'react';
-import { LogOut, Settings, User, GraduationCap, RefreshCcw } from 'lucide-react';
+import { LogOut, Settings, User as LucidUser, GraduationCap, RefreshCcw } from 'lucide-react';
+import { User, UserRole } from '../../api/account.ts';
 import { Button } from '../ui/Button.tsx';
 import {
     DropdownMenu,
@@ -15,84 +16,82 @@ import {
     DropdownMenuSubTrigger,
 } from '../ui/DropdownMenu.tsx';
 
-export enum Role {
-    None,
-    Student,
-    TA,
-    Teacher,
+const capitalizeRole = (role: UserRole): string => {
+    if (role == UserRole.TA) {
+        return 'TA';
+    }
+
+    return role.charAt(0).toUpperCase() + role.slice(1);
+};
+
+export interface FrontendUser extends User {
+    simRole: UserRole;
 }
 
-const roleToString = (role: Role): string => {
-    return ['None', 'Student', 'TA', 'Teacher'][role];
-};
+export const ProfileDropdown: FC<User> = (initUser): ReactElement => {
+    const hasRights = (role: UserRole, simRole: UserRole): boolean => {
+        return role >= simRole;
+    };
 
-export type Profile = {
-    account: string;
-    course: string;
-    role: Role;
-    simRole: Role;
-};
-
-export const ProfileDropdown: FC<Profile> = (initProfile): ReactElement => {
-    const [profile, setProfile] = useState<Profile>(initProfile);
-
-    const setSimRole = (role: Role): void => {
-        setProfile({
-            ...profile,
+    const setSimRole = (role: UserRole): void => {
+        setUser({
+            ...user,
             simRole: role,
         });
     };
 
-    const hasRights = (role: Role, simRole: Role): boolean => {
-        return role >= simRole;
-    };
-
     const handleLogout = (): void => {
-        setProfile({
-            account: '',
-            course: '',
-            role: Role.None,
-            simRole: Role.None,
+        setUser({
+            id: -1,
+            email: '',
+            name: '',
+            role: UserRole.NONE,
+            simRole: UserRole.NONE,
         });
     };
+
+    const [user, setUser] = useState<FrontendUser>({
+        ...initUser,
+        simRole: initUser.role,
+    });
 
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant='profile'>{profile.account}</Button>
+                <Button variant='profile'>{user.name}</Button>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent className='w-56'>
-                <DropdownMenuLabel>{profile.account}</DropdownMenuLabel>
+                <DropdownMenuLabel>{user.id}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
 
                 <DropdownMenuGroup>
                     <DropdownMenuItem>
-                        <User className='mr-2 h-4 w-4' />
+                        <LucidUser className='mr-2 h-4 w-4' />
                         <span>Profile</span>
                     </DropdownMenuItem>
 
                     <DropdownMenuSub>
                         <DropdownMenuSubTrigger>
                             <GraduationCap className='mr-2 h-4 w-4' />
-                            <span>View as: {roleToString(profile.simRole)}</span>
+                            <span>View as: {capitalizeRole(user.simRole)}</span>
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
                             <DropdownMenuSubContent>
-                                {profile.simRole !== Role.Student && hasRights(profile.role, Role.Student) && (
-                                    <DropdownMenuItem onClick={() => setSimRole(Role.Student)}>
+                                {user.simRole !== UserRole.STUDENT && hasRights(user.role, UserRole.STUDENT) && (
+                                    <DropdownMenuItem onClick={() => setSimRole(UserRole.STUDENT)}>
                                         <GraduationCap className='mr-2 h-4 w-4' />
                                         <span>Student</span>
                                     </DropdownMenuItem>
                                 )}
-                                {profile.simRole !== Role.TA && hasRights(profile.role, Role.TA) && (
-                                    <DropdownMenuItem onClick={() => setSimRole(Role.TA)}>
+                                {user.simRole !== UserRole.TA && hasRights(user.role, UserRole.TA) && (
+                                    <DropdownMenuItem onClick={() => setSimRole(UserRole.TA)}>
                                         <GraduationCap className='mr-2 h-4 w-4' />
                                         <span>TA</span>
                                     </DropdownMenuItem>
                                 )}
-                                {profile.simRole !== Role.Teacher && hasRights(profile.role, Role.Teacher) && (
-                                    <DropdownMenuItem onClick={() => setSimRole(Role.Teacher)}>
+                                {user.simRole !== UserRole.TEACHER && hasRights(user.role, UserRole.TEACHER) && (
+                                    <DropdownMenuItem onClick={() => setSimRole(UserRole.TEACHER)}>
                                         <GraduationCap className='mr-2 h-4 w-4' />
                                         <span>Teacher</span>
                                     </DropdownMenuItem>
