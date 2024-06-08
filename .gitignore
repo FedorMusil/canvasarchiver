@@ -31,3 +31,4 @@ frontend/*.sw?
 ./env
 
 *.exe
+**/nlohmann
