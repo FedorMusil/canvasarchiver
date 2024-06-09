@@ -1,9 +1,9 @@
-import Home from './components/pages/Home';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { FC, ReactElement } from 'react';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useEffect, useState } from 'react';
+// import Home from './components/pages/Home';
+// import { BrowserRouter, Route, Routes } from 'react-router-dom';
+// import { FC, ReactElement } from 'react';
+// import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+// import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { useState, useEffect } from 'react';
 import './globals.css';
 
 
@@ -69,13 +69,13 @@ import './globals.css';
 
 // export default App;
 
-
-const commentsData = [
-  { id: 1, author: 'Tim Bos', content: 'Goed Bewerkt!', date: '05/06/2024', parentId: null, isOwner: false },
-  { id: 2, author: 'Adobe ComMij', content: 'Het wordt beter als je extra uitleg erin toevoegt.', date: '05/06/2024', parentId: null, isOwner: false },
-  { id: 3, author: 'Adam Usij', content: 'Ja', date: '05/06/2024', parentId: 2, isOwner: true },
-  { id: 4, author: 'Abc Def', content: 'Goed gedaan', date: '05/06/2024', parentId: null, isOwner: false }
-];
+// const date = new Date().toISOString().split('T')[0];
+// const commentsData = [
+//   { id: 1, author: 'Tim Bos', content: 'Goed Bewerkt!', date: date, parentId: null, isOwner: false },
+//   { id: 2, author: 'Adobe ComMij', content: 'Het wordt beter als je extra uitleg erin toevoegt.', date: date, parentId: null, isOwner: false },
+//   { id: 3, author: 'Adam Usij', content: 'Ja', date: date, parentId: 2, isOwner: true },
+//   { id: 4, author: 'Abc Def', content: 'Goed gedaan', date: date, parentId: null, isOwner: false },
+// ];
 
 const userInfo = [{ id: 3, name: 'Adam Usij' }];
 
@@ -105,12 +105,19 @@ function Comments({ comments, parentId = null, user }: CommentsProps) {
   const [activeReplyId, setActiveReplyId] = useState<number | null>(null);
 
   const handleDelete = (commentId: number) => {
-    setCommentList(commentList.filter(comment => comment.id !== commentId));
+    const filteredComments = comments.filter(comment => comment.id !== commentId);
+    setCommentList(filteredComments);
   };
 
-  // useEffect(() => {
-  //   console.log('Comment List Updated:', commentList);
-  // }, [commentList]);
+  {/* Sync local state with external props whenever the comments prop updates */ }
+  useEffect(() => {
+    setCommentList(comments);
+  }, [comments]);
+
+  {/* Save commentList to localStorage on any update to ensure persistence across sessions */ }
+  useEffect(() => {
+    localStorage.setItem('comments', JSON.stringify(commentList));
+  }, [commentList]);
 
   const handleReplyChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setReplyContent(event.target.value);
@@ -141,7 +148,8 @@ function Comments({ comments, parentId = null, user }: CommentsProps) {
         placeholder="Type your reply here..."
         className="mt-2 p-1 border rounded"
       />
-      <button onClick={() => submitReply(commentId)} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded">
+      <button onClick={() => submitReply(commentId)}
+        className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2 rounded">
         Submit
       </button>
     </div>
@@ -152,34 +160,37 @@ function Comments({ comments, parentId = null, user }: CommentsProps) {
     return parent ? parent.author : null;
   };
 
-  const nestedCommentStyle = "mt-4 p-4 bg-white rounded-lg";
+  const nestedCommentStyle = "mt-1 p-4 bg-white rounded-lg break-words";
 
   return (
     <>
       {commentList.filter(c => c.parentId === parentId).map((comment) => (
         <div key={comment.id} className={nestedCommentStyle}>
           <p className="text-sm text-gray-700">
-            {comment.parentId && (
+            {comment.parentId && ( // handle (sub)comments
               <>
                 reply to <span className="font-bold">{findParentAuthor(comment.parentId)}</span>:&nbsp;
               </>
             )}
-            {comment.content} &nbsp;&nbsp;- <span className="font-bold">{comment.author}</span>
+            {comment.content.length > 50 ? `${comment.content.slice(0, 50)}\n${comment.content.slice(50)}`// break if the content has >50 characters
+              : comment.content} &nbsp;&nbsp;- <span className="font-bold">{comment.author}</span>
           </p>
           <div className="flex justify-between items-center mt-2">
             <p className="text-gray-500 text-xs">{comment.date}</p>
-            {comment.isOwner && (
+            {comment.isOwner && ( // handle delete operation
               <button onClick={() => handleDelete(comment.id)}
                 className="text-red-500 hover:text-red-700 font-medium rounded-lg text-sm p-2.5">
                 Delete
               </button>
             )}
-            {comment.author !== user.name && (
-              <button onClick={() => setActiveReplyId(comment.id)} className="text-gray-500 hover:text-gray-700 font-medium rounded-lg text-sm p-2.5">
+            {comment.author !== user.name && ( // handle reply operation
+              <button onClick={() => setActiveReplyId(comment.id)}
+                className="text-gray-500 hover:text-gray-700 font-medium rounded-lg text-sm p-2.5">
                 Reply
               </button>
             )}
           </div>
+          {/* Submit and render new subcomment */}
           {activeReplyId === comment.id && renderReplyBox(comment.id)}
           <Comments comments={commentList} parentId={comment.id} user={user} />
         </div>
@@ -189,7 +200,26 @@ function Comments({ comments, parentId = null, user }: CommentsProps) {
 }
 
 export default function App() {
-  const outerDivStyle = "w-1/4 bg-gray-100 p-6 border border-gray-200"; // Basisstijl voor de hele panel
+  const outerDivStyle = "w-1/4 bg-gray-100 p-6 border border-gray-200";
+  const [newCommentText, setNewCommentText] = useState('');
+  const [comments, setComments] = useState(() => {
+    const savedComments = localStorage.getItem('comments');
+    return savedComments ? JSON.parse(savedComments) : [];
+  });
+
+  const addNewComment = () => {
+    const newComment: Comment = {
+      id: Math.max(0, ...comments.map((c: Comment) => c.id)) + 1,
+      author: userInfo[0].name,
+      content: newCommentText,
+      date: new Date().toISOString().split('T')[0],
+      parentId: null,
+      isOwner: true
+    };
+    const newComments = [...comments, newComment];
+    setComments(newComments);
+    setNewCommentText('');
+  };
 
   return (
     <div className="flex flex-col w-full min-h-[950px] px-40 py-5 bg-white">
@@ -205,9 +235,27 @@ export default function App() {
       <div className="flex flex-1">
         {/* Left Side Empty Space */}
         <div className="flex-1 border"></div>
+        {/* Right Side Space */}
         <div className={outerDivStyle}>
+          {/* Render stored comments */}
           <h2 className="text-xl font-bold mb-5">Annotated Comments</h2>
-          <Comments comments={commentsData} parentId={null} user={userInfo[0]} />
+          <Comments comments={comments} parentId={null} user={userInfo[0]} />
+          {/* Add new comment section*/}
+          <div className="mt-4">
+            <textarea
+              value={newCommentText}
+              onChange={e => setNewCommentText(e.target.value)}
+              placeholder="Type your new comment here..."
+              className="mt-2 p-2 w-full border rounded resize-none overflow-hidden"
+              style={{ minHeight: "50px" }}
+            />
+            <button
+              onClick={addNewComment}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-2"
+            >
+              Add Comment
+            </button>
+          </div>
         </div>
       </div>
     </div>
