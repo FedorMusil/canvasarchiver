@@ -15,8 +15,7 @@ def check_required_keys(json_obj, required_keys):
             return False, f"Invalid value for key: {key}. Expected one of {value['enum']}, got {json_obj[key]}"
     return True, "All checks passed"
 
-def check_course_create(request):
-    conn = get_db_conn()
+def check_course_create(conn, request):
     cur = conn.cursor()
     try:
         check_result, error_message = check_required_keys(request, {'name': {'type': str, 'length': 255}, 'course_code': {'type': str, 'length': 255}})
@@ -27,7 +26,6 @@ def check_course_create(request):
         cur.execute('SELECT * FROM courses WHERE course_code = %s', (request['course_code'], ))
         course = cur.fetchone()
         cur.close()
-        conn.close()
 
         if course:
             return False, "Error: Course exists already"
@@ -37,8 +35,7 @@ def check_course_create(request):
         tb = traceback.format_exc()
         return False, f"Invalid JSON format. Error: {str(e)}, Traceback: {tb}"
     
-def check_annotation_create(course_id, change_id, request):
-    conn = get_db_conn()
+def check_annotation_create(conn, change_id, request):
     cur = conn.cursor()
     try:
         check_result, error_message = check_required_keys(request, {'change_id': {'type': str,'length': 255},'text': {'type': str, 'length': 255}, 'user_id': {'type': str, 'length': 255}})
@@ -49,7 +46,6 @@ def check_annotation_create(course_id, change_id, request):
         cur.execute('SELECT * FROM changes WHERE id = %s', (change_id,))
         change = cur.fetchone()
         cur.close()
-        conn.close()
         
         if not change:
             return False, "Error: Change does not exist"
@@ -57,8 +53,7 @@ def check_annotation_create(course_id, change_id, request):
     except Exception as e:
         return False, "A exception accured in checking the data: " + str(e)
     
-def check_change_create(course_id, request):
-    conn = get_db_conn()
+def check_change_create(conn, course_id, request):
     cur = conn.cursor()
     try:
         check_result, error_message = check_required_keys(request, {'course_id': {'type': int,'length': 255}, 'change_type': {'type': str, 'enum': ['Deletion', 'Addition', 'Modification']}, 'item_type': {'type': str, 'enum': ['Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections']}, 'old_value': {'type': str, 'length': 255}, 'new_value': {'type': str}})
@@ -79,7 +74,6 @@ def check_change_create(course_id, request):
         #     change = False
 
         cur.close()
-        conn.close()
 
         if not course:
             return False, "Error: Course does not exist"
@@ -89,8 +83,7 @@ def check_change_create(course_id, request):
     except Exception as e:
         return False, "A exception accured in checking the data: " + str(e)
     
-def check_user_create(course_id, request):
-    conn = get_db_conn()
+def check_user_create(conn, course_id, request):
     cur = conn.cursor()
     try:
         check_result, error_message = check_required_keys(request, {'email': {'type': str, 'length': 255}, 'name': {'type': str, 'length': 255}, 'role': {'type': str, 'enum': ['TA', 'Teacher']}})
@@ -101,7 +94,6 @@ def check_user_create(course_id, request):
         cur.execute('SELECT * FROM courses WHERE id = %s', (course_id, ))
         course = cur.fetchone()
         cur.close()
-        conn.close()
 
         if not course:
             return False, "Error: Course does not exist"
@@ -109,15 +101,13 @@ def check_user_create(course_id, request):
     except Exception as e:
         return False, "A exception accured in checking the data: " + str(e)
     
-def get_course_by_id(course_id):
-    conn = get_db_conn()
+def get_course_by_id(conn, course_id):
     cur = conn.cursor()
 
     cur.execute('SELECT * FROM courses WHERE id = %s', (course_id,))
     course = cur.fetchone()
 
     cur.close()
-    conn.close()
 
     if course is None:
         return jsonify(error="Course not found"), 404
@@ -125,19 +115,17 @@ def get_course_by_id(course_id):
     # Assuming `course` is a dictionary with the course data
     return jsonify(course)
 
-def get_users():
-    conn = get_db_conn()
+def get_users(conn):
     cur = conn.cursor()
 
     cur.execute('SELECT * FROM users')
     users = cur.fetchall()
 
     cur.close()
-    conn.close()
 
     return users
 
-def get_users_by_courseid(course_id):
+def get_users_by_courseid(conn, course_id):
     conn = get_db_conn()
     cur = conn.cursor()
 
@@ -152,13 +140,11 @@ def get_users_by_courseid(course_id):
     users = cur.fetchall()
 
     cur.close()
-    conn.close()
 
     return users
 
 
-def get_annotations_by_changeid(course_id, change_id):
-    conn = get_db_conn()
+def get_annotations_by_changeid(conn, course_id, change_id):
     cur = conn.cursor()
 
     cur.execute('''
@@ -170,24 +156,20 @@ def get_annotations_by_changeid(course_id, change_id):
     annotations = cur.fetchall()
 
     cur.close()
-    conn.close()
 
     return annotations
 
-def get_changes_by_courseid(course_id):
-    conn = get_db_conn()
+def get_changes_by_courseid(conn, course_id):
     cur = conn.cursor()
 
     cur.execute('SELECT * FROM changes WHERE course_id = %s', (course_id,))
     changes = cur.fetchall()
 
     cur.close()
-    conn.close()
 
     return changes
 
-def post_course(course_data):
-    conn = get_db_conn()
+def post_course(conn, course_data):
     cur = conn.cursor()
 
     cur.execute('''
@@ -203,12 +185,10 @@ def post_course(course_data):
 
     conn.commit()
     cur.close()
-    conn.close()
 
     return True, course_id
 
-def post_annotation(course_id, change_id, request):
-    conn = get_db_conn()
+def post_annotation(conn, course_id, change_id, request):
     cur = conn.cursor()
 
     cur.execute('''
@@ -220,12 +200,10 @@ def post_annotation(course_id, change_id, request):
 
     conn.commit()
     cur.close()
-    conn.close()
 
     return True, annotation_id
 
-def post_change(course_id, request):
-    conn = get_db_conn()
+def post_change(conn, course_id, request):
     cur = conn.cursor()
 
     cur.execute('''
@@ -237,12 +215,10 @@ def post_change(course_id, request):
 
     conn.commit()
     cur.close()
-    conn.close()
 
     return True, change_id
 
-def post_user(course_id, request):
-    conn = get_db_conn()
+def post_user(conn, course_id, request):
     cur = conn.cursor()
     
     # check if the user already exists
@@ -260,11 +236,8 @@ def post_user(course_id, request):
     else:
         user_id = user[0]
     
-
-
     conn.commit()
     cur.close()
-    conn.close()
 
     return True, user_id
 

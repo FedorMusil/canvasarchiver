@@ -4,6 +4,7 @@ from controllers.canvas_api import get_current_time
 from controllers.frontend_api import *
 
 app = Flask(__name__)
+conn = get_db_conn()
 # Example routes to show how the server works.
 # Run the server with `python program.py` and visit the routes in your browser.
 
@@ -13,27 +14,26 @@ def load_json(json_obj):
     except json.JSONDecodeError:
         return False
 
-
 # Get Routes
 @app.route('/course/<course_id>/id')
 def get_course_info_route(course_id):
     '''Get a course by id.'''
-    return get_course_by_id(course_id)
+    return get_course_by_id(conn, course_id)
 
 @app.route('/course/<course_id>/users')
 def get_course_users_route(course_id):
     '''Get all users in a course.'''
-    return get_users_by_courseid(course_id)
+    return get_users_by_courseid(conn, course_id)
 
 @app.route('/course/<course_id>/annotations/<change_id>')
 def get_annotation(course_id, change_id):
     '''Get all annotations for a change.'''
-    return get_annotations_by_changeid(course_id, change_id)
+    return get_annotations_by_changeid(conn, course_id, change_id)
 
 @app.route('/course/<course_id>/changes')
 def get_changes(course_id):
     '''Get all changes for a course.'''
-    return get_changes_by_courseid(course_id)
+    return get_changes_by_courseid(conn, course_id)
 
 # Post Routes
 @app.route('/course/create', methods=['POST'])
@@ -45,10 +45,10 @@ def post_course_route():
         "course_code": "123457"
     }'''
     request_unpacked = load_json(request.get_json())
-    passed_test, error_message = check_course_create(request_unpacked)
+    passed_test, error_message = check_course_create(conn, request_unpacked)
     if not passed_test:
         return error_message
-    succes, return_message = post_course(request_unpacked)
+    succes, return_message = post_course(conn, request_unpacked)
     if succes:
         return jsonify({"course_id": return_message})
     return return_message
@@ -63,10 +63,10 @@ def post_annotation_route(course_id, change_id):
         "text": "This is an annotation",
     }'''
     request_unpacked = load_json(request.get_json())
-    passed_test, error_message = check_annotation_create(course_id, change_id, request_unpacked)
+    passed_test, error_message = check_annotation_create(conn, change_id, request_unpacked)
     if not passed_test:
         return error_message
-    succes, return_message = post_annotation(course_id, change_id, request_unpacked)
+    succes, return_message = post_annotation(conn, course_id, change_id, request_unpacked)
     if succes:
         return jsonify({"annotation_id": return_message})
     return return_message
@@ -82,10 +82,10 @@ def post_change_route(course_id):
         "new_value": "{'name': 'New Course', 'course_code': '123457'}"
     }'''
     request_unpacked = load_json(request.get_json())
-    passed_test, error_message = check_change_create(course_id, request_unpacked)
+    passed_test, error_message = check_change_create(conn, course_id, request_unpacked)
     if not passed_test:
         return error_message
-    succes, return_message = post_change(course_id, request_unpacked)
+    succes, return_message = post_change(conn, course_id, request_unpacked)
     if succes:
         return jsonify({"change_id": return_message})
     return return_message
@@ -100,20 +100,13 @@ def post_user_route(course_id):
         "role": "Teacher"
         }'''
     request_unpacked = load_json(request.get_json())
-    passed_test, error_message = check_user_create(course_id, request_unpacked)
+    passed_test, error_message = check_user_create(conn, course_id, request_unpacked)
     if not passed_test:
         return error_message
-    succes, return_message = post_user(course_id, request_unpacked)
+    succes, return_message = post_user(conn, course_id, request_unpacked)
     if succes:
         return jsonify({"user_id": return_message})
     return jsonify(return_message)
-
-# Routes that are still missing:
-
-# - Get annotations by user_id
-# - Get changes by user_id
-# - Get annotations by annotation id
-
 
 @app.route('/canvas')
 def canvas():
