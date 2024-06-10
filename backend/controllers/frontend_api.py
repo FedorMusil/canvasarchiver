@@ -15,7 +15,8 @@ def check_required_keys(json_obj, required_keys):
             return False, f"Invalid value for key: {key}. Expected one of {value['enum']}, got {json_obj[key]}"
     return True, "All checks passed"
 
-def check_course_create(conn, request):
+def check_course_create(request):
+    conn = get_db_conn()
     cur = conn.cursor()
     try:
         check_result, error_message = check_required_keys(request, {'name': {'type': str, 'length': 255}, 'course_code': {'type': str, 'length': 255}})
@@ -26,6 +27,7 @@ def check_course_create(conn, request):
         cur.execute('SELECT * FROM courses WHERE course_code = %s', (request['course_code'], ))
         course = cur.fetchone()
         cur.close()
+        conn.close()
 
         if course:
             return False, "Error: Course exists already"
@@ -36,7 +38,7 @@ def check_course_create(conn, request):
         return False, f"Invalid JSON format. Error: {str(e)}, Traceback: {tb}"
     
 def check_annotation_create(course_id, change_id, request):
-    
+    conn = get_db_conn()
     cur = conn.cursor()
     try:
         check_result, error_message = check_required_keys(request, {'change_id': {'type': str,'length': 255},'text': {'type': str, 'length': 255}, 'user_id': {'type': str, 'length': 255}})

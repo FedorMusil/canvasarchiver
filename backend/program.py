@@ -4,7 +4,6 @@ from controllers.canvas_api import get_current_time
 from controllers.frontend_api import *
 
 app = Flask(__name__)
-conn = get_db_conn()
 # Example routes to show how the server works.
 # Run the server with `python program.py` and visit the routes in your browser.
 
