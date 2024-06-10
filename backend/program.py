@@ -1,30 +1,124 @@
-from flask import Flask
-
+from flask import Flask, request
 from db.get_db_conn import get_db_conn
 from controllers.canvas_api import get_current_time
+from controllers.frontend_api import *
 
 app = Flask(__name__)
-
+conn = get_db_conn()
 # Example routes to show how the server works.
 # Run the server with `python program.py` and visit the routes in your browser.
 
-@app.route('/')
-def index():
-    conn = get_db_conn()
-    cur = conn.cursor()
+def load_json(json_obj):
+    try:
+        return json.loads(json_obj)
+    except json.JSONDecodeError:
+        return False
 
-    cur.execute('SELECT * FROM users')
-    users = cur.fetchall()
 
-    cur.close()
-    conn.close()
+# Get Routes
+@app.route('/course/<course_id>/id')
+def get_course_info_route(course_id):
+    '''Get a course by id.'''
+    return get_course_by_id(course_id)
 
-    print(f'Users: {users}')
-    return str(users)
+@app.route('/course/<course_id>/users')
+def get_course_users_route(course_id):
+    '''Get all users in a course.'''
+    return get_users_by_courseid(course_id)
+
+@app.route('/course/<course_id>/annotations/<change_id>')
+def get_annotation(course_id, change_id):
+    '''Get all annotations for a change.'''
+    return get_annotations_by_changeid(course_id, change_id)
+
+@app.route('/course/<course_id>/changes')
+def get_changes(course_id):
+    '''Get all changes for a course.'''
+    return get_changes_by_courseid(course_id)
+
+# Post Routes
+@app.route('/course/create', methods=['POST'])
+def post_course_route():
+    '''Create a course.
+    JSON body must contain:
+    {
+        "name": "New Course",
+        "course_code": "123457"
+    }'''
+    request_unpacked = load_json(request.get_json())
+    passed_test, error_message = check_course_create(request_unpacked)
+    if not passed_test:
+        return error_message
+    succes, return_message = post_course(request_unpacked)
+    if succes:
+        return jsonify({"course_id": return_message})
+    return return_message
+
+@app.route('/course/<course_id>/create/annotation/<change_id>', methods=['POST'])
+def post_annotation_route(course_id, change_id):
+    '''Create an annotation.
+    JSON body must contain:
+    {
+        "change_id": "1",
+        "user_id": "1",
+        "text": "This is an annotation",
+    }'''
+    request_unpacked = load_json(request.get_json())
+    passed_test, error_message = check_annotation_create(course_id, change_id, request_unpacked)
+    if not passed_test:
+        return error_message
+    succes, return_message = post_annotation(course_id, change_id, request_unpacked)
+    if succes:
+        return jsonify({"annotation_id": return_message})
+    return return_message
+
+@app.route('/course/<course_id>/change', methods=['POST'])
+def post_change_route(course_id):
+    '''Create a change.
+    JSON body must contain:
+    {
+        "change_type": "Deletion",
+        "item_type": "Assignments",
+        "old_value": "10", # Reference to the item(change_id) being changed.
+        "new_value": "{'name': 'New Course', 'course_code': '123457'}"
+    }'''
+    request_unpacked = load_json(request.get_json())
+    passed_test, error_message = check_change_create(course_id, request_unpacked)
+    if not passed_test:
+        return error_message
+    succes, return_message = post_change(course_id, request_unpacked)
+    if succes:
+        return jsonify({"change_id": return_message})
+    return return_message
+
+@app.route('/course/<course_id>/user', methods=['POST'])
+def post_user_route(course_id):
+    '''Create a user.
+    JSON body must contain:
+    {
+        "email": "test@test.nl",
+        "name": "New User",
+        "role": "Teacher"
+        }'''
+    request_unpacked = load_json(request.get_json())
+    passed_test, error_message = check_user_create(course_id, request_unpacked)
+    if not passed_test:
+        return error_message
+    succes, return_message = post_user(course_id, request_unpacked)
+    if succes:
+        return jsonify({"user_id": return_message})
+    return jsonify(return_message)
+
+# Routes that are still missing:
+
+# - Get annotations by user_id
+# - Get changes by user_id
+# - Get annotations by annotation id
+
 
 @app.route('/canvas')
 def canvas():
     return get_current_time()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
