@@ -88,18 +88,20 @@ interface Comment {
   id: number;
   author: string;
   content: string;
+  selectedText: string | null;
   date: string;
   parentId: number | null;
-  isOwner: boolean
+  isOwner: boolean;
 }
 
 interface CommentsProps {
   comments: Comment[];
   parentId?: number | null;
   user: User;
+  setHighlightedText: (text: string | null) => void;
 }
 
-function Comments({ comments, parentId = null, user }: CommentsProps) {
+function Comments({ comments, parentId = null, user, setHighlightedText }: CommentsProps) {
   const [commentList, setCommentList] = useState<Comment[]>(comments);
   const [replyContent, setReplyContent] = useState('');
   const [activeReplyId, setActiveReplyId] = useState<number | null>(null);
@@ -129,6 +131,7 @@ function Comments({ comments, parentId = null, user }: CommentsProps) {
         id: Math.max(0, ...commentList.map(c => c.id)) + 1,
         author: user.name,
         content: replyContent,
+        selectedText: null,
         date: new Date().toISOString().split('T')[0],
         parentId,
         isOwner: true
@@ -165,7 +168,11 @@ function Comments({ comments, parentId = null, user }: CommentsProps) {
   return (
     <>
       {commentList.filter(c => c.parentId === parentId).map((comment) => (
-        <div key={comment.id} className={nestedCommentStyle}>
+        <div key={comment.id}
+          className={nestedCommentStyle}
+          onMouseEnter={() => setHighlightedText(comment.selectedText)}
+          onMouseLeave={() => setHighlightedText(null)}>
+
           <p className="text-sm text-gray-700">
             {comment.parentId && ( // handle (sub)comments
               <>
@@ -192,7 +199,7 @@ function Comments({ comments, parentId = null, user }: CommentsProps) {
           </div>
           {/* Submit and render new subcomment */}
           {activeReplyId === comment.id && renderReplyBox(comment.id)}
-          <Comments comments={commentList} parentId={comment.id} user={user} />
+          <Comments comments={commentList} parentId={comment.id} user={user} setHighlightedText={setHighlightedText} />
         </div>
       ))}
     </>
@@ -206,12 +213,50 @@ export default function App() {
     const savedComments = localStorage.getItem('comments');
     return savedComments ? JSON.parse(savedComments) : [];
   });
+  const [selectionText, setSelectionText] = useState('');
+  const [showTextarea, setShowTextarea] = useState(false);
+  const [textareaPosition, setTextareaPosition] = useState({ top: 0, left: 0 });
+  const [highlightedText, setHighlightedText] = useState<string | null>(null);
+
+  useEffect(() => {
+    function handleTextSelection() {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const text = selection.toString();
+        if (text.length > 0) {
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          setSelectionText(text);
+          setTextareaPosition({ top: rect.bottom, left: rect.left });
+          setShowTextarea(true);
+        }
+      }
+    }
+    document.addEventListener('mouseup', handleTextSelection);
+    return () => document.removeEventListener('mouseup', handleTextSelection);
+  }, []);
+
+  const addCommentFromSelection = () => {
+    const newComment: Comment = {
+      id: Math.max(0, ...comments.map((c: Comment) => c.id)) + 1,
+      author: userInfo[0].name,
+      content: newCommentText,
+      selectedText: selectionText,
+      date: new Date().toISOString().split('T')[0],
+      parentId: null,
+      isOwner: true
+    };
+    setComments([...comments, newComment]);
+    setNewCommentText('');
+    setShowTextarea(false);
+  };
 
   const addNewComment = () => {
     const newComment: Comment = {
       id: Math.max(0, ...comments.map((c: Comment) => c.id)) + 1,
       author: userInfo[0].name,
       content: newCommentText,
+      selectedText: selectionText,
       date: new Date().toISOString().split('T')[0],
       parentId: null,
       isOwner: true
@@ -219,6 +264,17 @@ export default function App() {
     const newComments = [...comments, newComment];
     setComments(newComments);
     setNewCommentText('');
+  };
+
+  const renderHighlightedText = (text: string, search: string) => {
+    const parts = text.split(new RegExp(`(${search})`, 'gi'));
+    return parts.map((part, index) =>
+      part.toLowerCase() === search.toLowerCase() ? (
+        <span key={index} className="highlight bg-yellow-300">{part}</span>
+      ) : (
+        part
+      )
+    );
   };
 
   return (
@@ -233,13 +289,34 @@ export default function App() {
 
       {/* Content Sections */}
       <div className="flex flex-1">
-        {/* Left Side Empty Space */}
-        <div className="flex-1 border"></div>
+        {/* Textarea for selected text */}
+        <div className="flex-1 border">
+          <h2>
+            {highlightedText ? renderHighlightedText("Hello, world!", highlightedText) : "Hello, world!"}
+          </h2>
+          {showTextarea && (
+            <div style={{ position: 'absolute', top: textareaPosition.top + 'px', left: textareaPosition.left + 'px' }}>
+              <textarea
+                value={newCommentText}
+                onChange={e => setNewCommentText(e.target.value)}
+                placeholder="Type your comment here..."
+                className="p-2 border rounded"
+                style={{ minHeight: "50px", width: "300px" }}
+              />
+              <button
+                onClick={addCommentFromSelection}
+                className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded mt-2"
+              >
+                Add Comment
+              </button>
+            </div>
+          )}
+        </div>
         {/* Right Side Space */}
         <div className={outerDivStyle}>
           {/* Render stored comments */}
           <h2 className="text-xl font-bold mb-5">Annotated Comments</h2>
-          <Comments comments={comments} parentId={null} user={userInfo[0]} />
+          <Comments comments={comments} parentId={null} user={userInfo[0]} setHighlightedText={setHighlightedText} />
           {/* Add new comment section*/}
           <div className="mt-4">
             <textarea
