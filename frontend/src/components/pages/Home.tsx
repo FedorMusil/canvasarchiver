@@ -9,7 +9,7 @@ const Home: FC = (): ReactElement => {
             <h1>Home</h1>
             {isLoading && <div>Loading...</div>}
             {isError && <div>Error</div>}
-            {data && JSON.stringify(data)}
+            {data && <div data-testid='home-account-data'>{JSON.stringify(data)}</div>}
         </main>
     );
 };
