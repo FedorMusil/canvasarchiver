@@ -8,14 +8,14 @@ export default defineConfig({
     },
     server: {
         /* https: {
-      key: fs.readFileSync(path.resolve(__dirname, './localhost-key.pem')),
-      cert: fs.readFileSync(path.resolve(__dirname, './localhost.pem')),
-    }, */
+            key: fs.readFileSync(path.resolve(__dirname, './localhost-key.pem')),
+            cert: fs.readFileSync(path.resolve(__dirname, './localhost.pem')),
+        }, */
         port: 3000,
         /* cors: {
-      // TODO: Change the cors origin to something safer
-      origin: '*', // Allow all origins, or specify the exact origins you want to allow
-    } */
+            // TODO: Change the cors origin to something safer
+            origin: '*', // Allow all origins, or specify the exact origins you want to allow
+        } */
     },
     test: {
         globals: true,
