@@ -4,6 +4,8 @@ import httpx
 import sys
 import json
 import canvas.canvas as canvas
+import os
+import dotenv
 
 
 class ManualCanvasConnection(canvas.CanvasConnection):
@@ -25,13 +27,13 @@ class ManualCanvasConnection(canvas.CanvasConnection):
     async def __aexit__(self, *_):
         await self.client.aclose()
 
-
-TOKEN = "YOUR API TOKEN"
-DOMAIN = "https://uvadlo-dev.test.instructure.com"
+    def make_from_environment():
+        dotenv.load_dotenv()
+        return ManualCanvasConnection(os.getenv('CANVAS_DOMAIN'), os.getenv('CANVAS_API_TOKEN'))
 
 
 async def main(arg):
-    async with ManualCanvasConnection(DOMAIN, TOKEN) as conn:
+    async with ManualCanvasConnection.make_from_environment() as conn:
         response = await conn.request("get", arg)
         j = json.loads(response.text)
         print(json.dumps(j, indent=2))

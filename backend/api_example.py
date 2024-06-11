@@ -36,9 +36,7 @@ class Printer:
 
 
 async def main():
-    async with connection.ManualCanvasConnection(
-        connection.DOMAIN, connection.TOKEN
-    ) as conn:
+    async with connection.ManualCanvasConnection.make_from_environment() as conn:
         api = canvasapi.Canvas(conn)
         p = Printer()
 
