@@ -28,3 +28,5 @@ frontend/*.sw?
 
 .env
 ./env
+
+.vscode
