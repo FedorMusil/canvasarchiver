@@ -23,9 +23,23 @@ frontend/*.njsproj
 frontend/*.sln
 frontend/*.sw?
 
+# Cache directories
 **/__pycache__
 .github
+.vscode
+
+# env directories
 **/.env
+
+# Build files
+*.exe
+
+# Dependency directories
+**/nlohmann
+
+# Package files
+**/package-lock.json
+
 *.pem
 
 # coverage
