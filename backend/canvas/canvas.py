@@ -5,15 +5,30 @@ import typing
 
 
 class CanvasConnection:
+    """
+    This class is an interface for connecting to canvas using this
+    canvas wrapper. For a good implementation for this interface
+    see canvas.connection.
+    """
+
     async def request(self, method: str, url: str) -> httpx.Response:
         raise NotImplementedError()
 
 
 class MissingRelatedObjects(RuntimeError):
+    """
+    Used in a canvas object if it is missing necassary related
+    objects to do a given operation.
+    """
+
     pass
 
 
 class ResponseError(RuntimeError):
+    """
+    In case of an HTTP error.
+    """
+
     def __init__(self, response: httpx.Response):
         self._response = response
 
@@ -25,38 +40,68 @@ class ResponseError(RuntimeError):
             raise ResponseError(response)
 
 
+class UnresolvedObjectError(RuntimeError):
+    pass
+
+
 class CanvasObject:
+    """
+    Interface for a canvas object. Everything in here is implemented in
+    all canvas objects.
+    """
+
     def __init__(self, canvas: "Canvas"):
         self._data: dict | None = None
         self._id: int | None = None
         self._canvas: "Canvas" = canvas
         self._related = None
 
-    def get_connection(self) -> CanvasConnection:
-        return self._conn
+    def get_canvas(self) -> "Canvas":
+        """
+        gets the canvas root object
+        """
+        return self._canvas
 
-    def has_relate(self, obj: type["CanvasObject"]):
+    def has_relate(self, obj: type["CanvasObject"]) -> bool:
+        """
+        checks if a type of related object is present.
+        """
         return obj in self._related
 
     def get_relate(
         self, obj: type["CanvasObject"], raise_on_keyerror: bool = True
     ) -> typing.Union["CanvasObject", None]:
+        """
+        gets a related object, set 'raise_on_keyerror' to False, if you
+        want it to return None if a related object is not present.
+        """
         if not raise_on_keyerror and obj not in self._related:
             return None
         return self._related[obj]
 
     def json_init(self, json_data: dict) -> "CanvasObject":
+        """
+        Sets the data of the object based on the parsed json data.
+        """
         self._data = json_data
         self._id = int(json_data["id"])
         return self
 
-    def set_id(self, obj_id: int):
+    def set_id(self, obj_id: int) -> "CanvasObject":
+        """
+        Sets an id for the canvas object.
+        """
         self._id = obj_id
         return self
 
     async def apply_based_on_related(
         self, *cases: tuple[tuple["CanvasObject"], typing.Callable]
-    ):
+    ) -> typing.Any:
+        """
+        Used to perform different functions based on which
+        related objects are present.
+        """
+
         def try_case(objtypes, url):
             for t in objtypes:
                 if not self.has_relate(t):
@@ -74,29 +119,27 @@ class CanvasObject:
         self._related = objs
         return self
 
-    def set_related_dict(
-        self,
-        objs: dict[
-            type[typing.Union["CanvasObject", None]],
-            typing.Union["CanvasObject", None],
-        ],
-    ):
-        return self._set_related_dict_no_filter(
-            {k: v for k, v in objs.items() if v is not None}
-        )
-
-    def set_related(self, *objs: typing.Union["CanvasObject", None]):
+    def set_related(
+        self, *objs: typing.Union["CanvasObject", None]
+    ) -> "CanvasObject":
         """
-        Sets related canvas objects
+        Sets related canvas objects.
         """
         return self._set_related_dict_no_filter(
             {type(v): v for v in objs if v is not None}
         )
 
     def get_id(self) -> int:
+        """
+        gets a canvas objects id.
+        """
         return self._id
 
-    def get_data(self):
+    def get_data(self) -> dict:
+        """
+        gets a canvas objects parsed data in the same format as
+        specified in canvas documentation.
+        """
         return self._data
 
     async def _fast_resolve(
@@ -237,6 +280,14 @@ class Module(CanvasObject):
         )
 
 
+class Url:
+    def __init__(self, url) -> None:
+        self._url = url
+
+    def get_url(self) -> str:
+        return self._url
+
+
 class ModuleItem(CanvasObject):
     async def resolve(self):
         return await self._fast_resolve(
@@ -246,6 +297,53 @@ class ModuleItem(CanvasObject):
                 f"/modules/{m.get_id()}/items/{self.get_id()}",
             )
         )
+
+    def get_associated_content(
+        self,
+    ) -> typing.Tuple[File, Assignment, "Quizz", Url, "Page", None]:
+        if self.get_data() is None:
+            raise UnresolvedObjectError()
+        match (self.get_data()["type"]):
+            case "File":
+                return (
+                    File(self.get_canvas())
+                    .set_id(self.get_data()["content_id"])
+                    .set_related(
+                        self.get_relate(Course, raise_on_keyerror=False), self
+                    )
+                )
+            case "Discussion":
+                return None
+            case "Assignment":
+                return (
+                    Assignment(self.get_canvas())
+                    .set_id(self.get_data()["content_id"])
+                    .set_related(
+                        self.get_relate(Course, raise_on_keyerror=False), self
+                    )
+                )
+            case "Quiz":
+                return (
+                    Quizz(self.get_canvas())
+                    .set_id(self.get_data()["content_id"])
+                    .set_related(
+                        self.get_relate(Course, raise_on_keyerror=False), self
+                    )
+                )
+            case "Subheader":
+                return None
+            case "ExternalUrl":
+                return Url(self.get_data()["external_url"])
+            case "ExternalTool":
+                return None
+            case "Page":
+                return (
+                    Page(self.get_canvas())
+                    .set_url(self.get_data()["page_url"])
+                    .set_related(
+                        self.get_relate(Course, raise_on_keyerror=False), self
+                    )
+                )
 
 
 class Page(CanvasObject):
@@ -261,6 +359,7 @@ class Page(CanvasObject):
 
     def set_url(self, url: str | None):
         self._url = url
+        return self
 
     def get_url(self) -> str | None:
         return self._url
@@ -495,7 +594,9 @@ class Canvas:
         for c in json.load(res):
             yield Module(self).json_init(c).set_related(course)
 
-    async def get_module_items(self, course: Course, module: Module):
+    async def get_module_items(
+        self, course: Course, module: Module
+    ) -> typing.AsyncGenerator[ModuleItem, None]:
         res = await self._conn.request(
             "GET",
             f"/api/v1/courses/{course.get_id()}/"

@@ -84,6 +84,11 @@ async def main():
                     async for c in api.get_module_items(course, module):
                         cdata = c.get_data()
                         p.print(f"{cdata['id']}, {cdata['title']}")
+                        ass = c.get_associated_content()
+                        with p.indent():
+                            p.print(f"{type(ass)}")
+                                
+                        
 
         async def list_modules(course):
             with p.indent():
