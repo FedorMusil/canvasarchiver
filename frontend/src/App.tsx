@@ -12,8 +12,8 @@ const App: React.FC = () => {
         <QueryClientProvider client={queryClient}>
             <BrowserRouter>
                 <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/initiation" element={<Initiation />} />
+                    <Route path='/' element={<Home />} />
+                    <Route path='/initiation' element={<Initiation />} />
                 </Routes>
             </BrowserRouter>
             {import.meta.env.MODE === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
