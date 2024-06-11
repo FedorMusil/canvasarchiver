@@ -29,7 +29,9 @@ class ManualCanvasConnection(canvas.CanvasConnection):
 
     def make_from_environment():
         dotenv.load_dotenv()
-        return ManualCanvasConnection(os.getenv('CANVAS_DOMAIN'), os.getenv('CANVAS_API_TOKEN'))
+        return ManualCanvasConnection(
+            os.getenv("CANVAS_DOMAIN"), os.getenv("CANVAS_API_TOKEN")
+        )
 
 
 async def main(arg):
