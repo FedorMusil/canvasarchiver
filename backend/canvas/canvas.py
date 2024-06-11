@@ -307,6 +307,15 @@ class Rubric(CanvasObject):
         )
 
 
+class Quizz(CanvasObject):
+    async def resolve(self):
+        return await self._fast_resolve(
+            (Course,),
+            lambda c: f"/api/v1/courses/{c.get_id()}"
+            f"/quizzes/{self.get_id()}",
+        )
+
+
 class Directory:
     def __init__(self) -> None:
         self._dir: dict[str, "Directory"] = dict()
@@ -526,3 +535,11 @@ class Canvas:
         ResponseError.raise_on_error(res)
         for c in json.load(res):
             yield Rubric(self).json_init(c).set_related(course)
+
+    async def get_quizes(self, course: Course):
+        res = await self._conn.request(
+            "GET", f"/api/v1/courses/{course.get_id()}/quizzes"
+        )
+        ResponseError.raise_on_error(res)
+        for c in json.load(res):
+            yield Quizz(self).json_init(c).set_related(course)
