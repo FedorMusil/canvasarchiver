@@ -1,5 +1,5 @@
 import { FC, ReactElement, useState } from 'react';
-import { LogOut, Settings, User as LucidUser, GraduationCap, RefreshCcw } from 'lucide-react';
+import { Settings, User as LucidUser, GraduationCap, RefreshCcw } from 'lucide-react';
 import { User, UserRole } from '../../api/account.ts';
 import { Button } from '../ui/Button.tsx';
 import {
@@ -37,16 +37,6 @@ export const ProfileDropdown: FC<User> = (initUser): ReactElement => {
         setUser({
             ...user,
             simRole: role,
-        });
-    };
-
-    const handleLogout = (): void => {
-        setUser({
-            id: -1,
-            email: '',
-            name: '',
-            role: UserRole.NONE,
-            simRole: UserRole.NONE,
         });
     };
 
@@ -110,13 +100,6 @@ export const ProfileDropdown: FC<User> = (initUser): ReactElement => {
                         <span>Settings</span>
                     </DropdownMenuItem>
                 </DropdownMenuGroup>
-
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className='mr-2 h-4 w-4' />
-                    <span>Log out</span>
-                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );
