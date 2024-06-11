@@ -13,7 +13,7 @@ export default defineConfig({
       key: fs.readFileSync(path.resolve(__dirname, './localhost-key.pem')),
       cert: fs.readFileSync(path.resolve(__dirname, './localhost.pem')),
     },
-    port: 3001,
+    port: 3000,
     cors: {
       origin: '*', // Allow all origins, or specify the exact origins you want to allow
     }
