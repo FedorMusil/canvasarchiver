@@ -6,6 +6,7 @@
     "scripts": {
         "dev": "vite",
         "mock": "vite --mode mock",
+        "secure": "vite --config vite.config.secure.ts",
         "build": "tsc && vite build",
         "test:console": "vitest run",
         "test:ui": "vitest --ui",

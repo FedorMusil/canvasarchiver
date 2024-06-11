@@ -25,7 +25,8 @@ frontend/*.sw?
 
 **/__pycache__
 .github
-
 **/.env
-
 *.pem
+
+# coverage
+/frontend/coverage
