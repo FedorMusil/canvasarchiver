@@ -36,7 +36,9 @@ class Printer:
 
 
 async def main():
-    async with connection.ManualCanvasConnection.make_from_environment() as conn:
+    async with (
+        connection.ManualCanvasConnection.make_from_environment()
+    ) as conn:
         api = canvasapi.Canvas(conn)
         p = Printer()
 
@@ -87,8 +89,6 @@ async def main():
                         ass = c.get_associated_content()
                         with p.indent():
                             p.print(f"{type(ass)}")
-                                
-                        
 
         async def list_modules(course):
             with p.indent():
@@ -130,7 +130,7 @@ async def main():
                     async for c in api.get_rubrics(course):
                         cdata = c.get_data()
                         p.print(f"{cdata['id']}, {cdata['name']}")
-        
+
         async def list_quizzes(course):
             with p.indent():
                 p.print("Quizzes:")
