@@ -1,6 +1,7 @@
 from flask import Flask, request
+import subprocess, os, hmac
+from hashlib import sha1
 from db.get_db_conn import get_db_conn
-from controllers.canvas_api import get_current_time
 from controllers.frontend_api import *
 
 app = Flask(__name__)
@@ -108,9 +109,30 @@ def post_user_route(course_id):
         return jsonify({"user_id": return_message})
     return jsonify(return_message)
 
-@app.route('/canvas')
-def canvas():
-    return get_current_time()
+@app.route('/deploy', methods=['POST'])
+def deploy():
+    signature = request.headers.get('X-Hub-Signature')
+
+    # Get the payload
+    payload = request.data
+
+    # Create a HMAC hex digest of the payload
+    secret = os.getenv('GITHUB_SECRET').encode()
+    digest = 'sha1=' + hmac.new(secret, payload, sha1).hexdigest()
+
+    # Check if the digest matches the signature
+    if not hmac.compare_digest(signature, digest):
+        return 'Invalid signature', 400
+
+    # Get the JSON data sent by GitHub
+    data = request.get_json()
+
+    # Check if the push event is for the main branch
+    if data['ref'] == 'refs/heads/main':
+        # Run your deployment script
+        subprocess.run(['./deploy.sh'], check=True)
+
+    return '', 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
