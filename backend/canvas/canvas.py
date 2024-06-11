@@ -41,6 +41,11 @@ class ResponseError(RuntimeError):
 
 
 class UnresolvedObjectError(RuntimeError):
+    """
+    If an object has not resolved its data, and it is used
+    this error gets raised.
+    """
+
     pass
 
 
@@ -58,7 +63,7 @@ class CanvasObject:
 
     def get_canvas(self) -> "Canvas":
         """
-        gets the canvas root object
+        gets the canvas root object.
         """
         return self._canvas
 
@@ -135,17 +140,26 @@ class CanvasObject:
         """
         return self._id
 
+    def has_data(self) -> bool:
+        """
+        Checks if the data of the canvas object is resolved.
+        To resolve data if it is not resolved call .resolve().
+        """
+        return self._data is not None
+
     def get_data(self) -> dict:
         """
         gets a canvas objects parsed data in the same format as
         specified in canvas documentation.
         """
+        if self._data is None:
+            raise UnresolvedObjectError()
         return self._data
 
     async def _fast_resolve(
         self,
         *cases: tuple[tuple["CanvasObject"], typing.Callable],
-    ):
+    ) -> "CanvasObject":
         def url_caller(url_func):
             async def func(*objs):
                 res = await self._canvas.get_connection().request(
@@ -153,6 +167,7 @@ class CanvasObject:
                 )
                 ResponseError.raise_on_error(res)
                 self.json_init(json.load(res))
+                return self
 
             return func
 
@@ -160,7 +175,7 @@ class CanvasObject:
             *((objs, url_caller(func)) for objs, func in cases)
         )
 
-    async def resolve(self):
+    async def resolve(self) -> "CanvasObject":
         """
         If basic data is set (like id, or "url" in the case of Page), this
         function retrieves the object from canvas.
@@ -177,14 +192,14 @@ class Account(CanvasObject):
 
 
 class AssignmentGroup(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return self._fast_resolve(
             ((Course,), lambda c: f"/api/v1/course/{c.get_id()}")
         )
 
 
 class AssignmentOverride(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return await self._fast_resolve(
             (
                 (Course, Assignment),
@@ -196,7 +211,7 @@ class AssignmentOverride(CanvasObject):
 
 
 class Assignment(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return await self._fast_resolve(
             (
                 (Course,),
@@ -207,7 +222,7 @@ class Assignment(CanvasObject):
 
 
 class Course(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return await self._fast_resolve(
             (
                 (Account,),
@@ -219,14 +234,14 @@ class Course(CanvasObject):
 
 
 class Group(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return await self._fast_resolve(
             ((), lambda: f"/api/v1/groups/{self.get_id()}")
         )
 
 
 class File(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return await self._fast_resolve(
             (
                 (Course,),
@@ -248,7 +263,7 @@ class File(CanvasObject):
 
 
 class Folder(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return await self._fast_resolve(
             (
                 (Course,),
@@ -270,7 +285,7 @@ class Folder(CanvasObject):
 
 
 class Module(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return await self._fast_resolve(
             (
                 (Course,),
@@ -289,7 +304,7 @@ class Url:
 
 
 class ModuleItem(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return await self._fast_resolve(
             (
                 (Course, Module),
@@ -301,8 +316,10 @@ class ModuleItem(CanvasObject):
     def get_associated_content(
         self,
     ) -> typing.Tuple[File, Assignment, "Quizz", Url, "Page", None]:
-        if self.get_data() is None:
-            raise UnresolvedObjectError()
+        """
+        Gets the object associated with this content.
+        Note this content is not yet resolved.
+        """
         match (self.get_data()["type"]):
             case "File":
                 return (
@@ -357,11 +374,17 @@ class Page(CanvasObject):
         self._url = json_data["url"]
         return self
 
-    def set_url(self, url: str | None):
+    def set_url(self, url: str | None) -> None:
+        """
+        Sets the page url.
+        """
         self._url = url
         return self
 
     def get_url(self) -> str | None:
+        """
+        Gets the page url.
+        """
         return self._url
 
     async def resolve(self):
@@ -379,7 +402,7 @@ class Page(CanvasObject):
 
 
 class Section(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return await self._fast_resolve(
             (
                 (Course,),
@@ -391,7 +414,7 @@ class Section(CanvasObject):
 
 
 class Rubric(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return await self._fast_resolve(
             (
                 (Account,),
@@ -407,7 +430,7 @@ class Rubric(CanvasObject):
 
 
 class Quizz(CanvasObject):
-    async def resolve(self):
+    async def resolve(self) -> CanvasObject:
         return await self._fast_resolve(
             (Course,),
             lambda c: f"/api/v1/courses/{c.get_id()}"
@@ -421,12 +444,21 @@ class Directory:
         self._folder = None
 
     def set_folder(self, folder: Folder | None) -> None:
+        """
+        Sets the folder object for this position in the directory.
+        """
         self._folder = folder
 
     def get_folder(self) -> None | Folder:
+        """
+        Gets the folder.
+        """
         return self._folder
 
     def items(self):
+        """
+        To iterate over folder names and associated directories.
+        """
         for name, dire in self._dir.items():
             yield name, dire
 
@@ -450,12 +482,21 @@ class Directory:
         return self._dir[name]._resolve_split(path)
 
     def add(self, path: str, folder: None | Folder = None):
+        """
+        Adds a path to the directory.
+        """
         return self._add_split(path.split("/"), folder)
 
     def resolve(self, path: str):
+        """
+        Gets a directory at a given path.
+        """
         return self._resolve_split(path.split("/"))
 
     def at(self, name: str):
+        """
+        Gets a subfolder directory (like resolve but only one deep).
+        """
         if name not in self._dir:
             return None
         return self._dir[name]
@@ -466,11 +507,18 @@ class Canvas:
         self._conn = conn
 
     def get_connection(self):
+        """
+        Gets the canvas connection object.
+        """
         return self._conn
 
     async def get_assignment_overrides(
         self, course: Course, assignment: Assignment
     ) -> typing.AsyncGenerator[AssignmentOverride, None]:
+        """
+        Gets a list of assignment overrides from a given
+        course and assignment object.
+        """
         res = await self._conn.request(
             "GET",
             f"/api/v1/courses/{course.get_id()}/"
@@ -489,6 +537,10 @@ class Canvas:
         group: AssignmentGroup | None = None,
         user: User | None = None,
     ) -> typing.AsyncGenerator[Assignment, None]:
+        """
+        Gets a list of assignment objects from course and
+        optionally from a specific user or assigment group.
+        """
         if user is not None:
             res = await self._conn.request(
                 "GET",
@@ -514,6 +566,9 @@ class Canvas:
     async def get_courses(
         self, *, user: User | None = None
     ) -> typing.AsyncGenerator[Course, None]:
+        """
+        Gets a list of courses, optionally from a specific user.
+        """
         if user is None:
             res = await self._conn.request("GET", "/api/v1/courses")
         else:
@@ -532,6 +587,9 @@ class Canvas:
         group: Group | None = None,
         folder: Folder | None = None,
     ):
+        """
+        Gets a list of files, from a course, user, group of folder.
+        """
         if course is not None:
             res = await self._conn.request(
                 "GET", f"/api/v1/courses/{course.get_id()}/files"
@@ -563,6 +621,9 @@ class Canvas:
         user: User | None = None,
         group: Group | None = None,
     ):
+        """
+        Gets a Directory from a course, user or group.
+        """
         if course is not None:
             res = await self._conn.request(
                 "GET", f"/api/v1/courses/{course.get_id()}/folders"
@@ -587,6 +648,9 @@ class Canvas:
         return d
 
     async def get_modules(self, course: Course):
+        """
+        Gets a list of modules from a course.
+        """
         res = await self._conn.request(
             "GET", f"/api/v1/courses/{course.get_id()}/modules"
         )
@@ -597,6 +661,9 @@ class Canvas:
     async def get_module_items(
         self, course: Course, module: Module
     ) -> typing.AsyncGenerator[ModuleItem, None]:
+        """
+        Gets a list of module items from a course and module.
+        """
         res = await self._conn.request(
             "GET",
             f"/api/v1/courses/{course.get_id()}/"
@@ -607,6 +674,9 @@ class Canvas:
             yield ModuleItem(self).json_init(c).set_related(course)
 
     async def get_pages(self, course: Course):
+        """
+        Gets a list of pages from a course.
+        """
         res = await self._conn.request(
             "GET", f"/api/v1/courses/{course.get_id()}/pages"
         )
@@ -615,6 +685,9 @@ class Canvas:
             yield Page(self).json_init(c).set_related(course)
 
     async def get_front_page(self, course: Course):
+        """
+        Gets the front page of a course.
+        """
         res = await self._conn.request(
             "GET", f"/api/v1/courses/{course.get_id()}/front_page"
         )
@@ -622,6 +695,9 @@ class Canvas:
         return Page(self).json_init(json.load(res)).set_related(course)
 
     async def get_sections(self, course: Course):
+        """
+        Gets a list of sections from a course.
+        """
         res = await self._conn.request(
             "GET", f"/api/v1/courses/{course.get_id()}/sections"
         )
@@ -630,6 +706,9 @@ class Canvas:
             yield Section(self).json_init(c).set_related(course)
 
     async def get_rubrics(self, course: Course):
+        """
+        Gets a list of rubrics from a course.
+        """
         res = await self._conn.request(
             "GET", f"/api/v1/courses/{course.get_id()}/rubrics"
         )
@@ -638,6 +717,9 @@ class Canvas:
             yield Rubric(self).json_init(c).set_related(course)
 
     async def get_quizes(self, course: Course):
+        """
+        Gets a list of quizzes from a course.
+        """
         res = await self._conn.request(
             "GET", f"/api/v1/courses/{course.get_id()}/quizzes"
         )
