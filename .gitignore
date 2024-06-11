@@ -38,6 +38,6 @@ frontend/*.sw?
 **/nlohmann
 
 # Package files
-*/package-lock.json
+**/package-lock.json
 
 *.pem
