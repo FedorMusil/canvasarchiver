@@ -54,6 +54,20 @@ class CanvasObject:
         self._id = obj_id
         return self
 
+    async def apply_based_on_related(
+        self, *cases: tuple[tuple["CanvasObject"], typing.Callable]
+    ):
+        def try_case(objtypes, url):
+            for t in objtypes:
+                if not self.has_relate(t):
+                    return False
+            return True
+
+        for objtypes, func in cases:
+            if try_case(objtypes, callable):
+                return await func(*(self.get_relate(o) for o in objtypes))
+        raise MissingRelatedObjects()
+
     def _set_related_dict_no_filter(
         self, objs: dict[type["CanvasObject"], "CanvasObject"]
     ) -> "CanvasObject":
@@ -72,6 +86,9 @@ class CanvasObject:
         )
 
     def set_related(self, *objs: typing.Union["CanvasObject", None]):
+        """
+        Sets related canvas objects
+        """
         return self._set_related_dict_no_filter(
             {type(v): v for v in objs if v is not None}
         )
@@ -84,28 +101,27 @@ class CanvasObject:
 
     async def _fast_resolve(
         self,
-        *cases: tuple[tuple["CanvasObject"] | None, typing.Callable],
+        *cases: tuple[tuple["CanvasObject"], typing.Callable],
     ):
-        def try_case(objtypes, url):
-            for t in objtypes:
-                if not self.has_relate(t):
-                    return False
-            return True
-
-        res = None
-        for objtypes, urlcall in cases:
-            if try_case(objtypes, urlcall):
+        def url_caller(url_func):
+            async def func(*objs):
                 res = await self._canvas.get_connection().request(
-                    "GET", urlcall(*(self.get_relate(o) for o in objtypes))
+                    "GET", url_func(*objs)
                 )
-                break
-        if res is None:
-            raise MissingRelatedObjects()
-        ResponseError.raise_on_error(res)
-        self.json_init(json.load(res))
-        return self
+                ResponseError.raise_on_error(res)
+                self.json_init(json.load(res))
+
+            return func
+
+        return await self.apply_based_on_related(
+            *((objs, url_caller(func)) for objs, func in cases)
+        )
 
     async def resolve(self):
+        """
+        If basic data is set (like id, or "url" in the case of Page), this
+        function retrieves the object from canvas.
+        """
         return self
 
 
