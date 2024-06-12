@@ -5,7 +5,7 @@ from db.get_db_conn import get_db_conn
 from controllers.frontend_api import *
 
 app = Flask(__name__, static_folder='../frontend/dist', static_url_path='')
-conn = get_db_conn()
+# conn = get_db_conn()
 # Run the server with `python program.py` and visit the routes in your browser.
 
 def load_json(json_obj):
