@@ -1,18 +1,19 @@
 import { http, HttpHandler, HttpResponse } from 'msw';
-import { User, UserRole } from '../api/account';
+import { Self, UserRole } from '../api/self';
 
-export const accountHandlers: HttpHandler[] = [
+export const selfHandlers: HttpHandler[] = [
     http.get(`${import.meta.env.VITE_BACKEND_URL}/self/*`, () => {
-        return HttpResponse.json<User>(exampleUsers[Math.floor(Math.random() * exampleUsers.length)]);
+        return HttpResponse.json<Self>(exampleUsers[Math.floor(Math.random() * exampleUsers.length)]);
     }),
 ];
 
-export const exampleUsers: User[] = [
+export const exampleUsers: Self[] = [
     {
         id: 0,
         email: 'emily@uva.nl',
         name: 'Emily',
-        role: UserRole.TA,
+        role: UserRole.TEACHER,
+        courseId: 0,
     },
 
     {
@@ -20,12 +21,14 @@ export const exampleUsers: User[] = [
         email: 'alexander.b@uva.nl',
         name: 'Alexander',
         role: UserRole.TA,
+        courseId: 0,
     },
 
     {
         id: 2,
         email: 'j.e.johnsen@uva.nl',
         name: 'James',
-        role: UserRole.TEACHER,
+        role: UserRole.TA,
+        courseId: 0,
     },
 ];

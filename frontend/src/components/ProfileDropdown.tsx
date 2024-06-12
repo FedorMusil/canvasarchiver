@@ -1,20 +1,20 @@
-import { FC, ReactElement, useState } from 'react';
-import { Settings, User as LucidUser, GraduationCap, RefreshCcw } from 'lucide-react';
-import { User, UserRole } from '../../api/account.ts';
-import { Button } from '../ui/Button.tsx';
+import { Button } from './ui/Button.tsx';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-    DropdownMenuSub,
     DropdownMenuPortal,
+    DropdownMenuSeparator,
+    DropdownMenuSub,
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
-} from '../ui/DropdownMenu.tsx';
+    DropdownMenuTrigger,
+} from './ui/DropdownMenu.tsx';
+import { FC, ReactElement, useState } from 'react';
+import { GraduationCap, RefreshCcw, Settings, User as LucidUser } from 'lucide-react';
+import { Self, UserRole } from '@/src/api/self.ts';
 
 const capitalizeRole = (role: UserRole): string => {
     if (role == UserRole.TA) {
@@ -24,11 +24,11 @@ const capitalizeRole = (role: UserRole): string => {
     return role.charAt(0).toUpperCase() + role.slice(1);
 };
 
-export interface FrontendUser extends User {
+export interface FrontendUser extends Self {
     simRole: UserRole;
 }
 
-export const ProfileDropdown: FC<User> = (initUser): ReactElement => {
+export const ProfileDropdown: FC<Self> = (initUser): ReactElement => {
     const hasRights = (role: UserRole, simRole: UserRole): boolean => {
         return role >= simRole;
     };

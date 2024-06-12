@@ -1,5 +1,5 @@
 import { Annotation } from '../api/annotation';
-import { exampleUsers } from './account-mock';
+import { exampleUsers } from './self-mock';
 import { http, HttpHandler, HttpResponse } from 'msw';
 
 export const annotationHandlers: HttpHandler[] = [

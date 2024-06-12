@@ -9,19 +9,18 @@ export enum UserRole {
     TEACHER = 'teacher',
 }
 
-export type User = {
+export type Self = {
     id: number;
     email: string;
     name: string;
     role: UserRole;
+    courseId: number;
 };
 
-export const getUser = async ({ queryKey }: { queryKey: [string, number] }): Promise<User> => {
-    const [, courseCode] = queryKey;
-
+export const getUser = async (): Promise<Self> => {
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/self/${courseCode}`,
+        url: `/self`,
     });
 
     return response;

@@ -6,6 +6,11 @@ export default defineConfig({
     build: {
         outDir: 'dist',
     },
+    resolve: {
+        alias: {
+            '@': '/',
+        },
+    },
     server: {
         port: 3000,
     },
