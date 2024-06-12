@@ -124,8 +124,8 @@ async def main():
                 with p.indent():
                     async for c in api.get_rubrics(course):
                         cdata = c.get_data()
-                        p.print(f"{cdata['id']}, {cdata['name']}")
-        
+                        p.print(f"{cdata['id']}, {cdata['title']}")
+
         async def list_quizzes(course):
             with p.indent():
                 p.print("Quizzes:")
