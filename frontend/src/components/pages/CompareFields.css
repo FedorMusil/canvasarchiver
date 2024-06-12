@@ -1,0 +1,8 @@
+/* src/components/pages/CompareFields.css */
+.compare-fields-container {
+  display: block; /* Change to flex to have neighbouring frames  */
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}

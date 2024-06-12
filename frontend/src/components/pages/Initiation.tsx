@@ -1,8 +1,14 @@
 // src/components/pages/Initiation.tsx
 import React from 'react';
+import CompareFields from './CompareFields';
 
 const Initiation: React.FC = () => {
-    return <h1>Hello, World!</h1>;
+    return (
+        <div>
+            <h1>Compare Text Fields</h1>
+            <CompareFields />
+        </div>
+    );
 };
 
 export default Initiation;
