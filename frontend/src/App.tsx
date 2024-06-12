@@ -1,6 +1,8 @@
 import Home from '@/src/pages/Home';
-import Module from '@/src/pages/Module';
+import Layout from '@/src/pages/Layout';
+import Material from '@/src/pages/Material';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { NextThemesProvider } from './providers/NextThemesProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
@@ -9,13 +11,22 @@ const App: React.FC = () => {
 
     return (
         <QueryClientProvider client={queryClient}>
-            <BrowserRouter>
-                <Routes>
-                    <Route path='/' element={<Home />}>
-                        <Route path=':module-id' element={<Module />} />
-                    </Route>
-                </Routes>
-            </BrowserRouter>
+            <NextThemesProvider
+                attribute='class'
+                defaultTheme='light'
+                disableTransitionOnChange
+                enableSystem
+                themes={['light', 'dark']}
+            >
+                <BrowserRouter>
+                    <Routes>
+                        <Route path='/' element={<Layout />}>
+                            <Route path='' element={<Home />} />
+                            <Route path=':material-id' element={<Material />} />
+                        </Route>
+                    </Routes>
+                </BrowserRouter>
+            </NextThemesProvider>
             {import.meta.env.MODE === 'mock' && <ReactQueryDevtools initialIsOpen={false} />}
         </QueryClientProvider>
     );

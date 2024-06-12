@@ -1,12 +1,12 @@
 import { AxiosWrapper } from './wrapper';
 
 export enum UserRole {
-    NONE = 'none',
-    OBSERVER = 'observer',
-    STUDENT = 'student',
-    TA = 'ta',
-    DESIGNER = 'designer',
-    TEACHER = 'teacher',
+    NONE = 'None',
+    OBSERVER = 'Observer',
+    STUDENT = 'Student',
+    TA = 'TA',
+    DESIGNER = 'Designer',
+    TEACHER = 'Teacher',
 }
 
 export type Self = {
