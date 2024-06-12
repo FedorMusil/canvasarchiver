@@ -17,10 +17,12 @@ export type Self = {
     courseId: number;
 };
 
-export const getUser = async (): Promise<Self> => {
+export const getSelf = async ({ queryKey }: { queryKey: [string, string] }): Promise<Self> => {
+    const [, userID] = queryKey;
+
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/self`,
+        url: `/self/${userID}`,
     });
 
     return response;

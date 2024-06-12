@@ -1,15 +1,17 @@
-import { exampleUsers } from '@/src/mock/self-mock';
+import GlobalStoreProvider from '../stores/GlobalStore/globalStore';
 import { FC, ReactElement } from 'react';
 
 const Home: FC = (): ReactElement => {
     // TODO: Get the course code and user data dynamically.
     const courseCode = '5062PRSE5Y';
-    const user = exampleUsers[Math.floor(Math.random() * exampleUsers.length)];
+    const userCode = '1234567890';
 
     return (
-        <main>
-            <h1 className='text-4xl font-bold'>Home</h1>
-        </main>
+        <GlobalStoreProvider courseCode={courseCode} userCode={userCode}>
+            <main>
+                <h1 className='text-4xl font-bold'>Home</h1>
+            </main>
+        </GlobalStoreProvider>
     );
 };
 export default Home;

@@ -1,9 +1,9 @@
 import { AxiosWrapper } from './wrapper';
-import { User } from './account';
+import { Self } from './self';
 
 export type Annotation = {
     id: number;
-    user: User;
+    user: Self;
     text: string;
     timestamp: Date;
 };

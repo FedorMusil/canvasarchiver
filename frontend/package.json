@@ -30,7 +30,8 @@
         "react-router-dom": "^6.23.1",
         "rimraf": "^5.0.7",
         "tailwind-merge": "^2.3.0",
-        "tailwindcss-animate": "^1.0.7"
+        "tailwindcss-animate": "^1.0.7",
+        "zustand": "^4.5.2"
     },
     "devDependencies": {
         "@testing-library/jest-dom": "^6.4.5",
