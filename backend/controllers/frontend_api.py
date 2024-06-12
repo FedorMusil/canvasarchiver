@@ -2,6 +2,9 @@ import json, traceback
 from flask import jsonify
 from db.get_db_conn import get_db_conn
 from controllers.canvas_api import get_current_time
+from os import getenv
+
+production = getenv('PRODUCTION', False)
 
 def check_required_keys(json_obj, required_keys):
     for key, value in required_keys.items():
@@ -56,7 +59,7 @@ def check_annotation_create(conn, change_id, request):
 def check_change_create(conn, course_id, request):
     cur = conn.cursor()
     try:
-        check_result, error_message = check_required_keys(request, {'course_id': {'type': int,'length': 255}, 'change_type': {'type': str, 'enum': ['Deletion', 'Addition', 'Modification']}, 'item_type': {'type': str, 'enum': ['Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections']}, 'old_value': {'type': str, 'length': 255}, 'new_value': {'type': str}})
+        check_result, error_message = check_required_keys(request, {'course_id': {'type': int,'length': 255}, 'item_id': {'type': int,'length': 255}, 'change_type': {'type': str, 'enum': ['Deletion', 'Addition', 'Modification']}, 'item_type': {'type': str, 'enum': ['Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections']}, 'older_diff': {'type': int, 'length': 255}, 'diff': {'type': str}})
 
         if not check_result:
             return False, error_message
@@ -206,11 +209,19 @@ def post_annotation(conn, course_id, change_id, request):
 def post_change(conn, course_id, request):
     cur = conn.cursor()
 
-    cur.execute('''
-    INSERT INTO changes (course_id, timestamp, change_type_id, item_type, old_value, new_value)
-    VALUES (%s, %s, %s, %s, %s, %s)
-    RETURNING id
-    ''', (course_id, get_current_time(), request['change_type'], request['item_type'], request['old_value'], request['new_value']))
+    if request['older_diff'] == 0:
+        cur.execute('''
+        INSERT INTO changes (course_id, timestamp, item_id, change_type, item_type, diff)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING id
+        ''', (course_id, get_current_time(), request['item_id'], request['change_type'], request['item_type'], request['diff']))
+    else:
+        cur.execute('''
+        INSERT INTO changes (course_id, timestamp, item_id, change_type, item_type, older_diff, diff)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
+        ''', (course_id, get_current_time(), request['item_id'], request['change_type'], request['item_type'], request['older_diff'], request['diff']))
+
     change_id = cur.fetchone()[0]
 
     conn.commit()

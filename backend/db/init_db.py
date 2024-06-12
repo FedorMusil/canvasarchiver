@@ -15,14 +15,15 @@ def create_tables(destroy_existing_tables=False):
         cur.execute('''
                     
 
-        DROP TABLE IF EXISTS annotations;
-        DROP TABLE IF EXISTS changes;
-        DROP TABLE IF EXISTS users;
-        DROP TABLE IF EXISTS courses;
+        DROP TABLE IF EXISTS annotations CASCADE;
+        DROP TABLE IF EXISTS changes CASCADE;
+        DROP TABLE IF EXISTS users CASCADE;
+        DROP TABLE IF EXISTS teacher_courses CASCADE;
+        DROP TABLE IF EXISTS courses CASCADE;
                     
-        DROP TYPE IF EXISTS change_type;
-        DROP TYPE IF EXISTS item_types;
-        DROP TYPE IF EXISTS user_role;
+        DROP TYPE IF EXISTS change_type CASCADE;
+        DROP TYPE IF EXISTS item_types CASCADE;
+        DROP TYPE IF EXISTS user_role CASCADE;
         
         ''')
         conn.commit()
@@ -55,12 +56,13 @@ def create_tables(destroy_existing_tables=False):
 
     CREATE TABLE IF NOT EXISTS changes (
         id SERIAL PRIMARY KEY,
+        item_id INT NOT NULL,
         course_id INT REFERENCES courses(id),
         change_type change_type NOT NULL,
         timestamp TIMESTAMP NOT NULL,
         item_type item_types NOT NULL,
-        old_value JSON,
-        new_value JSON
+        older_diff INT REFERENCES changes(id) NULL,
+        diff JSON
     );
 
     CREATE TABLE IF NOT EXISTS annotations (
