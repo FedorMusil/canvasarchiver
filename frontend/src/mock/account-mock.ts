@@ -28,4 +28,10 @@ export const exampleUsers: User[] = [
         name: 'James',
         role: UserRole.TEACHER,
     },
+    {
+        id: 3,
+        email: 'adam@uva.nl',
+        name: 'Adam',
+        role: UserRole.TEACHER,
+    },
 ];
