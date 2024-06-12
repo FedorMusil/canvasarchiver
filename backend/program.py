@@ -1,5 +1,8 @@
 from flask import Flask, request, send_file
-import subprocess, os, hmac, ssl
+import subprocess
+import os
+import hmac
+import ssl
 from hashlib import sha1
 from db.get_db_conn import get_db_conn
 from controllers.frontend_api import *
@@ -8,6 +11,7 @@ app = Flask(__name__, static_folder='../frontend/dist', static_url_path='')
 conn = get_db_conn()
 # Run the server with `python program.py` and visit the routes in your browser.
 
+
 def load_json(json_obj):
     try:
         return json.loads(json_obj)
@@ -15,20 +19,25 @@ def load_json(json_obj):
         return False
 
 # Get Routes
+
+
 @app.route('/course/<course_id>/id')
 def get_course_info_route(course_id):
     '''Get a course by id.'''
     return get_course_by_id(conn, course_id)
+
 
 @app.route('/course/<course_id>/users')
 def get_course_users_route(course_id):
     '''Get all users in a course.'''
     return get_users_by_courseid(conn, course_id)
 
+
 @app.route('/course/<course_id>/annotations/<change_id>')
 def get_annotation(course_id, change_id):
     '''Get all annotations for a change.'''
     return get_annotations_by_changeid(conn, course_id, change_id)
+
 
 @app.route('/course/<course_id>/changes')
 def get_changes(course_id):
@@ -36,6 +45,8 @@ def get_changes(course_id):
     return get_changes_by_courseid(conn, course_id)
 
 # Post Routes
+
+
 @app.route('/course/create', methods=['POST'])
 def post_course_route():
     '''Create a course.
@@ -53,7 +64,9 @@ def post_course_route():
         return jsonify({"course_id": return_message})
     return return_message
 
-@app.route('/course/<course_id>/create/annotation/<change_id>', methods=['POST'])
+
+@app.route('/course/<course_id>/create/annotation/<change_id>',
+           methods=['POST'])
 def post_annotation_route(course_id, change_id):
     '''Create an annotation.
     JSON body must contain:
@@ -63,13 +76,16 @@ def post_annotation_route(course_id, change_id):
         "text": "This is an annotation",
     }'''
     request_unpacked = load_json(request.get_json())
-    passed_test, error_message = check_annotation_create(conn, change_id, request_unpacked)
+    passed_test, error_message = check_annotation_create(
+        conn, change_id, request_unpacked)
     if not passed_test:
         return error_message
-    succes, return_message = post_annotation(conn, course_id, change_id, request_unpacked)
+    succes, return_message = post_annotation(
+        conn, course_id, change_id, request_unpacked)
     if succes:
         return jsonify({"annotation_id": return_message})
     return return_message
+
 
 @app.route('/course/<course_id>/change', methods=['POST'])
 def post_change_route(course_id):
@@ -82,13 +98,15 @@ def post_change_route(course_id):
         "new_value": "{'name': 'New Course', 'course_code': '123457'}"
     }'''
     request_unpacked = load_json(request.get_json())
-    passed_test, error_message = check_change_create(conn, course_id, request_unpacked)
+    passed_test, error_message = check_change_create(
+        conn, course_id, request_unpacked)
     if not passed_test:
         return error_message
     succes, return_message = post_change(conn, course_id, request_unpacked)
     if succes:
         return jsonify({"change_id": return_message})
     return return_message
+
 
 @app.route('/course/<course_id>/user', methods=['POST'])
 def post_user_route(course_id):
@@ -100,13 +118,15 @@ def post_user_route(course_id):
         "role": "Teacher"
         }'''
     request_unpacked = load_json(request.get_json())
-    passed_test, error_message = check_user_create(conn, course_id, request_unpacked)
+    passed_test, error_message = check_user_create(
+        conn, course_id, request_unpacked)
     if not passed_test:
         return error_message
     succes, return_message = post_user(conn, course_id, request_unpacked)
     if succes:
         return jsonify({"user_id": return_message})
     return jsonify(return_message)
+
 
 @app.route('/deploy', methods=['POST'])
 def deploy():
@@ -131,9 +151,11 @@ def deploy():
         # Run your deployment script
         subprocess.run(['./deploy.sh'], check=True)
 
+
 @app.route('/canvas')
 def canvas():
     return '', 200
+
 
 @app.route('/initiation', methods=['POST'])
 def initiation():
@@ -146,4 +168,9 @@ if __name__ == '__main__':
     context.load_cert_chain(
         '../frontend/localhost.pem',
         '../frontend/localhost-key.pem')
-    app.run(host='0.0.0.0', port=3000, debug=False, ssl_context=context, use_reloader=False)
+    app.run(
+        host='0.0.0.0',
+        port=3000,
+        debug=False,
+        ssl_context=context,
+        use_reloader=False)
