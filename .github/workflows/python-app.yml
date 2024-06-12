@@ -24,9 +24,11 @@ jobs:
         image: postgres
         # Provide the password for postgres
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: canvasarchive
+          DB_HOST: postgres
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: postgres
         # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
