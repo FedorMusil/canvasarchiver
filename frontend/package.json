@@ -10,7 +10,8 @@
         "build": "tsc && vite build",
         "test:console": "vitest run",
         "test:ui": "vitest --ui",
-        "prepare": "cd .. && husky install frontend/.husky"
+        "prepare": "cd .. && husky install frontend/.husky",
+        "prettier": "prettier --write ./src"
     },
     "dependencies": {
         "@radix-ui/react-dropdown-menu": "^2.0.6",

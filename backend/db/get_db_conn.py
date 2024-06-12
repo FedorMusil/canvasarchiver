@@ -5,6 +5,7 @@ from os import getenv
 
 load_dotenv(dotenv_path='../../.env', encoding='utf-8')
 
+
 def get_db_conn():
     # Define your database connection parameters
     db_params = {
@@ -22,7 +23,10 @@ def get_db_conn():
     cur = conn.cursor()
 
     # Check if database exists
-    cur.execute("SELECT 1 FROM pg_catalog.pg_database WHERE datname = %s", (getenv('DB_NAME'),))
+    cur.execute(
+        "SELECT 1 FROM pg_catalog.pg_database WHERE datname = %s",
+        (getenv('DB_NAME'),
+         ))
     exists = cur.fetchone()
     if not exists:
         # Can't create database from within another connection, so disconnect
@@ -31,7 +35,8 @@ def get_db_conn():
 
         # Connect to the default database to create the new database
         conn = psycopg2.connect(**db_params)
-        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+        conn.set_isolation_level(
+            psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
         cur = conn.cursor()
         cur.execute(sql.SQL("CREATE DATABASE {}").format(
             sql.Identifier(getenv('DB_NAME')))

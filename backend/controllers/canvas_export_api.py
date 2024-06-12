@@ -1,4 +1,5 @@
-import requests, os
+import requests
+import os
 from datetime import datetime
 
 # Make sure there is a .env file in the same directory as this script
@@ -14,6 +15,7 @@ headers = {
     'Authorization': f'Bearer {API_TOKEN}',
 }
 
+
 def get_courses():
     # The URL for the API request
     url = f'https://{CANVAS_DOMAIN}/api/v1/courses'
@@ -23,6 +25,7 @@ def get_courses():
 
     # The response from the API request
     return response.json()
+
 
 def get_canvas_export_list(course_id):
     # The URL for the API request
@@ -34,15 +37,19 @@ def get_canvas_export_list(course_id):
     # The response from the API request
     return response.json()
 
+
 def create_canvas_export(course_id):
     # The URL for the API request
     url = f'https://{CANVAS_DOMAIN}/api/v1/courses/{course_id}/content_exports'
 
     # The API request
-    response = requests.post(url, headers=headers, data={'export_type': 'common_cartridge'})
+    response = requests.post(
+        url, headers=headers, data={
+            'export_type': 'common_cartridge'})
 
     # The response from the API request
     return response.json()
+
 
 def get_canvas_export(course_id, export_id):
     # The URL for the API request
@@ -53,6 +60,7 @@ def get_canvas_export(course_id, export_id):
 
     # The response from the API request
     return response.json()
+
 
 if __name__ == '__main__':
     # The course ID
