@@ -1,12 +1,11 @@
-from flask import Flask, request
-import subprocess, os, hmac
+from flask import Flask, request, send_file
+import subprocess, os, hmac, ssl
 from hashlib import sha1
 from db.get_db_conn import get_db_conn
 from controllers.frontend_api import *
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../frontend/dist', static_url_path='')
 conn = get_db_conn()
-# Example routes to show how the server works.
 # Run the server with `python program.py` and visit the routes in your browser.
 
 def load_json(json_obj):
@@ -132,7 +131,19 @@ def deploy():
         # Run your deployment script
         subprocess.run(['./deploy.sh'], check=True)
 
+@app.route('/canvas')
+def canvas():
     return '', 200
 
+@app.route('/initiation', methods=['POST'])
+def initiation():
+    # Serve the React app
+    return send_file(os.path.join(app.static_folder, 'index.html'))
+
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(
+        '../frontend/localhost.pem',
+        '../frontend/localhost-key.pem')
+    app.run(host='0.0.0.0', port=3000, debug=False, ssl_context=context, use_reloader=False)

@@ -1,4 +1,5 @@
-import requests, os
+import requests
+import os
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -30,6 +31,7 @@ url = f'https://{CANVAS_DOMAIN}/api/v1/courses'
 response = requests.get(url, headers=headers)
 print(response.json())
 
+
 def test_connection():
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
@@ -37,6 +39,6 @@ def test_connection():
     else:
         return False
 
+
 def get_current_time():
     return str(datetime.now())
-
