@@ -11,6 +11,11 @@ import {
 import { Input } from '../components/ui/input';
 import { postAnnotation } from '../api/annotation';
 import {
+    ResizableHandle,
+    ResizablePanel,
+    ResizablePanelGroup,
+} from '@/src/components/ui/resizable';
+import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
@@ -100,78 +105,93 @@ const Material: FC = () => {
     return (
         <div className='w-full h-full flex flex-col'>
             <h1 className='text-4xl'>{Object.values(ItemTypes)[+materialId!]}</h1>
-            <div
-                className='grid w-full flex-grow gap-4 py-4 overflow-hidden'
-                style={{ gridTemplateColumns: '8fr 2fr', gridTemplateRows: '8fr 2fr' }}
-            >
-                <div className='border border-red-500 grid gap-2' style={{ gridColumn: '1 / 2', gridRow: '1 / 2' }}>
-                    <div className='border border-blue-500'>Block 1.1</div>
-                    <div className='border border-blue-500'>Block 1.2</div>
-                </div>
-                <div
-                    className='border border-red-500 h-full overflow-hidden'
-                    style={{ gridColumn: '2 / 3', gridRow: '1 / 2' }}
-                >
-                    <Card className='flex flex-col overflow-auto h-full'>
-                        <CardHeader>
-                            <CardTitle>Annotations</CardTitle>
-                            <CardDescription>View and add annotations to this course change</CardDescription>
-                        </CardHeader>
-                        <CardContent className='flex-grow overflow-hidden'>
-                            {curChangeId ?
-                                <Annotations
-                                    changeId={curChangeId}
-                                    materialId={materialId!}
-                                    setResponseTo={setResponseTo}
-                                />
-                            :   <div>Loading...</div>}
-                        </CardContent>
-                        <CardFooter className='mt-auto'>
-                            <form
-                                className='flex flex-col gap-2 w-full'
-                                onSubmit={(event) => {
-                                    event.preventDefault();
-                                    const form = event.target as HTMLFormElement;
-                                    const annotation = (form.elements[0] as HTMLInputElement).value;
-                                    AddAnnotation(annotation);
-                                }}
-                            >
-                                <Input placeholder='Add a new annotation...' />
-                                <div className='flex w-full justify-between gap-2'>
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <p
-                                                    className='text-xs text-muted-foreground h-fit hover:line-through'
-                                                    onClick={() => setResponseTo(null)}
-                                                >
-                                                    {responseTo && `Responding to ${responseTo.name}`}
-                                                </p>
-                                            </TooltipTrigger>
-                                            <TooltipContent side='bottom'>
-                                                <p className='text-xs text-muted-foreground'>
-                                                    Click to remove 'reply to' status
-                                                </p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-
-                                    <Button
-                                        aria-disabled={status === 'pending' || status === 'error'}
-                                        className='self-end'
-                                        disabled={status === 'pending' || status === 'error'}
-                                        type='submit'
-                                    >
-                                        Add Annotation
-                                    </Button>
+            <div className='w-full flex-grow py-4 overflow-hidden'>
+                <ResizablePanelGroup direction='vertical'>
+                    <ResizablePanel defaultSize={75}>
+                        <ResizablePanelGroup direction='horizontal'>
+                            <ResizablePanel defaultSize={75}>
+                                <div className='border h-full'>
+                                    <ResizablePanelGroup direction='vertical'>
+                                        <ResizablePanel defaultSize={50}>
+                                            <div className='border h-full'>Block 1.1</div>
+                                        </ResizablePanel>
+                                        <ResizableHandle withHandle />
+                                        <ResizablePanel defaultSize={50}>
+                                            <div className='border h-full'>Block 1.2</div>
+                                        </ResizablePanel>
+                                    </ResizablePanelGroup>
                                 </div>
-                            </form>
-                        </CardFooter>
-                    </Card>
-                </div>
-                <div className='border border-red-500' style={{ gridColumn: '1 / 3', gridRow: '2 / 3' }}>
-                    Block 3
-                </div>
+                            </ResizablePanel>
+                            <ResizableHandle withHandle />
+                            <ResizablePanel defaultSize={25}>
+                                <div className='border h-full overflow-hidden'>
+                                    <Card className='flex flex-col overflow-auto h-full'>
+                                        <CardHeader>
+                                            <CardTitle>Annotations</CardTitle>
+                                            <CardDescription>
+                                                View and add annotations to this course change
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className='flex-grow overflow-hidden'>
+                                            {curChangeId ?
+                                                <Annotations
+                                                    changeId={curChangeId}
+                                                    materialId={materialId!}
+                                                    setResponseTo={setResponseTo}
+                                                />
+                                            :   <div>Loading...</div>}
+                                        </CardContent>
+                                        <CardFooter className='mt-auto'>
+                                            <form
+                                                className='flex flex-col gap-2 w-full'
+                                                onSubmit={(event) => {
+                                                    event.preventDefault();
+                                                    const form = event.target as HTMLFormElement;
+                                                    const annotation = (form.elements[0] as HTMLInputElement).value;
+                                                    AddAnnotation(annotation);
+                                                }}
+                                            >
+                                                <Input placeholder='Add a new annotation...' />
+                                                <div className='flex w-full justify-between gap-2'>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <p
+                                                                    className='text-xs text-muted-foreground h-fit hover:line-through'
+                                                                    onClick={() => setResponseTo(null)}
+                                                                >
+                                                                    {responseTo && `Responding to ${responseTo.name}`}
+                                                                </p>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side='bottom'>
+                                                                <p className='text-xs text-muted-foreground'>
+                                                                    Click to remove 'reply to' status
+                                                                </p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+
+                                                    <Button
+                                                        aria-disabled={status === 'pending' || status === 'error'}
+                                                        className='self-end'
+                                                        disabled={status === 'pending' || status === 'error'}
+                                                        type='submit'
+                                                    >
+                                                        Add Annotation
+                                                    </Button>
+                                                </div>
+                                            </form>
+                                        </CardFooter>
+                                    </Card>
+                                </div>
+                            </ResizablePanel>
+                        </ResizablePanelGroup>
+                    </ResizablePanel>
+                    <ResizableHandle withHandle />
+                    <ResizablePanel defaultSize={25}>
+                        <div className='border h-full'>Block 3</div>
+                    </ResizablePanel>
+                </ResizablePanelGroup>
             </div>
         </div>
     );
