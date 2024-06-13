@@ -1,8 +1,12 @@
-// src/components/pages/Initiation.tsx
-import React from 'react';
+import { FC, ReactElement, useEffect } from 'react';
+import { redirect } from 'react-router-dom';
 
-const Initiation: React.FC = () => {
-    return <h1>Hello, World!</h1>;
+const Initiation: FC = (): ReactElement => {
+    useEffect(() => {
+        redirect('/');
+    }, []);
+
+    return <p>Please wait, we are initializing the application...</p>;
 };
 
 export default Initiation;
