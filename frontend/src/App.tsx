@@ -22,8 +22,9 @@ const App: React.FC = () => {
                     <Routes>
                         <Route path='/' element={<Layout />}>
                             <Route path='' element={<Home />} />
-                            <Route path=':material-id' element={<Material />} />
+                            <Route path=':material-id/:change-id?' element={<Material />} />
                         </Route>
+                        <Route path='*' element={<div>404</div>} />
                     </Routes>
                 </BrowserRouter>
             </NextThemesProvider>

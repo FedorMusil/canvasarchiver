@@ -17,7 +17,7 @@ SkipToMainContent.displayName = 'SkipToMainContent';
 
 const Header: FC = (): ReactElement => {
     return (
-        <header className='fixed z-50 inset-0 h-14 px-4 py-2 md:h-20 flex justify-between w-screen items-center md:p-4 bg-background shadow-sm shadow-white'>
+        <header className='fixed z-50 inset-0 h-14 px-4 py-2 md:h-20 flex justify-between w-screen items-center md:p-4 bg-background'>
             <SkipToMainContent />
             <Link to='/'>
                 <Logo />

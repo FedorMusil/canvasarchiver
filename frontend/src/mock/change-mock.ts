@@ -5,12 +5,23 @@ import { http, HttpHandler, HttpResponse } from 'msw';
 
 export const changeHandlers: HttpHandler[] = [
     http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/recent/*`, () => {
-        // Return the last (most recent) 5 changes
-        const recentChanges = exampleChanges
-            .sort((a, b) => b.change_date.getTime() - a.change_date.getTime())
-            .slice(0, 5);
+        // Get the last change based on the last change date
+        const lastChange = exampleChanges.reduce((prev, current) =>
+            new Date(prev.change_date) > new Date(current.change_date) ? prev : current
+        );
 
-        return HttpResponse.json<Change[]>(recentChanges);
+        // Get the last change date
+        const lastChangeDate = new Date(lastChange.change_date);
+        // Get the start of the week for the last change date
+        const startOfLastChangeWeek = startOfWeek(lastChangeDate, { weekStartsOn: 1 });
+
+        // Get all changes from the last week
+        const thisWeekChanges = exampleChanges.filter((change) => {
+            const changeDate = new Date(change.change_date);
+            return changeDate >= startOfLastChangeWeek;
+        });
+
+        return HttpResponse.json<Change[]>(thisWeekChanges);
     }),
 
     http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/*`, () => {
