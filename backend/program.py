@@ -1,8 +1,12 @@
-from flask import Flask, request, send_file
+from flask import Flask, request, send_file, redirect, render_template_string
 import subprocess, os, hmac, ssl
 from hashlib import sha1
 from db.get_db_conn import get_db_conn
 from controllers.frontend_api import *
+import secrets
+import requests
+import jwt
+from jwt.algorithms import RSAAlgorithm
 
 app = Flask(__name__, static_folder='../frontend/dist', static_url_path='')
 # conn = get_db_conn()
@@ -135,10 +139,104 @@ def deploy():
 def canvas():
     return '', 200
 
+state_nonce_store = {}
+
 @app.route('/initiation', methods=['POST'])
-def initiation():
-    # Serve the React app
-    return send_file(os.path.join(app.static_folder, 'index.html'))
+def handle_initiation_post():
+    if request.content_type == 'application/x-www-form-urlencoded':
+        data = request.form
+    else:
+        data = request.json
+
+    iss = data.get('iss')
+    login_hint = data.get('login_hint')
+    client_id = data.get('client_id')
+    redirect_uri = data.get('target_link_uri')  # Ensure this is one of the registered redirect URIs
+    message_hint = data.get('lti_message_hint')
+    state = secrets.token_urlsafe(16)
+    nonce = secrets.token_urlsafe(16)
+
+    # Store nonce, POTENTIALLY UNSAFE
+    state_nonce_store[state] = nonce
+
+    # Log the received data for debugging
+    print(f"Received data: {data}")
+
+    if not all([iss, login_hint, client_id, redirect_uri]):
+        return jsonify({'error': 'Missing required LTI parameters'}), 400
+
+    # Construct the OIDC Authentication Request URL
+    oidc_auth_endpoint = "https://sso.test.canvaslms.com/api/lti/authorize_redirect"
+    auth_request_params = {
+        'scope': 'openid',
+        'response_type': 'id_token',
+        'client_id': client_id,
+        'redirect_uri': 'https://localhost:3000/redirect',
+        'lti_message_hint': message_hint,
+        'login_hint': login_hint,
+        'state': state,
+        'response_mode': 'form_post',
+        'nonce': nonce,
+        'prompt': 'none'
+    }
+
+    # Log the OIDC Authentication Request URL for debugging
+    print(f"Redirecting to OIDC Authentication Request URL: {oidc_auth_endpoint} with params {auth_request_params}")
+
+    auth_request_url = f"{oidc_auth_endpoint}?{'&'.join([f'{key}={value}' for key, value in auth_request_params.items()])}"
+
+    return redirect(auth_request_url)
+
+
+@app.route('/redirect', methods=['POST'])
+def handle_redirect():
+    data = request.form
+    id_token = data.get('id_token')
+    state = data.get('state')
+    client_id = '104400000000000335'
+
+    # Log the received data for debugging
+    print(f"Received data: {data}")
+
+    if not id_token or not state:
+        return jsonify({'error': 'Missing id_token or state'}), 400
+
+    # Verify the state parameter
+    if state not in state_nonce_store:
+        return jsonify({'error': 'Invalid state parameter'}), 400
+    nonce = state_nonce_store.pop(state)
+
+    # Fetch Canvas' public keys
+    jwks_url = "https://sso.test.canvaslms.com/api/lti/security/jwks"
+    jwks = requests.get(jwks_url).json()
+
+    # Validate the JWT
+    try:
+        header = jwt.get_unverified_header(id_token)
+        key = next(key for key in jwks['keys'] if key['kid'] == header['kid'])
+        rsa_key = RSAAlgorithm.from_jwk(key)
+        payload = jwt.decode(id_token, rsa_key, algorithms=['RS256'], audience=client_id, nonce=nonce)
+        # Log the payload for debugging
+        print(f"JWT Payload: {payload}")
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Expired JWT token'}), 400
+    except jwt.InvalidAudienceError:
+        return jsonify({'error': 'Invalid audience. Expected: ' + client_id}), 400
+    except Exception as e:
+        print(f"JWT validation error: {e}")
+        return jsonify({'error': 'Invalid JWT'}), 400
+
+    # Extract target_link_uri from payload and redirect user
+    target_link_uri = payload.get('https://localhost:3000', '/')
+    return redirect(target_link_uri)
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_file(app.static_folder, path)
+    else:
+        return render_template_string(open(os.path.join(app.static_folder, 'index.html')).read())
 
 
 if __name__ == '__main__':
