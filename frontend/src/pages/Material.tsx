@@ -102,6 +102,47 @@ const Material: FC = () => {
     if (isLoading) return <p>Loading...</p>;
     if (isError) return <p>Error...</p>;
 
+    // TODO: Change with actual difference.
+    const diffBeforeHTML = `
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <style>
+                    body {
+                        background-color: linen;
+                    }
+
+                    h1 {
+                        color: maroon;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>This is a placeholder for the before view.</h1>
+            </body>
+        </html>
+    `;
+
+    const diffAfterHTML = `
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <style>
+                    body {
+                        background-color: ivory;
+                    }
+
+                    h1 {
+                        color: maroon;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>This is a placeholder for the after view.</h1>
+            </body>
+        </html>
+    `;
+
     return (
         <div className='w-full h-full flex flex-col'>
             <h1 className='text-4xl'>{Object.values(ItemTypes)[+materialId!]}</h1>
@@ -113,11 +154,11 @@ const Material: FC = () => {
                                 <div className='border h-full'>
                                     <ResizablePanelGroup direction='vertical'>
                                         <ResizablePanel defaultSize={50}>
-                                            <div className='border h-full'>Block 1.1</div>
+                                            <iframe className='w-full h-full' srcDoc={diffBeforeHTML} title='before' />
                                         </ResizablePanel>
                                         <ResizableHandle withHandle />
                                         <ResizablePanel defaultSize={50}>
-                                            <div className='border h-full'>Block 1.2</div>
+                                            <iframe className='w-full h-full' srcDoc={diffAfterHTML} title='after' />
                                         </ResizablePanel>
                                     </ResizablePanelGroup>
                                 </div>
