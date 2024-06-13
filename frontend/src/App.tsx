@@ -5,6 +5,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { NextThemesProvider } from './providers/NextThemesProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import './globals.css';
 
 const App: React.FC = () => {
     const queryClient = new QueryClient();

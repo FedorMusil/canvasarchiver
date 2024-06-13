@@ -5,7 +5,11 @@ export type Annotation = {
     id: number;
     user: Self;
     text: string;
+    selectedText: string | null;
+    selectionStart: number,
+    selectionEnd: number,
     timestamp: Date;
+    parentId: number | null;
 };
 
 export const getAnnotations = async ({ queryKey }: { queryKey: [string, string, string] }): Promise<Annotation[]> => {
