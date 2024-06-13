@@ -146,6 +146,7 @@ def canvas():
     return '', 200
 
 # Use a dictionary to store state and nonce with an expiration time
+# Possibly change this in the future??
 state_nonce_store = {}
 
 def clean_expired_state_nonce():
