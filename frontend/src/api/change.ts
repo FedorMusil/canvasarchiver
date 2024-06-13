@@ -7,12 +7,13 @@ export enum ChangeType {
 }
 
 export enum ItemTypes {
-    ASSIGNMENTS = 'Assignments',
+    SECTIONS = 'Sections',
+    MODULES = 'Modules',
     PAGES = 'Pages',
     FILES = 'Files',
+    ASSIGNMENTS = 'Assignments',
     QUIZZES = 'Quizzes',
-    MODULES = 'Modules',
-    SECTIONS = 'Sections',
+    RUBRICS = 'Rubrics',
 }
 
 export type Change = {

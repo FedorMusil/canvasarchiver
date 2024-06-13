@@ -23,38 +23,38 @@ import {
 
 const materials: { title: string; href: string; description: string }[] = [
     {
-        title: 'Assignments',
-        href: '/1',
-        description: 'Tasks or projects to be completed by students.',
-    },
-    {
-        title: 'Modules',
-        href: '/2',
-        description: 'Organized collections of learning materials.',
-    },
-    {
-        title: 'Quizzes',
-        href: '/3',
-        description: 'Online tests or assessments.',
-    },
-    {
-        title: 'Folders',
-        href: '/4',
-        description: 'Digital containers for organizing files.',
-    },
-    {
         title: 'Sections',
-        href: '/5',
+        href: '/0',
         description: 'Subdivisions of a course, often used to separate different classes or study groups.',
     },
     {
+        title: 'Modules',
+        href: '/1',
+        description: 'Organized collections of learning materials.',
+    },
+    {
         title: 'Pages',
-        href: '/6',
+        href: '/2',
         description: 'Web pages containing course content or information.',
     },
     {
+        title: 'Files',
+        href: '/3',
+        description: 'Documents, images, or other files uploaded to the course.',
+    },
+    {
+        title: 'Assignments',
+        href: '/4',
+        description: 'Tasks or projects to be completed by students.',
+    },
+    {
+        title: 'Quizzes',
+        href: '/5',
+        description: 'Online tests or assessments.',
+    },
+    {
         title: 'Rubrics',
-        href: '/7',
+        href: '/6',
         description: 'Guidelines for grading assignments or quizzes.',
     },
     {

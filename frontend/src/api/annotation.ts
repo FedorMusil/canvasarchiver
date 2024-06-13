@@ -4,15 +4,20 @@ import { Self } from './self';
 export type Annotation = {
     id: number;
     user: Self;
-    text: string;
-    selectedText: string | null;
-    selectionStart: number,
-    selectionEnd: number,
-    timestamp: Date;
+    annotation: string;
     parentId: number | null;
+    changeId: number;
+    selectedText: string | null;
+    selectionStart: number | null;
+    selectionEnd: number | null;
+    timestamp: Date;
 };
 
-export const getAnnotations = async ({ queryKey }: { queryKey: [string, string, string] }): Promise<Annotation[]> => {
+export const getAnnotationsByChange = async ({
+    queryKey,
+}: {
+    queryKey: [string, string, string];
+}): Promise<Annotation[]> => {
     const [, courseId, materialId] = queryKey;
     const response = await AxiosWrapper({
         method: 'GET',

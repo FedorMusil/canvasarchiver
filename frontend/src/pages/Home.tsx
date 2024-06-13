@@ -1,4 +1,4 @@
-import RecentChanges from '../components/RecentChanges';
+import RecentChanges from '../components/RecentChanges/RecentChanges';
 import { FC, ReactElement } from 'react';
 import { getSelf } from '@/src/api/self';
 import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
@@ -27,19 +27,23 @@ const Home: FC = (): ReactElement => {
     }
 
     return (
-        <div className='w-full flex flex-col items-center'>
-            <div className='text-justify w-full md:w-[500px]'>
-                <h1 className='text-4xl tracking-tight mb-4'>Home</h1>
-                <h2 className='text-2xl mb-2'>Welcome back, {self.name}!</h2>
-                <p className='text-base mb-8'>
-                    You have just opened the Canvas Archive utility. This utility allows you to compare changes made to
-                    a Canvas course.
-                    <br />
-                    <br />
-                    To get started, select a course material from the navigation bar. You can also view recent changes
-                    made to the course below.
-                </p>
-                <RecentChanges />
+        <div className='w-full h-[calc(100dvh-56px)] md:h-[calc(100dvh-80px)] flex justify-center items-center'>
+            <div className='flex gap-12 flex-nowrap lg:flex-row flex-col'>
+                <div className='text-justify max-w-[500px]'>
+                    <h1 className='text-4xl tracking-tight mb-4'>Home</h1>
+                    <h2 className='text-2xl mb-2'>Welcome back, {self.name}!</h2>
+                    <p className='text-base'>
+                        You have just opened the Canvas Archive utility. This utility allows you to compare changes made
+                        to a Canvas course.
+                        <br />
+                        <br />
+                        To get started, select a course material from the navigation bar. You can also view recent
+                        changes made to the course in the table.
+                    </p>
+                </div>
+                <div className='w-[500px] shrink lg:shrink-0'>
+                    <RecentChanges />
+                </div>
             </div>
         </div>
     );

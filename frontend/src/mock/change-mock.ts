@@ -30,7 +30,6 @@ export const changeHandlers: HttpHandler[] = [
         const materialChanges = exampleChanges.filter(
             (change) => change.item_type === Object.values(ItemTypes)[+materialId!]
         );
-        console.log('materialChanges', materialChanges);
 
         return HttpResponse.json<Change[]>(materialChanges);
     }),
@@ -52,7 +51,7 @@ const generateChange = (old_value: number): Change => {
 };
 
 let old_value = faker.number.int();
-const exampleChanges: Change[] = Array.from({ length: 100 }, () => {
+export const exampleChanges: Change[] = Array.from({ length: 100 }, () => {
     const change = generateChange(old_value);
     old_value = change.id;
     return change;
