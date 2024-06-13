@@ -20,15 +20,15 @@ export type Change = {
     change_type: ChangeType;
     change_date: Date;
     item_type: ItemTypes;
-    old_value: { [key: string]: unknown };
+    old_value: number; // Reference to the previous change
     new_value: { [key: string]: unknown };
 };
 
-export const getChanges = async ({ queryKey }: { queryKey: [string, string] }): Promise<Change[]> => {
-    const [, courseCode] = queryKey;
+export const getChangesByMaterial = async ({ queryKey }: { queryKey: [string, string] }): Promise<Change[]> => {
+    const [, materialId] = queryKey;
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/changes/${courseCode}`,
+        url: `/changes/material/${materialId}`,
     });
 
     return response;

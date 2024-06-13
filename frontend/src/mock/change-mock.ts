@@ -24,12 +24,19 @@ export const changeHandlers: HttpHandler[] = [
         return HttpResponse.json<Change[]>(thisWeekChanges);
     }),
 
-    http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/*`, () => {
-        return HttpResponse.json<Change[]>(exampleChanges);
+    http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/material/:materialId`, ({ params }) => {
+        // Get all changes for the material (item_type)
+        const materialId = params.materialId;
+        const materialChanges = exampleChanges.filter(
+            (change) => change.item_type === Object.values(ItemTypes)[+materialId!]
+        );
+        console.log('materialChanges', materialChanges);
+
+        return HttpResponse.json<Change[]>(materialChanges);
     }),
 ];
 
-const generateChange = (): Change => {
+const generateChange = (old_value: number): Change => {
     const startDate = startOfWeek(new Date(), { weekStartsOn: 1 }); // Start of this week, Monday
     const randomWeeks = faker.number.int({ min: 0, max: 7 }); // Random number of weeks within 8 week period
     const randomDate = setDay(addWeeks(startDate, randomWeeks), 1); // Set the day to Monday
@@ -39,11 +46,14 @@ const generateChange = (): Change => {
         change_type: faker.helpers.arrayElement(Object.values(ChangeType)),
         change_date: randomDate,
         item_type: faker.helpers.arrayElement(Object.values(ItemTypes)),
-        old_value: { [faker.lorem.word()]: faker.lorem.sentence() },
+        old_value: old_value,
         new_value: { [faker.lorem.word()]: faker.lorem.sentence() },
     };
 };
 
-const exampleChanges: Change[] = faker.helpers.multiple(generateChange, {
-    count: 20,
+let old_value = faker.number.int();
+const exampleChanges: Change[] = Array.from({ length: 100 }, () => {
+    const change = generateChange(old_value);
+    old_value = change.id;
+    return change;
 });
