@@ -1,5 +1,5 @@
 from flask import Flask, request, send_file, redirect, render_template_string
-import subprocess, os, hmac, ssl
+import subprocess, os, hmac, ssl, sys
 from hashlib import sha1
 from db.get_db_conn import get_db_conn
 from controllers.frontend_api import *
@@ -13,9 +13,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 CLIENT_ID = os.getenv('CLIENT_ID')
+conn = None
+
+
+# Checks Command-line parameter for true for DB connection
+if len(sys.argv) > 1 and sys.argv[1].lower() == 'true':
+    conn = get_db_conn()
+
 
 app = Flask(__name__, static_folder='../frontend/dist', static_url_path='')
-# conn = get_db_conn()
+
 # Run the server with `python program.py` and visit the routes in your browser.
 
 def load_json(json_obj):
@@ -206,9 +213,6 @@ def handle_redirect():
     id_token = data.get('id_token')
     state = data.get('state')
     client_id = CLIENT_ID
-
-    # Log the received data for debugging
-    print(f"Received data: {data}")
 
     if not id_token or not state:
         return jsonify({'error': 'Missing id_token or state'}), 400
