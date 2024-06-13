@@ -1,9 +1,8 @@
-import { Annotation } from '../api/annotation';
-import type { Change } from '../api/change';
 import { exampleChanges } from './change-mock';
 import { exampleUsers } from './self-mock';
 import { faker } from '@faker-js/faker';
 import { http, HttpHandler, HttpResponse } from 'msw';
+import { Annotation, type PostAnnotation } from '../api/annotation';
 
 export const annotationHandlers: HttpHandler[] = [
     http.get(`${import.meta.env.VITE_BACKEND_URL}/annotations/:courseId/:changeId`, ({ params }) => {
@@ -11,51 +10,64 @@ export const annotationHandlers: HttpHandler[] = [
         const annotations = exampleAnnotations.filter((annotation) => annotation.changeId === +changeId);
         return HttpResponse.json<Annotation[]>(annotations);
     }),
+
+    http.post(`${import.meta.env.VITE_BACKEND_URL}/annotations`, async ({ request }) => {
+        const annotation = (await request.json()) as PostAnnotation;
+
+        const id = faker.number.int();
+        const newAnnotation: Annotation = {
+            ...annotation,
+            id,
+            user: faker.helpers.arrayElement(exampleUsers),
+            timestamp: new Date(),
+        };
+
+        exampleAnnotations.push(newAnnotation);
+        return HttpResponse.json<Annotation>(newAnnotation);
+    }),
 ];
 
-let annotationId = 1;
-const changeAnnotationCounts: { [key: number]: number } = {};
-let depth = 0;
-let exampleAnnotations: Annotation[] = [];
+const exampleAnnotations: Annotation[] = [];
+exampleChanges.map((change) => {
+    const annotationsForChange: Annotation[] = [];
+    let parentId: number | null = null;
 
-function getRandomChange() {
-    let change: Change;
-    do {
-        change = faker.helpers.arrayElement(exampleChanges);
-    } while (changeAnnotationCounts[change.id] >= 10);
-    if (!changeAnnotationCounts[change.id]) {
-        changeAnnotationCounts[change.id] = 0;
+    const numAnnotations = faker.number.int({ min: 1, max: 10 });
+    const numSubTreeAnnotations = faker.number.int({ min: 1, max: 3 });
+
+    for (let i = 0; i < numAnnotations; i++) {
+        const id = faker.number.int();
+        const annotation: Annotation = {
+            id,
+            user: faker.helpers.arrayElement(exampleUsers),
+            annotation: faker.lorem.sentence(),
+            parentId: null,
+            changeId: change.id,
+            selectedText: null,
+            selectionStart: null,
+            selectionEnd: null,
+            timestamp: faker.date.recent(),
+        };
+
+        parentId = id;
+        annotationsForChange.push(annotation);
     }
-    changeAnnotationCounts[change.id]++;
-    return change;
-}
 
-function getRandomParentId() {
-    return depth < 3 && faker.datatype.boolean() && exampleAnnotations.length > 0 ?
-            faker.helpers.arrayElement(exampleAnnotations).id
-        :   null;
-}
+    for (let j = 0; j < numSubTreeAnnotations; j++) {
+        const annotation: Annotation = {
+            id: faker.number.int(),
+            user: faker.helpers.arrayElement(exampleUsers),
+            annotation: faker.lorem.sentence(),
+            parentId,
+            changeId: change.id,
+            selectedText: null,
+            selectionStart: null,
+            selectionEnd: null,
+            timestamp: faker.date.recent(),
+        };
 
-function createRandomAnnotation(): Annotation {
-    const change = getRandomChange();
+        annotationsForChange.push(annotation);
+    }
 
-    const parentId = getRandomParentId();
-    if (parentId !== null) depth++;
-
-    const annotation: Annotation = {
-        id: annotationId++,
-        user: faker.helpers.arrayElement(exampleUsers),
-        annotation: faker.lorem.sentence(),
-        parentId,
-        changeId: change.id,
-        selectedText: null,
-        selectionStart: null,
-        selectionEnd: null,
-        timestamp: faker.date.recent(),
-    };
-
-    if (parentId !== null) depth--;
-    return annotation;
-}
-
-exampleAnnotations = Array.from({ length: 1000 }, createRandomAnnotation);
+    exampleAnnotations.push(...annotationsForChange);
+});

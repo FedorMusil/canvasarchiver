@@ -26,3 +26,14 @@ export const getAnnotationsByChange = async ({
 
     return response;
 };
+
+export type PostAnnotation = Omit<Annotation, 'id' | 'user' | 'timestamp'> & { userId: string };
+export const postAnnotation = async ({ annotation }: { annotation: PostAnnotation }): Promise<Annotation> => {
+    const response = await AxiosWrapper({
+        method: 'POST',
+        url: '/annotations',
+        data: annotation,
+    });
+
+    return response;
+};

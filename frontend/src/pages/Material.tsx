@@ -9,9 +9,16 @@ import {
     CardTitle,
 } from '@/src/components/ui/card';
 import { Input } from '../components/ui/input';
-import { ScrollArea } from '../components/ui/scroll-area';
+import { postAnnotation } from '../api/annotation';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '../components/ui/tooltip';
+import { useGlobalContext } from '../stores/GlobalStore/useGlobalStore';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { getChangesByMaterial, ItemTypes, type Change } from '../api/change';
 import { useEffect, useState, type FC } from 'react';
 
@@ -39,8 +46,42 @@ const Material: FC = () => {
         queryFn: getChangesByMaterial,
     });
 
+    const { userId } = useGlobalContext((state) => ({
+        userId: state.userCode,
+    }));
+
     const [changes, setChanges] = useState<Change[]>([]);
     const [curChangeId, setCurChangeId] = useState<string | null>(changeId || null);
+
+    const [responseTo, setResponseTo] = useState<{ annotationId: number; name: string } | null>(null);
+
+    const { mutate, status } = useMutation({
+        mutationFn: postAnnotation,
+    });
+
+    const queryClient = useQueryClient();
+    useEffect(() => {
+        if (status === 'success')
+            queryClient.invalidateQueries({ queryKey: ['annotations', materialId!, curChangeId!] });
+    }, [status, queryClient, materialId, curChangeId]);
+
+    const AddAnnotation = (annotation: string) => {
+        if (!curChangeId) return;
+
+        if (typeof annotation !== 'string' || annotation.length === 0) return;
+
+        mutate({
+            annotation: {
+                annotation,
+                parentId: responseTo?.annotationId || null,
+                changeId: +curChangeId,
+                userId,
+                selectedText: null,
+                selectionStart: null,
+                selectionEnd: null,
+            },
+        });
+    };
 
     useEffect(() => {
         if (changesData) {
@@ -78,12 +119,53 @@ const Material: FC = () => {
                         </CardHeader>
                         <CardContent className='flex-grow overflow-hidden'>
                             {curChangeId ?
-                                <Annotations changeId={curChangeId} materialId={materialId!} />
+                                <Annotations
+                                    changeId={curChangeId}
+                                    materialId={materialId!}
+                                    setResponseTo={setResponseTo}
+                                />
                             :   <div>Loading...</div>}
                         </CardContent>
-                        <CardFooter className='flex flex-col gap-2 mt-auto'>
-                            <Input placeholder='Add a new annotation...' />
-                            <Button className='self-end'>Add Annotation</Button>
+                        <CardFooter className='mt-auto'>
+                            <form
+                                className='flex flex-col gap-2 w-full'
+                                onSubmit={(event) => {
+                                    event.preventDefault();
+                                    const form = event.target as HTMLFormElement;
+                                    const annotation = (form.elements[0] as HTMLInputElement).value;
+                                    AddAnnotation(annotation);
+                                }}
+                            >
+                                <Input placeholder='Add a new annotation...' />
+                                <div className='flex w-full justify-between gap-2'>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <p
+                                                    className='text-xs text-muted-foreground h-fit hover:line-through'
+                                                    onClick={() => setResponseTo(null)}
+                                                >
+                                                    {responseTo && `Responding to ${responseTo.name}`}
+                                                </p>
+                                            </TooltipTrigger>
+                                            <TooltipContent side='bottom'>
+                                                <p className='text-xs text-muted-foreground'>
+                                                    Click to remove 'reply to' status
+                                                </p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+
+                                    <Button
+                                        aria-disabled={status === 'pending' || status === 'error'}
+                                        className='self-end'
+                                        disabled={status === 'pending' || status === 'error'}
+                                        type='submit'
+                                    >
+                                        Add Annotation
+                                    </Button>
+                                </div>
+                            </form>
                         </CardFooter>
                     </Card>
                 </div>

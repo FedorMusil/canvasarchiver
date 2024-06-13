@@ -51,7 +51,7 @@ const generateChange = (old_value: number): Change => {
 };
 
 let old_value = faker.number.int();
-export const exampleChanges: Change[] = Array.from({ length: 100 }, () => {
+export const exampleChanges: Change[] = Array.from({ length: 50 }, () => {
     const change = generateChange(old_value);
     old_value = change.id;
     return change;
