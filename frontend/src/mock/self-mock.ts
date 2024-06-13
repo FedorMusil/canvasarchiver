@@ -1,3 +1,4 @@
+import { faker } from '@faker-js/faker';
 import { http, HttpHandler, HttpResponse } from 'msw';
 import { Self, UserRole } from '../api/self';
 
@@ -7,28 +8,16 @@ export const selfHandlers: HttpHandler[] = [
     }),
 ];
 
-export const exampleUsers: Self[] = [
-    {
-        id: 0,
-        email: 'emily@uva.nl',
-        name: 'Emily',
-        role: UserRole.TEACHER,
+function createRandomUser(): Self {
+    return {
+        id: faker.number.int(),
+        email: faker.internet.email(),
+        name: faker.person.firstName(),
+        role: faker.helpers.arrayElement(Object.values(UserRole)),
         courseId: 0,
-    },
+    };
+}
 
-    {
-        id: 1,
-        email: 'alexander.b@uva.nl',
-        name: 'Alexander',
-        role: UserRole.TA,
-        courseId: 0,
-    },
-
-    {
-        id: 2,
-        email: 'j.e.johnsen@uva.nl',
-        name: 'James',
-        role: UserRole.TA,
-        courseId: 0,
-    },
-];
+export const exampleUsers: Self[] = faker.helpers.multiple(createRandomUser, {
+    count: 5,
+});

@@ -8,10 +8,11 @@ export type Annotation = {
     timestamp: Date;
 };
 
-export const getAnnotations = async (changeId: number): Promise<Annotation[]> => {
+export const getAnnotations = async ({ queryKey }: { queryKey: [string, string, string] }): Promise<Annotation[]> => {
+    const [, courseId, materialId] = queryKey;
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/annotations/${changeId}`,
+        url: `/annotations/${courseId}/${materialId}`,
     });
 
     return response;
