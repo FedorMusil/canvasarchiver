@@ -58,4 +58,4 @@ function createRandomAnnotation(): Annotation {
     return annotation;
 }
 
-exampleAnnotations = Array.from({ length: 200 }, createRandomAnnotation);
+exampleAnnotations = Array.from({ length: 1000 }, createRandomAnnotation);

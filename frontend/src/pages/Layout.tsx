@@ -12,7 +12,7 @@ const Layout: FC = (): ReactElement => {
     return (
         <GlobalStoreProvider courseCode={courseCode} userCode={userCode}>
             <Header />
-            <main className='min-h-dvh mt-14 md:mt-20 w-screen px-4' id='main-content'>
+            <main className='h-[100dvh] pt-14 md:pt-20 w-screen px-4' id='main-content'>
                 <Outlet />
             </main>
             <Footer />

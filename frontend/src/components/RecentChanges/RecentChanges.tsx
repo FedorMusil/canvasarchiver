@@ -1,10 +1,4 @@
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/src/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { columns } from './Columns';
 import { DataTable } from './DataTable';
 import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';

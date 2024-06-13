@@ -1,4 +1,15 @@
-import { getAnnotationsByChange } from '../api/annotation';
+import Annotations from '../components/Annotations';
+import { Button } from '../components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from '@/src/components/ui/card';
+import { Input } from '../components/ui/input';
+import { ScrollArea } from '../components/ui/scroll-area';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getChangesByMaterial, ItemTypes, type Change } from '../api/change';
@@ -21,30 +32,15 @@ const Material: FC = () => {
 
     const {
         data: changesData,
-        isLoading: loadingChanges,
-        isError: errorChanges,
+        isLoading,
+        isError,
     } = useQuery({
         queryKey: ['changes', materialId!],
         queryFn: getChangesByMaterial,
     });
 
     const [changes, setChanges] = useState<Change[]>([]);
-
-    const {
-        data: annotationData,
-        isLoading: loadingAnnotations,
-        isError: errorAnnotations,
-    } = useQuery({
-        queryKey: [
-            'annotations',
-            materialId!,
-            changeId ? changeId
-            : changes.length ? changes[0].id.toString()
-            : '',
-        ],
-        queryFn: getAnnotationsByChange,
-        enabled: !!changeId || !!changes.length,
-    });
+    const [curChangeId, setCurChangeId] = useState<string | null>(changeId || null);
 
     useEffect(() => {
         if (changesData) {
@@ -52,28 +48,44 @@ const Material: FC = () => {
             // So we need to sort the changes based on the old_value
             const sortedChanges = changesData.sort((a, b) => a.old_value - b.old_value);
             setChanges(sortedChanges);
-        }
-    }, [changesData]);
 
-    if (loadingChanges || loadingAnnotations) return <p>Loading...</p>;
-    if (errorChanges || errorAnnotations) return <p>Error loading changes</p>;
+            if (!changeId) setCurChangeId(sortedChanges[0].id.toString());
+        }
+    }, [changesData, changeId]);
+
+    if (isLoading) return <p>Loading...</p>;
+    if (isError) return <p>Error...</p>;
 
     return (
-        <div className='w-full h-[calc(100dvh-56px)] md:h-[calc(100dvh-80px)] flex flex-col'>
-            <div className='grid w-full' style={{ gridTemplateColumns: '8fr 2fr', gridTemplateRows: '8fr 2fr' }}>
-                <h1 className='text-4xl'>{Object.values(ItemTypes)[+materialId!]}</h1>
-                <h2 className='text-2xl text-center'>Annotations</h2>
-            </div>
+        <div className='w-full h-full flex flex-col'>
+            <h1 className='text-4xl'>{Object.values(ItemTypes)[+materialId!]}</h1>
             <div
-                className='grid w-full flex-grow gap-4'
+                className='grid w-full flex-grow gap-4 py-4 overflow-hidden'
                 style={{ gridTemplateColumns: '8fr 2fr', gridTemplateRows: '8fr 2fr' }}
             >
                 <div className='border border-red-500 grid gap-2' style={{ gridColumn: '1 / 2', gridRow: '1 / 2' }}>
                     <div className='border border-blue-500'>Block 1.1</div>
                     <div className='border border-blue-500'>Block 1.2</div>
                 </div>
-                <div className='border border-red-500' style={{ gridColumn: '2 / 3', gridRow: '1 / 2' }}>
-                    Block 2
+                <div
+                    className='border border-red-500 h-full overflow-hidden'
+                    style={{ gridColumn: '2 / 3', gridRow: '1 / 2' }}
+                >
+                    <Card className='flex flex-col overflow-auto h-full'>
+                        <CardHeader>
+                            <CardTitle>Annotations</CardTitle>
+                            <CardDescription>View and add annotations to this course change</CardDescription>
+                        </CardHeader>
+                        <CardContent className='flex-grow overflow-hidden'>
+                            {curChangeId ?
+                                <Annotations changeId={curChangeId} materialId={materialId!} />
+                            :   <div>Loading...</div>}
+                        </CardContent>
+                        <CardFooter className='flex flex-col gap-2 mt-auto'>
+                            <Input placeholder='Add a new annotation...' />
+                            <Button className='self-end'>Add Annotation</Button>
+                        </CardFooter>
+                    </Card>
                 </div>
                 <div className='border border-red-500' style={{ gridColumn: '1 / 3', gridRow: '2 / 3' }}>
                     Block 3
