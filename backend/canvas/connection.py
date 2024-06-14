@@ -17,11 +17,12 @@ class ManualCanvasConnection(canvas.CanvasConnection):
     async def __aenter__(self) -> "ManualCanvasConnection":
         return self
 
-    async def request(self, method, url):
+    async def request(self, method, url, *, data=None):
         return await self.client.request(
             method,
             self.domain + url,
             headers={"Authorization": f"Bearer {self.token}"},
+            data=data,
         )
 
     async def __aexit__(self, *_):

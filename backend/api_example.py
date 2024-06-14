@@ -129,7 +129,15 @@ async def main():
                 with p.indent():
                     async for c in api.get_rubrics(course):
                         cdata = c.get_data()
-                        p.print(f"{cdata['id']}, {cdata['name']}")
+                        p.print(f"{cdata['id']}, {cdata['title']}")
+
+        async def list_quiz_questions(course, quiz):
+            with p.indent():
+                p.print("Questions")
+                with p.indent():
+                    async for c in api.get_quiz_questions(course, quiz):
+                        cdata = c.get_data()
+                        p.print(f"{cdata['id']}, {cdata['question_text']}")
 
         async def list_quizzes(course):
             with p.indent():
@@ -138,11 +146,13 @@ async def main():
                     async for c in api.get_quizes(course):
                         cdata = c.get_data()
                         p.print(f"{cdata['id']}, {cdata['title']}")
+                        await list_quiz_questions(course, c)
 
         async def list_courses():
             async for c in api.get_courses():
                 cdata = c.get_data()
                 p.print(f"{cdata['id']} {cdata['name']}")
+                await c.resolve()
                 await list_assignments(c)
                 await list_folders(c)
                 await list_modules(c)
@@ -151,6 +161,13 @@ async def main():
                 await list_rubrics(c)
                 await list_quizzes(c)
 
+        async def make_assignment():
+            course = await anext(api.get_courses())
+            await api.create_assignment(
+                course, {"assignment": {"name": "test"}}
+            )
+
+        # await make_assignment()
         await list_courses()
 
 
