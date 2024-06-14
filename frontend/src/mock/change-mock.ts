@@ -1,7 +1,7 @@
-import { addWeeks, setDay, startOfWeek } from 'date-fns';
-import { Change, ChangeType, ItemTypes } from '../api/change';
 import { faker } from '@faker-js/faker';
+import { addWeeks, setDay, startOfWeek } from 'date-fns';
 import { http, HttpHandler, HttpResponse } from 'msw';
+import { Change, ChangeType, ItemTypes } from '../api/change';
 
 export const changeHandlers: HttpHandler[] = [
     http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/recent/*`, () => {

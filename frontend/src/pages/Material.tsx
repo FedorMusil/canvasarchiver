@@ -1,54 +1,28 @@
-import Annotations from '../components/Annotations';
-import {
-    addWeeks,
-    differenceInWeeks,
-    format,
-    max,
-    min,
-    subWeeks,
-} from 'date-fns';
-import { Button } from '../components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '@/src/components/ui/card';
-import { Input } from '../components/ui/input';
-import {
-    NameType,
-    ValueType,
-} from 'recharts/types/component/DefaultTooltipContent';
-import { postAnnotation } from '../api/annotation';
-import {
-    ResizableHandle,
-    ResizablePanel,
-    ResizablePanelGroup,
-} from '@/src/components/ui/resizable';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '../components/ui/tooltip';
-import { useGlobalContext } from '../stores/GlobalStore/useGlobalStore';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/src/components/ui/card';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/src/components/ui/resizable';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { addWeeks, differenceInWeeks, format, max, min, subWeeks } from 'date-fns';
 import { useTheme } from 'next-themes';
+import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
     Legend,
+    Tooltip as RechartsTooltip,
     ResponsiveContainer,
     Scatter,
     ScatterChart,
-    Tooltip as RechartsTooltip,
     XAxis,
     YAxis,
     type TooltipProps,
 } from 'recharts';
+import { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
+import { postAnnotation } from '../api/annotation';
 import { ChangeType, getChangesByMaterial, ItemTypes, type Change } from '../api/change';
-import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
+import Annotations from '../components/Annotations';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
+import { useGlobalContext } from '../stores/GlobalStore/useGlobalStore';
 
 export type RouteParams = {
     'material-id': string;
