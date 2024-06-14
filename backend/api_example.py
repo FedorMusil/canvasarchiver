@@ -2,6 +2,7 @@
 import canvas.canvas as canvasapi
 import canvas.connection as connection
 import asyncio
+import json
 
 
 class Printer:
@@ -76,7 +77,7 @@ async def main():
                 await list_files(directory.get_folder())
 
         async def list_folders(course):
-            directory = await api.get_folders(course=course)
+            directory = await api.get_directory(course=course)
             await rec_print_dir(directory)
 
         async def list_module_items(course, module):
@@ -161,13 +162,15 @@ async def main():
                 await list_rubrics(c)
                 await list_quizzes(c)
 
-        async def make_assignment():
+        async def make_assignment(name):
             course = await anext(api.get_courses())
-            await api.create_assignment(
-                course, {"assignment": {"name": "test"}}
+            obj = await api.create_assignment(
+                course, assignment={"name": name, "published": True}
             )
+            print(json.dumps(obj.get_data(), indent=2))
 
-        # await make_assignment()
+        # for i in range(20):
+        #     await make_assignment(f"aa{i}")
         await list_courses()
 
 
