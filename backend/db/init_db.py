@@ -34,7 +34,7 @@ def create_tables(destroy_existing_tables=False):
     print('Creating tables...')
     cur.execute('''
     CREATE TYPE change_type AS ENUM ('Deletion', 'Addition', 'Modification');
-    CREATE TYPE item_types AS ENUM ('Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections');
+    CREATE TYPE item_types AS ENUM ('Course', 'Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections');
     CREATE TYPE user_role AS ENUM ('TA', 'Teacher');
 
     CREATE TABLE IF NOT EXISTS courses (
@@ -58,7 +58,6 @@ def create_tables(destroy_existing_tables=False):
 
     CREATE TABLE IF NOT EXISTS changes (
         id SERIAL PRIMARY KEY,
-        item_id INT NOT NULL,
         course_id INT REFERENCES courses(id),
         change_type change_type NOT NULL,
         timestamp TIMESTAMP NOT NULL,
