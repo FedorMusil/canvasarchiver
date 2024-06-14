@@ -1,4 +1,12 @@
 import Annotations from '../components/Annotations';
+import {
+    addWeeks,
+    differenceInWeeks,
+    format,
+    max,
+    min,
+    subWeeks,
+} from 'date-fns';
 import { Button } from '../components/ui/button';
 import {
     Card,
@@ -9,6 +17,10 @@ import {
     CardTitle,
 } from '@/src/components/ui/card';
 import { Input } from '../components/ui/input';
+import {
+    NameType,
+    ValueType,
+} from 'recharts/types/component/DefaultTooltipContent';
 import { postAnnotation } from '../api/annotation';
 import {
     ResizableHandle,
@@ -24,8 +36,19 @@ import {
 import { useGlobalContext } from '../stores/GlobalStore/useGlobalStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getChangesByMaterial, ItemTypes, type Change } from '../api/change';
-import { useEffect, useState, type FC } from 'react';
+import { useTheme } from 'next-themes';
+import {
+    Legend,
+    ResponsiveContainer,
+    Scatter,
+    ScatterChart,
+    Tooltip as RechartsTooltip,
+    XAxis,
+    YAxis,
+    type TooltipProps,
+} from 'recharts';
+import { ChangeType, getChangesByMaterial, ItemTypes, type Change } from '../api/change';
+import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 
 export type RouteParams = {
     'material-id': string;
@@ -99,8 +122,65 @@ const Material: FC = () => {
         }
     }, [changesData, changeId]);
 
+    const typeToColor = useCallback((type: string) => {
+        switch (type) {
+            case ChangeType.CREATE:
+                return '#6f4e7c';
+            case ChangeType.DELETE:
+                return '#0b84a5';
+            case ChangeType.UPDATE:
+                return '#f6c85f';
+            default:
+                return '#9dd866';
+        }
+    }, []);
+
+    const formatXAxis = useCallback((tickItem: number) => {
+        return format(new Date(tickItem), 'yyyy-MM-dd');
+    }, []);
+
+    const timeLineData = useMemo(() => {
+        if (!changes.length) return [];
+
+        return changes.map((change) => ({
+            date: new Date(change.change_date).getTime(),
+            fill: typeToColor(change.change_type),
+            height: 2.5,
+        }));
+    }, [changes, typeToColor]);
+
+    const { tickCount, earliestDate, latestDate } = useMemo(() => {
+        if (!changes.length) return { tickCount: 0, earliestDate: 0, latestDate: 0 };
+
+        // The earliestDate and latestDate are buffered such that the first and last ticks are not on the edge of the chart.
+        const timestamps = changes.map((change) => new Date(change.change_date));
+        const earliestDate = subWeeks(new Date(min(timestamps)), 1).getTime();
+        const latestDate = addWeeks(new Date(max(timestamps)), 1).getTime();
+        const tickCount = differenceInWeeks(latestDate, earliestDate);
+
+        return { tickCount, earliestDate, latestDate };
+    }, [changes]);
+
+    const customTooltip = useCallback(({ active, payload }: TooltipProps<ValueType, NameType>) => {
+        if (!active || !payload) return null;
+
+        const date = new Date(payload[0].payload.date);
+        const formattedDate = format(date, 'yyyy-MM-dd');
+
+        return (
+            <div className='z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2'>
+                <p className='text-sm'>Date: {formattedDate}</p>
+            </div>
+        );
+    }, []);
+
+    const { theme } = useTheme();
+
     if (isLoading) return <p>Loading...</p>;
     if (isError) return <p>Error...</p>;
+
+    const cardBgColor = theme === 'light' ? 'hsl(0 0% 100%)' : 'hsl(24 9.8% 10%)';
+    const textColor = theme === 'light' ? 'black' : 'white';
 
     // TODO: Change with actual difference.
     const diffBeforeHTML = `
@@ -109,11 +189,11 @@ const Material: FC = () => {
             <head>
                 <style>
                     body {
-                        background-color: linen;
+                        background-color: ${cardBgColor};
                     }
 
                     h1 {
-                        color: maroon;
+                        color: ${textColor};
                     }
                 </style>
             </head>
@@ -129,11 +209,11 @@ const Material: FC = () => {
             <head>
                 <style>
                     body {
-                        background-color: ivory;
+                        background-color: ${cardBgColor};
                     }
 
                     h1 {
-                        color: maroon;
+                        color: ${textColor};
                     }
                 </style>
             </head>
@@ -230,7 +310,29 @@ const Material: FC = () => {
                     </ResizablePanel>
                     <ResizableHandle withHandle />
                     <ResizablePanel defaultSize={25}>
-                        <div className='border h-full'>Block 3</div>
+                        <ResponsiveContainer width='100%' height='100%'>
+                            <ScatterChart data={timeLineData} margin={{ top: 50, right: 50, bottom: 50, left: 50 }}>
+                                <XAxis
+                                    dataKey='date'
+                                    domain={[earliestDate, latestDate]}
+                                    strokeWidth={1}
+                                    tickCount={tickCount}
+                                    tickFormatter={formatXAxis}
+                                    tickLine={{ stroke: theme === 'light' ? 'black' : 'white' }}
+                                    type='number'
+                                />
+                                <YAxis dataKey='height' domain={[0, 5]} hide type='number' />
+                                <RechartsTooltip content={customTooltip} />
+                                <Legend
+                                    payload={[
+                                        { value: 'Create', type: 'square', color: typeToColor(ChangeType.CREATE) },
+                                        { value: 'Delete', type: 'square', color: typeToColor(ChangeType.DELETE) },
+                                        { value: 'Update', type: 'square', color: typeToColor(ChangeType.UPDATE) },
+                                    ]}
+                                />
+                                <Scatter name='Changes' />
+                            </ScatterChart>
+                        </ResponsiveContainer>
                     </ResizablePanel>
                 </ResizablePanelGroup>
             </div>
