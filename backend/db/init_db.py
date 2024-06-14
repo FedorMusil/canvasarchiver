@@ -20,6 +20,7 @@ def create_tables(destroy_existing_tables=False):
 
         DROP TABLE IF EXISTS annotations;
         DROP TABLE IF EXISTS changes;
+        DROP TABLE IF EXISTS teacher_courses;
         DROP TABLE IF EXISTS users;
         DROP TABLE IF EXISTS courses;
 
