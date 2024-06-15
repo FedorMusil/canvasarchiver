@@ -3,39 +3,29 @@ from get_db_conn import get_db_conn
 # Warning Do not run this script unless you want to destroy the existing tables and recreate them.
 # This script is used to create the tables in the database. It will first drop the existing tables if destroy_existing_tables is True.
 
-def create_tables(destroy_existing_tables=False):
+async def create_tables(destroy_existing_tables=False):
     '''Creates the tables in the database. If destroy_existing_tables is True, it will first drop the existing tables.
        Warning: This will delete all data in the tables. Use with caution.'''
-    conn = get_db_conn()
-    cur = conn.cursor()
-
-    if destroy_existing_tables:
-
-        print ('Destroying existing tables...')
-        cur.execute('''
-                    
-
-        DROP TABLE IF EXISTS annotations CASCADE;
-        DROP TABLE IF EXISTS changes CASCADE;
-        DROP TABLE IF EXISTS users CASCADE;
+    conn = await get_db_conn()
+    await conn.execute('''
         DROP TABLE IF EXISTS teacher_courses CASCADE;
+        DROP TABLE IF EXISTS users CASCADE;
         DROP TABLE IF EXISTS courses CASCADE;
-                    
-        DROP TYPE IF EXISTS change_type CASCADE;
-        DROP TYPE IF EXISTS item_types CASCADE;
-        DROP TYPE IF EXISTS user_role CASCADE;
+        DROP TABLE IF EXISTS changes CASCADE;
+        DROP TABLE IF EXISTS annotations CASCADE;
         
-        ''')
-        conn.commit()
+                    
+        DROP TYPE IF EXISTS user_role CASCADE;
+        DROP TYPE IF EXISTS item_types CASCADE;
+        DROP TYPE IF EXISTS change_type CASCADE;
+    ''')
 
+    await conn.execute('''
+        CREATE TYPE change_type AS ENUM ('Deletion', 'Addition', 'Modification');
+        CREATE TYPE item_types AS ENUM ('Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections');
+        CREATE TYPE user_role AS ENUM ('TA', 'Teacher');
 
-    print ('Creating tables...')
-    cur.execute('''
-    CREATE TYPE change_type AS ENUM ('Deletion', 'Addition', 'Modification');
-    CREATE TYPE item_types AS ENUM ('Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections');
-    CREATE TYPE user_role AS ENUM ('TA', 'Teacher');
-
-    CREATE TABLE IF NOT EXISTS courses (
+ CREATE TABLE IF NOT EXISTS courses (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         course_code TEXT NOT NULL UNIQUE
@@ -74,10 +64,9 @@ def create_tables(destroy_existing_tables=False):
     );
     ''')
 
-    conn.commit()
-    cur.close()
-    conn.close()
+    await conn.close()
 
 if __name__ == '__main__':
-    create_tables(destroy_existing_tables=True)
+    import asyncio
+    asyncio.run(create_tables(True))
     print ('Tables created successfully.')
