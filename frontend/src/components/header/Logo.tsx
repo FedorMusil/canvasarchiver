@@ -32,7 +32,7 @@ const Logo: FC = () => {
                 fontWeight={400}
                 transform='translate(80.585 18.355)'
             >
-                <tspan y={0}>ARCHIVE</tspan>
+                <tspan y={0}>ARCHIVER</tspan>
             </text>
             <rect
                 width={76.643}

@@ -16,7 +16,7 @@ export type Annotation = {
 export const getAnnotationsByChange = async ({
     queryKey,
 }: {
-    queryKey: [string, string, string];
+    queryKey: [string, number, number];
 }): Promise<Annotation[]> => {
     const [, courseId, materialId] = queryKey;
     const response = await AxiosWrapper({

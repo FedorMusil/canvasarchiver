@@ -19,7 +19,7 @@ export enum ItemTypes {
 export type Change = {
     id: number;
     change_type: ChangeType;
-    change_date: Date;
+    change_date: string;
     item_type: ItemTypes;
     old_value: number; // Reference to the previous change
     new_value: { [key: string]: unknown };

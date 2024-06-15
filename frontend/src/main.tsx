@@ -1,8 +1,8 @@
+import App from './App.tsx';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.tsx';
-import './globals.css';
 import { allHandlers } from './mock/allHandlers.ts';
+import './globals.css';
 
 async function enableMocking() {
     if (import.meta.env.MODE !== 'mock' || typeof window === 'undefined') return;

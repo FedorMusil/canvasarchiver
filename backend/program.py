@@ -1,14 +1,28 @@
-from flask import Flask, request, send_file
-import subprocess
-import os
-import hmac
-import ssl
+from flask import Flask, request, send_file, redirect, render_template_string
+import subprocess, os, hmac, ssl, sys
 from hashlib import sha1
 from db.get_db_conn import get_db_conn
 from controllers.frontend_api import *
+import secrets
+import requests
+import jwt
+from jwt.algorithms import RSAAlgorithm
+from datetime import datetime, timedelta, timezone
+from dotenv import load_dotenv
+
+load_dotenv()
+
+CLIENT_ID = os.getenv('CLIENT_ID')
+conn = None
+
+
+# Checks Command-line parameter for true for DB connection
+if len(sys.argv) > 1 and sys.argv[1].lower() == 'true':
+    conn = get_db_conn()
+
 
 app = Flask(__name__, static_folder='../frontend/dist', static_url_path='')
-conn = get_db_conn()
+
 # Run the server with `python program.py` and visit the routes in your browser.
 
 
@@ -156,11 +170,111 @@ def deploy():
 def canvas():
     return '', 200
 
+# Use a dictionary to store state and nonce with an expiration time
+# Possibly change this in the future??
+state_nonce_store = {}
+
+def clean_expired_state_nonce():
+    current_time = datetime.now(timezone.utc)
+    expired_keys = [state for state, details in state_nonce_store.items() if details['expiry'] < current_time]
+    for key in expired_keys:
+        del state_nonce_store[key]
 
 @app.route('/initiation', methods=['POST'])
-def initiation():
-    # Serve the React app
-    return send_file(os.path.join(app.static_folder, 'index.html'))
+def handle_initiation_post():
+    clean_expired_state_nonce()
+
+    if request.content_type == 'application/x-www-form-urlencoded':
+        data = request.form
+    else:
+        data = request.json
+
+    iss = data.get('iss')
+    login_hint = data.get('login_hint')
+    client_id = data.get('client_id')
+    redirect_uri = data.get('target_link_uri')
+    message_hint = data.get('lti_message_hint')
+    state = secrets.token_urlsafe(16)
+    nonce = secrets.token_urlsafe(16)
+
+    # Store nonce securely with expiration time
+    state_nonce_store[state] = {'nonce': nonce, 'expiry': datetime.now(timezone.utc) + timedelta(minutes=10)}
+
+
+    if not all([iss, login_hint, client_id, redirect_uri]):
+        return jsonify({'error': 'Missing required LTI parameters'}), 400
+
+    # Construct the OIDC Authentication Request URL
+    oidc_auth_endpoint = "https://sso.test.canvaslms.com/api/lti/authorize_redirect"
+    auth_request_params = {
+        'scope': 'openid',
+        'response_type': 'id_token',
+        'client_id': client_id,
+        'redirect_uri': 'https://localhost:3000/redirect',
+        'lti_message_hint': message_hint,
+        'login_hint': login_hint,
+        'state': state,
+        'response_mode': 'form_post',
+        'nonce': nonce,
+        'prompt': 'none'
+    }
+
+    auth_request_url = f"{oidc_auth_endpoint}?{'&'.join([f'{key}={value}' for key, value in auth_request_params.items()])}"
+
+    return redirect(auth_request_url)
+
+@app.route('/redirect', methods=['POST'])
+def handle_redirect():
+    clean_expired_state_nonce()
+
+    data = request.form
+    id_token = data.get('id_token')
+    state = data.get('state')
+    client_id = CLIENT_ID
+
+    if not id_token or not state:
+        return jsonify({'error': 'Missing id_token or state'}), 400
+
+    # Verify the state parameter
+    if state not in state_nonce_store:
+        return jsonify({'error': 'Invalid state parameter'}), 400
+    nonce = state_nonce_store.pop(state)['nonce']
+
+    # Fetch Canvas' public keys
+    jwks_url = "https://sso.test.canvaslms.com/api/lti/security/jwks"
+    jwks = requests.get(jwks_url).json()
+
+    # Validate the JWT
+    try:
+        header = jwt.get_unverified_header(id_token)
+        key = next(key for key in jwks['keys'] if key['kid'] == header['kid'])
+        rsa_key = RSAAlgorithm.from_jwk(key)
+        payload = jwt.decode(id_token, rsa_key, algorithms=['RS256'], audience=client_id, nonce=nonce)
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Expired JWT token'}), 400
+    except Exception as e:
+        print(f"JWT validation error: {e}")
+        return jsonify({'error': 'Invalid JWT'}), 400
+
+    # Extract user_id and course_id from payload
+    user_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/lti1p1', {}).get('user_id')
+    course_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/custom', {}).get('courseid')
+
+    # Create a response to set the user_id and course_id in cookies
+    response = redirect('/')
+    response.set_cookie('user_id', user_id, httponly=True, secure=True)
+    response.set_cookie('course_id', course_id, httponly=True, secure=True)
+
+    return response
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_file(os.path.join(app.static_folder, path))
+    else:
+        return render_template_string(open(os.path.join(app.static_folder, 'index.html')).read())
+
 
 
 if __name__ == '__main__':
