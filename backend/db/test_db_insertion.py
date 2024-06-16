@@ -1,6 +1,6 @@
 import asynctest
 import json
-from db.get_db_conn import get_db_conn
+from get_db_conn import get_db_conn
 
 
 class TestDatabaseInsertion(asynctest.TestCase):
