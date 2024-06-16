@@ -32,7 +32,7 @@ async def create_tables(destroy_existing_tables=False):
     print('Creating tables...')
     await conn.execute('''
     CREATE TYPE change_type AS ENUM ('Deletion', 'Addition', 'Modification');
-    CREATE TYPE item_types AS ENUM ('Course', 'Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections');
+    CREATE TYPE item_types AS ENUM ('Course', 'Assignment', 'Page', 'File', 'Quiz', 'Module', 'Section');
     CREATE TYPE user_role AS ENUM ('TA', 'Teacher');
 
     CREATE TABLE IF NOT EXISTS courses (
