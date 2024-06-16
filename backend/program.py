@@ -27,6 +27,7 @@ if len(sys.argv) > 1 and sys.argv[1].lower() == 'true':
 
 app = Flask(__name__, static_folder='../frontend/dist', static_url_path='')
 
+
 # Run the server with `python program.py` and visit the routes in your browser.
 
 

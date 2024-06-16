@@ -1,6 +1,6 @@
 import Home from '@/src/pages/Home';
-import { render, waitFor, type RenderResult } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
+import { render, waitFor, type RenderResult } from '@testing-library/react';
 
 describe('Home', () => {
     let renderResult: RenderResult;
