@@ -1,12 +1,12 @@
+import TooltipWrapper from '../TooltipWrapper';
 import { Button } from '@/src/components/ui/button';
 import { ItemTypes } from '@/src/api/change';
 import { PanelBottomClose, PanelBottomOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
 import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
 import { useShallow } from 'zustand/react/shallow';
-import { memo, useState, type FC, type ReactElement, type ReactNode, type SVGProps } from 'react';
+import { useState, type FC, type ReactElement, type SVGProps } from 'react';
 
 const CompareHeader: FC = (): ReactElement => {
     const materialId = useCompareIdContext(useShallow((state) => state.materialId));
@@ -86,25 +86,6 @@ const ViewModeTabs: FC = (): ReactElement => {
     );
 };
 ViewModeTabs.displayName = 'ViewModeTabs';
-
-type TooltipWrapperProps = {
-    children: ReactNode;
-    tooltip: string;
-};
-
-const TooltipWrapper: FC<TooltipWrapperProps> = memo(({ children, tooltip }): ReactElement => {
-    return (
-        <TooltipProvider>
-            <Tooltip>
-                <TooltipTrigger asChild>{children}</TooltipTrigger>
-                <TooltipContent side='bottom'>
-                    <p>{tooltip}</p>
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
-    );
-});
-TooltipWrapper.displayName = 'TooltipWrapper';
 
 // All icons below are created by react-md-editor (https://github.com/uiwjs/react-md-editor)
 // -- A simple markdown editor with preview, implemented with React.js and TypeScript. --

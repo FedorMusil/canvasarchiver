@@ -8,7 +8,7 @@ export enum UserRole {
 }
 
 export type Self = {
-    id: number;
+    id: string;
     email: string;
     name: string;
     role: UserRole;

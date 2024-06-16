@@ -18,11 +18,15 @@ export enum ItemTypes {
 
 export type Change = {
     id: number;
+    old_id: number;
+
     change_type: ChangeType;
-    change_date: string;
     item_type: ItemTypes;
-    old_value: number; // Reference to the previous change
-    new_value: { [key: string]: unknown };
+
+    change_date: string;
+
+    old_contents: string;
+    new_contents: string;
 };
 
 export const getChangesByMaterial = async ({ queryKey }: { queryKey: [string, string] }): Promise<Change[]> => {
@@ -40,6 +44,17 @@ export const getRecentChanges = async ({ queryKey }: { queryKey: [string, string
     const response = await AxiosWrapper({
         method: 'GET',
         url: `/changes/recent/${courseCode}`,
+    });
+
+    return response;
+};
+
+export type ChangeChangeContents = { id: number; oldContent: string; newContent: string };
+export const changeChangeContents = async (changeContents: ChangeChangeContents): Promise<Change> => {
+    const response = await AxiosWrapper({
+        method: 'PUT',
+        url: '/changes',
+        data: changeContents,
     });
 
     return response;

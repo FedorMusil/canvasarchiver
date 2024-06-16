@@ -1,13 +1,39 @@
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/src/components/ui/alert-dialog';
+import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+} from '@/src/components/ui/context-menu';
 import { formatDistanceToNow } from 'date-fns';
-import { GitCommitVertical } from 'lucide-react';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
-import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
-import { useQuery } from '@tanstack/react-query';
+import {
+    useCompareIdContext,
+} from '@/src/stores/CompareIdStore/useCompareIdStore';
+import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useShallow } from 'zustand/react/shallow';
-import { getAnnotationsByChange, type Annotation } from '@/src/api/annotation';
+import { deleteAnnotation, getAnnotationsByChange, type Annotation } from '@/src/api/annotation';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
 
 const Annotations: FC = memo(() => {
+    const { userCode } = useGlobalContext(
+        useShallow((state) => ({
+            userCode: state.userCode,
+        }))
+    );
+
     const { changeId, materialId } = useCompareIdContext(
         useShallow((state) => ({
             changeId: state.changeId,
@@ -28,6 +54,13 @@ const Annotations: FC = memo(() => {
     });
 
     const annotationData = useSortedAnnotations(data);
+    useTextHighlighter(data);
+
+    const queryClient = useQueryClient();
+    const { mutate, status } = useMutation({ mutationFn: deleteAnnotation });
+    useEffect(() => {
+        if (status === 'success') queryClient.invalidateQueries({ queryKey: ['annotations', materialId, changeId] });
+    }, [status, queryClient, materialId, changeId]);
 
     if (isLoading) return <p>Loading...</p>;
     if (isError) return <p>Error...</p>;
@@ -51,32 +84,95 @@ const Annotations: FC = memo(() => {
                 );
 
                 return (
-                    <button
-                        className={`text-start hover:bg-muted w-full ${replyTo?.annotationId === annotation.id ? 'bg-muted' : ''}`}
-                        key={annotation.id}
-                        onClick={() => {
-                            if (replyTo?.annotationId === annotation.id) setReplyTo(null);
-                            else {
-                                setReplyTo({
-                                    annotationId: annotation.id,
-                                    userId: annotation.user.id,
-                                    name: annotation.user.name,
-                                });
-                            }
-                        }}
-                    >
-                        {annotation.parentId ?
-                            <div className='flex gap-2'>
-                                <GitCommitVertical
-                                    className='w-6 h-6 flex-shrink-0'
-                                    style={{
-                                        marginLeft: `${annotation.depth - 1}rem`,
+                    <AlertDialog key={annotation.id}>
+                        <ContextMenu>
+                            <ContextMenuTrigger asChild className='w-full'>
+                                <button
+                                    className={`text-start hover:bg-muted w-full ${replyTo?.annotationId === annotation.id ? 'bg-muted' : ''}`}
+                                    onClick={() => {
+                                        if (replyTo?.annotationId === annotation.id) setReplyTo(null);
+                                        else {
+                                            setReplyTo({
+                                                annotationId: annotation.id,
+                                                userId: annotation.user.id,
+                                                name: annotation.user.name,
+                                            });
+                                        }
                                     }}
-                                />
-                                {comment}
-                            </div>
-                        :   comment}
-                    </button>
+                                    onMouseEnter={() => {
+                                        if (annotation.selectionId) {
+                                            const element = document.getElementById(annotation.selectionId);
+                                            if (element) element.style.backgroundColor = '#fcbc03';
+                                        }
+                                    }}
+                                    onMouseLeave={() => {
+                                        if (annotation.selectionId && replyTo?.annotationId !== annotation.id) {
+                                            const element = document.getElementById(annotation.selectionId);
+                                            if (element) element.style.backgroundColor = '#fef2cd';
+                                        }
+                                    }}
+                                >
+                                    {annotation.parentId ?
+                                        <div className='flex gap-2'>
+                                            <GitCommitVertical
+                                                className='w-6 h-6 flex-shrink-0'
+                                                style={{
+                                                    marginLeft: `${annotation.depth - 1}rem`,
+                                                }}
+                                            />
+                                            {comment}
+                                        </div>
+                                    :   comment}
+                                </button>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent>
+                                <ContextMenuItem
+                                    className='grid grid-cols-4'
+                                    onClick={() => {
+                                        if (replyTo?.annotationId === annotation.id) setReplyTo(null);
+                                        else {
+                                            setReplyTo({
+                                                annotationId: annotation.id,
+                                                userId: annotation.user.id,
+                                                name: annotation.user.name,
+                                            });
+                                        }
+                                    }}
+                                >
+                                    {replyTo?.annotationId === annotation.id ?
+                                        <Ban className='w-4 h-4 col-span-1' />
+                                    :   <Reply className='w-4 h-4 col-span-1' />}
+                                    <span className='col-span-3'>
+                                        {replyTo?.annotationId === annotation.id ? 'Cancel Reply' : 'Reply'}
+                                    </span>
+                                </ContextMenuItem>
+                                {/* Only show delete option if the user is the author of the annotation */}
+                                {annotation.user.id === userCode && (
+                                    <AlertDialogTrigger asChild>
+                                        <ContextMenuItem className='grid grid-cols-4'>
+                                            <Trash2 className='w-4 h-4 col-span-1' />
+                                            <span className='col-span-3'>Delete</span>
+                                        </ContextMenuItem>
+                                    </AlertDialogTrigger>
+                                )}
+                            </ContextMenuContent>
+                        </ContextMenu>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete the annotation and it's
+                                    replies.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => mutate({ annotationId: annotation.id })}>
+                                    Delete
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 );
             })}
         </div>
@@ -84,6 +180,22 @@ const Annotations: FC = memo(() => {
 });
 Annotations.displayName = 'Annotations';
 export default Annotations;
+
+function useTextHighlighter(data: Annotation[] | undefined): void {
+    useEffect(() => {
+        if (!data) return;
+
+        data.forEach((annotation) => {
+            const selectionId = annotation.selectionId;
+            if (!selectionId) return;
+
+            const element = document.getElementById(selectionId);
+            if (!element) return;
+
+            element.style.backgroundColor = '#fef2cd';
+        });
+    }, [data]);
+}
 
 type AnnotationData = Annotation & { depth: number };
 function useSortedAnnotations(data: Annotation[] | undefined): AnnotationData[] {

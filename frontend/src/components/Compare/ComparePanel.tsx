@@ -1,62 +1,38 @@
 import AnnotationsFrame from '../Annotations/AnnotationsFrame';
-import type { FC, ReactElement } from 'react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/src/components/ui/resizable';
+import { useAnnotationStore } from '@/src/stores/AnnotationStore';
+import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
 import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useTheme } from 'next-themes';
+import { v4 as uuidv4 } from 'uuid';
+import { memo, useCallback, useEffect, useRef, type FC, type ReactElement } from 'react';
 
-const ComparePanel: FC = (): ReactElement => {
-    const { theme } = useTheme();
-    const cardBgColor = theme === 'light' ? 'hsl(0 0% 100%)' : 'hsl(24 9.8% 10%)';
-    const textColor = theme === 'light' ? 'black' : 'white';
-
-    // TODO: Change with actual difference.
-    const diffBeforeHTML = `
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <style>
-                    body {
-                        background-color: ${cardBgColor};
-                    }
-
-                    h1 {
-                        color: ${textColor};
-                    }
-                </style>
-            </head>
-            <body>
-                <h1>This is a placeholder for the before view.</h1>
-            </body>
-        </html>
-    `;
-
-    const diffAfterHTML = `
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <style>
-                    body {
-                        background-color: ${cardBgColor};
-                    }
-
-                    h1 {
-                        color: ${textColor};
-                    }
-                </style>
-            </head>
-            <body>
-                <h1>This is a placeholder for the after view.</h1>
-            </body>
-        </html>
-    `;
-
+const ComparePanel: FC = memo((): ReactElement => {
     const { openAnnotations, viewMode } = useCompareWindowStore(
         useShallow((state) => ({
             openAnnotations: state.openAnnotations,
             viewMode: state.viewMode,
         }))
     );
+
+    const { change } = useCompareIdContext(useShallow((state) => ({ change: state.change })));
+
+    const { handleMouseUp, handleMouseDown } = useHighlight();
+
+    const oldContentsRef = useRef<HTMLDivElement>(null);
+    const newContentsRef = useRef<HTMLDivElement>(null);
+
+    const { setOldContentsRef, setNewContentsRef } = useAnnotationStore(
+        useShallow((state) => ({
+            setOldContentsRef: state.setOldContentsRef,
+            setNewContentsRef: state.setNewContentsRef,
+        }))
+    );
+
+    useEffect(() => {
+        setOldContentsRef(oldContentsRef);
+        setNewContentsRef(newContentsRef);
+    }, [setOldContentsRef, setNewContentsRef]);
 
     return (
         <ResizablePanelGroup autoSaveId='compare-annotation' className='w-full flex-grow' direction='horizontal'>
@@ -68,13 +44,25 @@ const ComparePanel: FC = (): ReactElement => {
                 >
                     {viewMode !== 'after' && (
                         <ResizablePanel defaultSize={50} id='panel11' order={1}>
-                            <iframe className='w-full h-full' srcDoc={diffBeforeHTML} title='before' />
+                            <div
+                                className='h-full'
+                                dangerouslySetInnerHTML={{ __html: change.old_contents }}
+                                onMouseUp={handleMouseUp}
+                                onMouseDown={handleMouseDown}
+                                ref={oldContentsRef}
+                            />
                         </ResizablePanel>
                     )}
                     {viewMode !== 'after' && viewMode !== 'before' && <ResizableHandle withHandle />}
                     {viewMode !== 'before' && (
                         <ResizablePanel defaultSize={50} id='panel12' order={2}>
-                            <iframe className='w-full h-full' srcDoc={diffAfterHTML} title='after' />
+                            <div
+                                className='h-full'
+                                dangerouslySetInnerHTML={{ __html: change.new_contents }}
+                                onMouseUp={handleMouseUp}
+                                onMouseDown={handleMouseDown}
+                                ref={newContentsRef}
+                            />
                         </ResizablePanel>
                     )}
                 </ResizablePanelGroup>
@@ -89,6 +77,107 @@ const ComparePanel: FC = (): ReactElement => {
             )}
         </ResizablePanelGroup>
     );
-};
+});
 ComparePanel.displayName = 'ComparePanel';
 export default ComparePanel;
+
+/**
+ * Custom hook to handle text highlighting on mouse events.
+ * @returns - An object containing handlers for mouse up and mouse down events.
+ */
+function useHighlight(): {
+    handleMouseUp: () => void;
+    handleMouseDown: () => void;
+} {
+    const { selectionId, setSelectionId } = useAnnotationStore((state) => ({
+        selectionId: state.selectionId,
+        setSelectionId: state.setSelectionId,
+    }));
+
+    /**
+     * Callback function to highlight a given range of text.
+     * @param range - The range of text to highlight.
+     */
+    const highLight = useCallback((range: Range) => {
+        // Extract the start and end nodes from the range
+        const startNode = range.startContainer;
+        const endNode = range.endContainer;
+
+        // If either node is not present, exit the function.
+        if (!startNode || !endNode) return;
+
+        // Create a new range to highlight.
+        const rangeHighlight = document.createRange();
+        rangeHighlight.setStart(startNode, range.startOffset);
+        rangeHighlight.setEnd(endNode, range.endOffset);
+
+        // Create a new span element to apply the highlight.
+        const highlight = document.createElement('span');
+        highlight.style.backgroundColor = '#fcbc03';
+
+        // Generate a unique ID for the highlight span
+        const highlightId = uuidv4();
+        highlight.id = highlightId;
+
+        // Extract the contents of the range into the highlight span.
+        highlight.appendChild(rangeHighlight.extractContents());
+
+        // Insert the highlight span into the range.
+        rangeHighlight.insertNode(highlight);
+
+        return highlightId;
+    }, []);
+
+    /**
+     * Callback function to handle the mouse up event.
+     * This function gets the current selection and applies the highlight.
+     */
+    const handleMouseUp = useCallback(() => {
+        const selection = window.getSelection();
+
+        // If there is a selection and it is not empty, apply the highlight.
+        if (selection && selection.toString().length > 0) {
+            const range = selection.getRangeAt(0);
+
+            const highlightId = highLight(range);
+            if (highlightId) setSelectionId(highlightId);
+        }
+    }, [highLight, setSelectionId]);
+
+    /**
+     * Callback function to remove the highlight from all temporal highlighted elements.
+     * A temporal highlight is a highlight that is not saved in the database.
+     */
+    const removeHighlight = useCallback(() => {
+        if (!selectionId) return;
+
+        // Remove all dom elements with the id 'temp-highlight'.
+        const highlight = document.getElementById(selectionId);
+        if (!highlight) return;
+
+        const parent = highlight.parentElement;
+        if (parent) {
+            // Create a DocumentFragment to hold the children of the highlight
+            const fragment = document.createDocumentFragment();
+            while (highlight.firstChild) {
+                // Move each child of highlight to the fragment
+                fragment.appendChild(highlight.firstChild);
+            }
+            // Replace the highlight with its children
+            parent.replaceChild(fragment, highlight);
+            // Normalize the parent to merge adjacent text nodes
+            parent.normalize();
+        }
+        setSelectionId(null);
+    }, [selectionId, setSelectionId]);
+
+    /**
+     * Callback function to handle the mouse down event.
+     * This function removes the highlight and clears the current selection.
+     */
+    const handleMouseDown = useCallback(() => {
+        removeHighlight();
+    }, [removeHighlight]);
+
+    return { handleMouseUp, handleMouseDown };
+}

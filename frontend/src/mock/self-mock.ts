@@ -10,7 +10,7 @@ export const selfHandlers: HttpHandler[] = [
 
 function createRandomUser(): Self {
     return {
-        id: faker.number.int(),
+        id: faker.string.uuid(),
         email: faker.internet.email(),
         name: faker.person.firstName(),
         role: faker.helpers.arrayElement(Object.values(UserRole)),
@@ -18,6 +18,15 @@ function createRandomUser(): Self {
     };
 }
 
-export const exampleUsers: Self[] = faker.helpers.multiple(createRandomUser, {
-    count: 5,
-});
+export const exampleUsers: Self[] = [
+    ...faker.helpers.multiple(createRandomUser, {
+        count: 5,
+    }),
+    {
+        id: '1234567890',
+        email: faker.internet.email(),
+        name: faker.person.firstName(),
+        role: UserRole.TEACHER,
+        courseId: 0,
+    },
+];

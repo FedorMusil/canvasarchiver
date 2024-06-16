@@ -48,7 +48,11 @@ const Material: FC = (): ReactElement => {
     if (isError) return <div>Error</div>;
 
     return (
-        <CompareIdStoreProvider changeId={selectedChange} materialId={+materialId}>
+        <CompareIdStoreProvider
+            changeId={selectedChange}
+            materialId={+materialId}
+            change={sortedChanges.filter((change) => change.id === selectedChange)[0]}
+        >
             <div className='w-full h-full flex flex-col'>
                 <CompareHeader />
                 <Separator orientation='horizontal' />

@@ -1,8 +1,8 @@
+import { exampleChanges } from './change-mock';
+import { exampleUsers } from './self-mock';
 import { faker } from '@faker-js/faker';
 import { http, HttpHandler, HttpResponse } from 'msw';
 import { Annotation, type PostAnnotation } from '../api/annotation';
-import { exampleChanges } from './change-mock';
-import { exampleUsers } from './self-mock';
 
 export const annotationHandlers: HttpHandler[] = [
     http.get(`${import.meta.env.VITE_BACKEND_URL}/annotations/:courseId/:changeId`, ({ params }) => {
@@ -18,12 +18,24 @@ export const annotationHandlers: HttpHandler[] = [
         const newAnnotation: Annotation = {
             ...annotation,
             id,
-            user: faker.helpers.arrayElement(exampleUsers),
+            user: exampleUsers.find((user) => user.id === annotation.userId)!,
             timestamp: new Date(),
         };
 
         exampleAnnotations.push(newAnnotation);
         return HttpResponse.json<Annotation>(newAnnotation);
+    }),
+
+    http.delete(`${import.meta.env.VITE_BACKEND_URL}/annotations/:annotationId`, ({ params }) => {
+        const annotationId = params.annotationId;
+
+        // Delete both the annotation and its children
+        const annotationsToBeDeleted = exampleAnnotations.filter(
+            (annotation) => annotation.id !== +annotationId && annotation.parentId !== +annotationId
+        );
+
+        exampleAnnotations.splice(0, exampleAnnotations.length, ...annotationsToBeDeleted);
+        return new HttpResponse();
     }),
 ];
 
@@ -43,10 +55,8 @@ exampleChanges.map((change) => {
             annotation: faker.lorem.sentence(),
             parentId: null,
             changeId: change.id,
-            selectedText: null,
-            selectionStart: null,
-            selectionEnd: null,
             timestamp: faker.date.recent(),
+            selectionId: null,
         };
 
         parentId = id;
@@ -60,10 +70,8 @@ exampleChanges.map((change) => {
             annotation: faker.lorem.sentence(),
             parentId,
             changeId: change.id,
-            selectedText: null,
-            selectionStart: null,
-            selectionEnd: null,
             timestamp: faker.date.recent(),
+            selectionId: null,
         };
 
         annotationsForChange.push(annotation);

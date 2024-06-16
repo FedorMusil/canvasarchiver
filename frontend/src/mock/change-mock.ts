@@ -1,7 +1,7 @@
-import { faker } from '@faker-js/faker';
 import { addWeeks, setDay, startOfWeek } from 'date-fns';
+import { faker } from '@faker-js/faker';
 import { http, HttpHandler, HttpResponse } from 'msw';
-import { Change, ChangeType, ItemTypes } from '../api/change';
+import { Change, ChangeType, ItemTypes, type ChangeChangeContents } from '../api/change';
 
 export const changeHandlers: HttpHandler[] = [
     http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/recent/*`, () => {
@@ -33,6 +33,15 @@ export const changeHandlers: HttpHandler[] = [
 
         return HttpResponse.json<Change[]>(materialChanges);
     }),
+
+    http.put(`${import.meta.env.VITE_BACKEND_URL}/changes`, async ({ request }) => {
+        const change = (await request.json()) as ChangeChangeContents;
+        const index = exampleChanges.findIndex((c) => c.id === change.id);
+        exampleChanges[index].old_contents = change.oldContent;
+        exampleChanges[index].new_contents = change.newContent;
+
+        return HttpResponse.json<Change>(exampleChanges[index]);
+    }),
 ];
 
 const generateChange = (old_value: number): Change => {
@@ -42,17 +51,21 @@ const generateChange = (old_value: number): Change => {
 
     return {
         id: faker.number.int(),
+        old_id: old_value,
+
         change_type: faker.helpers.arrayElement(Object.values(ChangeType)),
-        change_date: randomDate,
         item_type: faker.helpers.arrayElement(Object.values(ItemTypes)),
-        old_value: old_value,
-        new_value: { [faker.lorem.word()]: faker.lorem.sentence() },
+
+        change_date: randomDate.toString(),
+
+        old_contents: `<div class='bg-card text-card-foreground w-full h-full flex justify-center items-center'><p class='text-2xl font-bold'>This is a placeholder for the before view.</p></div>`,
+        new_contents: `<div class='bg-card text-card-foreground w-full h-full flex justify-center items-center'><p class='text-2xl font-bold'>This is a placeholder for the after view.</p></div>`,
     };
 };
 
-let old_value = faker.number.int();
+let old_id = faker.number.int();
 export const exampleChanges: Change[] = Array.from({ length: 50 }, () => {
-    const change = generateChange(old_value);
-    old_value = change.id;
+    const change = generateChange(old_id);
+    old_id = change.id;
     return change;
 });

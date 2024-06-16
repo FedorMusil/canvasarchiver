@@ -1,10 +1,20 @@
+import TooltipWrapper from '../TooltipWrapper';
 import { Button } from '@/src/components/ui/button';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormMessage } from '@/src/components/ui/form';
+import { changeChangeContents } from '@/src/api/change';
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormMessage,
+} from '@/src/components/ui/form';
+import { Highlighter, MessageSquareReply } from 'lucide-react';
 import { Input } from '@/src/components/ui/input';
 import { postAnnotation } from '@/src/api/annotation';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
-import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
+import {
+    useCompareIdContext,
+} from '@/src/stores/CompareIdStore/useCompareIdStore';
 import { useForm } from 'react-hook-form';
 import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -43,38 +53,66 @@ const AddAnnotation: FC = (): ReactElement => {
         }))
     );
 
-    const { replyTo, setReplyTo } = useAnnotationStore(
+    const { replyTo, setReplyTo, selectionId, setSelectionId, oldContentsRef, newContentsRef } = useAnnotationStore(
         useShallow((state) => ({
             replyTo: state.replyTo,
             setReplyTo: state.setReplyTo,
+            selectionId: state.selectionId,
+            setSelectionId: state.setSelectionId,
+            oldContentsRef: state.oldContentsRef,
+            newContentsRef: state.newContentsRef,
         }))
     );
 
-    const { mutate, status } = useMutation({
+    const { mutate: annotationMutate, status } = useMutation({
         mutationFn: postAnnotation,
+    });
+
+    const { mutate: changeMutate } = useMutation({
+        mutationFn: changeChangeContents,
     });
 
     const queryClient = useQueryClient();
     useEffect(() => {
-        if (status === 'success') queryClient.invalidateQueries({ queryKey: ['annotations', materialId, changeId] });
-    }, [status, queryClient, materialId, changeId]);
+        if (status === 'success') {
+            queryClient.invalidateQueries({ queryKey: ['annotations', materialId, changeId] });
+            queryClient.invalidateQueries({ queryKey: ['changes', materialId] });
+            form.reset();
+        }
+    }, [status, queryClient, materialId, changeId, form]);
 
-    const onSubmit = useCallback(
-        (data: AnnotationInput) => {
-            mutate({
-                annotation: {
-                    annotation: data.annotation,
-                    parentId: replyTo?.annotationId || null,
-                    changeId,
-                    userId: userCode,
-                    selectedText: null,
-                    selectionStart: null,
-                    selectionEnd: null,
-                },
+    const onSubmit = (data: AnnotationInput) => {
+        if (selectionId) {
+            const element = document.getElementById(selectionId);
+            if (element) element.style.backgroundColor = '#fef2cd';
+
+            changeMutate({
+                id: changeId,
+                oldContent: oldContentsRef.current?.innerHTML || '',
+                newContent: newContentsRef.current?.innerHTML || '',
             });
-        },
-        [changeId, mutate, replyTo?.annotationId, userCode]
-    );
+
+            setSelectionId(null);
+        }
+
+        annotationMutate({
+            annotation: {
+                annotation: data.annotation,
+                parentId: replyTo?.annotationId || null,
+                changeId,
+                userId: userCode,
+                selectionId,
+            },
+        });
+    };
+
+    const removeHighlight = useCallback(() => {
+        if (selectionId) {
+            const element = document.getElementById(selectionId);
+            if (element) element.style.backgroundColor = '';
+            setSelectionId(null);
+        }
+    }, [selectionId, setSelectionId]);
 
     return (
         <Form {...form}>
@@ -83,32 +121,37 @@ const AddAnnotation: FC = (): ReactElement => {
                     control={form.control}
                     name='annotation'
                     render={({ field }) => (
-                        <FormItem className='w-full max-w-sm'>
-                            <FormControl>
-                                <Input className='' placeholder='Add a new annotation...' {...field} />
-                            </FormControl>
-                            {replyTo && (
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <FormDescription
-                                                className='hover:line-through w-fit'
-                                                onClick={() => setReplyTo(null)}
-                                            >
-                                                Replying to{' '}
-                                                {replyTo.userId === Number(userCode) ? 'yourself' : replyTo.name}
-                                            </FormDescription>
-                                        </TooltipTrigger>
-                                        <TooltipContent sideOffset={10}>
-                                            <p>
-                                                Click to cancel replying to{' '}
-                                                {replyTo.userId === Number(userCode) ? 'yourself' : replyTo.name}
-                                            </p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            )}
-                            <FormMessage />
+                        <FormItem className='w-full'>
+                            <div className='w-full flex items-center justify-end gap-2'>
+                                {replyTo && (
+                                    <TooltipWrapper
+                                        tooltip={`You are replying to ${replyTo.name}. Click to remove the reply status.`}
+                                    >
+                                        <MessageSquareReply
+                                            className='w-6 h-6 flex-shrink-0 hover:cursor-pointer'
+                                            onClick={() => setReplyTo(null)}
+                                        />
+                                    </TooltipWrapper>
+                                )}
+                                {selectionId && (
+                                    <TooltipWrapper
+                                        tooltip={`You're annotation will be linked to the selected text. Click to remove the link.`}
+                                    >
+                                        <Highlighter
+                                            className='w-6 h-6 !m-0 flex-shrink-0 hover:cursor-pointer'
+                                            onClick={() => removeHighlight()}
+                                        />
+                                    </TooltipWrapper>
+                                )}
+                                <FormControl>
+                                    <Input
+                                        className='!m-0 flex-grow max-w-xs'
+                                        placeholder='Add a new annotation...'
+                                        {...field}
+                                    />
+                                </FormControl>
+                            </div>
+                            <FormMessage className='w-fit ml-auto' />
                         </FormItem>
                     )}
                 />

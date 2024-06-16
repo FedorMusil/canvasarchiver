@@ -7,10 +7,8 @@ export type Annotation = {
     annotation: string;
     parentId: number | null;
     changeId: number;
-    selectedText: string | null;
-    selectionStart: number | null;
-    selectionEnd: number | null;
     timestamp: Date;
+    selectionId: string | null;
 };
 
 export const getAnnotationsByChange = async ({
@@ -36,4 +34,11 @@ export const postAnnotation = async ({ annotation }: { annotation: PostAnnotatio
     });
 
     return response;
+};
+
+export const deleteAnnotation = async ({ annotationId }: { annotationId: number }): Promise<void> => {
+    await AxiosWrapper({
+        method: 'DELETE',
+        url: `/annotations/${annotationId}`,
+    });
 };
