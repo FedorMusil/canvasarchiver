@@ -25,6 +25,8 @@
         --input: 240 5.9% 90%;
         --ring: 344 100% 37%;
         --radius: 0.5rem;
+        --highlight: rgb(254, 242, 205);
+        --highlight-selected: rgb(252, 188, 3);
     }
 
     .dark {
@@ -48,6 +50,8 @@
         --border: 240 3.7% 15.9%;
         --input: 240 3.7% 15.9%;
         --ring: 344 100% 37%;
+        --highlight: rgb(47, 38, 4);
+        --highlight-selected: rgb(240, 184, 15);
     }
 }
 

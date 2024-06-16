@@ -1,3 +1,5 @@
+import resolveConfig from 'tailwindcss/resolveConfig';
+import tailwindConfig from '@/tailwind.config';
 import TooltipWrapper from '../TooltipWrapper';
 import { Button } from '@/src/components/ui/button';
 import { changeChangeContents } from '@/src/api/change';
@@ -73,10 +75,14 @@ const AddAnnotation: FC = (): ReactElement => {
         }
     }, [status, queryClient, materialId, changeId, form]);
 
+    const fullConfig = resolveConfig(tailwindConfig);
     const onSubmit = (data: AnnotationInput) => {
         if (selectionId) {
             const element = document.getElementById(selectionId);
-            if (element) element.style.backgroundColor = '#fef2cd';
+            if (element) {
+                // @ts-expect-error This is a custom color that is defined in the tailwind config.
+                element.style.backgroundColor = fullConfig.theme.colors.highlight.DEFAULT;
+            }
 
             changeMutate({
                 id: changeId,

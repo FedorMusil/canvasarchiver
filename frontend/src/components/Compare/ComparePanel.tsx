@@ -1,4 +1,6 @@
 import AnnotationsFrame from '../Annotations/AnnotationsFrame';
+import resolveConfig from 'tailwindcss/resolveConfig';
+import tailwindConfig from '@/tailwind.config';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/src/components/ui/resizable';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
 import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
@@ -94,39 +96,46 @@ function useHighlight(): {
         setSelectionId: state.setSelectionId,
     }));
 
+    const fullConfig = resolveConfig(tailwindConfig);
+
     /**
      * Callback function to highlight a given range of text.
      * @param range - The range of text to highlight.
      */
-    const highLight = useCallback((range: Range) => {
-        // Extract the start and end nodes from the range
-        const startNode = range.startContainer;
-        const endNode = range.endContainer;
+    const highLight = useCallback(
+        (range: Range) => {
+            // Extract the start and end nodes from the range
+            const startNode = range.startContainer;
+            const endNode = range.endContainer;
 
-        // If either node is not present, exit the function.
-        if (!startNode || !endNode) return;
+            // If either node is not present, exit the function.
+            if (!startNode || !endNode) return;
 
-        // Create a new range to highlight.
-        const rangeHighlight = document.createRange();
-        rangeHighlight.setStart(startNode, range.startOffset);
-        rangeHighlight.setEnd(endNode, range.endOffset);
+            // Create a new range to highlight.
+            const rangeHighlight = document.createRange();
+            rangeHighlight.setStart(startNode, range.startOffset);
+            rangeHighlight.setEnd(endNode, range.endOffset);
 
-        // Create a new span element to apply the highlight.
-        const highlight = document.createElement('span');
-        highlight.style.backgroundColor = '#fcbc03';
+            // Create a new span element to apply the highlight.
+            const highlight = document.createElement('span');
+            // @ts-expect-error This is a custom color that is defined in the tailwind config.
+            highlight.style.backgroundColor = fullConfig.theme.colors.highlight.selected;
 
-        // Generate a unique ID for the highlight span
-        const highlightId = uuidv4();
-        highlight.id = highlightId;
+            // Generate a unique ID for the highlight span
+            const highlightId = uuidv4();
+            highlight.id = highlightId;
 
-        // Extract the contents of the range into the highlight span.
-        highlight.appendChild(rangeHighlight.extractContents());
+            // Extract the contents of the range into the highlight span.
+            highlight.appendChild(rangeHighlight.extractContents());
 
-        // Insert the highlight span into the range.
-        rangeHighlight.insertNode(highlight);
+            // Insert the highlight span into the range.
+            rangeHighlight.insertNode(highlight);
 
-        return highlightId;
-    }, []);
+            return highlightId;
+        },
+        // @ts-expect-error This is a custom color that is defined in the tailwind config.
+        [fullConfig.theme.colors.highlight.selected]
+    );
 
     /**
      * Callback function to handle the mouse up event.

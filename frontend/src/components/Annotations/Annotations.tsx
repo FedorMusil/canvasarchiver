@@ -1,3 +1,5 @@
+import resolveConfig from 'tailwindcss/resolveConfig';
+import tailwindConfig from '@/tailwind.config';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -76,6 +78,7 @@ const Annotations: FC = memo(() => {
                     </div>
                 );
 
+                const fullConfig = resolveConfig(tailwindConfig);
                 return (
                     <AlertDialog key={annotation.id}>
                         <ContextMenu>
@@ -95,13 +98,25 @@ const Annotations: FC = memo(() => {
                                     onMouseEnter={() => {
                                         if (annotation.selectionId) {
                                             const element = document.getElementById(annotation.selectionId);
-                                            if (element) element.style.backgroundColor = '#fcbc03';
+                                            if (element) {
+                                                // prettier-ignore
+                                                {
+                                                    // @ts-expect-error This is a custom color that is defined in the tailwind config.
+                                                    element.style.backgroundColor = fullConfig.theme.colors.highlight.selected;
+                                                }
+                                            }
                                         }
                                     }}
                                     onMouseLeave={() => {
                                         if (annotation.selectionId && replyTo?.annotationId !== annotation.id) {
                                             const element = document.getElementById(annotation.selectionId);
-                                            if (element) element.style.backgroundColor = '#fef2cd';
+                                            if (element) {
+                                                // prettier-ignore
+                                                {
+                                                    // @ts-expect-error This is a custom color that is defined in the tailwind config.
+                                                    element.style.backgroundColor = fullConfig.theme.colors.highlight.DEFAULT;
+                                                }
+                                            }
                                         }
                                     }}
                                 >
@@ -195,6 +210,8 @@ Annotations.displayName = 'Annotations';
 export default Annotations;
 
 function useTextHighlighter(data: Annotation[] | undefined): void {
+    const fullConfig = resolveConfig(tailwindConfig);
+
     useEffect(() => {
         if (!data) return;
 
@@ -205,9 +222,11 @@ function useTextHighlighter(data: Annotation[] | undefined): void {
             const element = document.getElementById(selectionId);
             if (!element) return;
 
-            element.style.backgroundColor = '#fef2cd';
+            // @ts-expect-error This is a custom color that is defined in the tailwind config.
+            element.style.backgroundColor = fullConfig.theme.colors.highlight.DEFAULT;
         });
-    }, [data]);
+        // @ts-expect-error This is a custom color that is defined in the tailwind config.
+    }, [data, fullConfig.theme.colors.highlight.DEFAULT]);
 }
 
 type AnnotationData = Annotation & { depth: number };
