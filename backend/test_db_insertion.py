@@ -1,7 +1,6 @@
 import asynctest
 import json
 from db.get_db_conn import get_db_conn
-import psycopg2.extras
 
 
 class TestDatabaseInsertion(asynctest.TestCase):
