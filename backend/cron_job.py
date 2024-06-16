@@ -1,7 +1,6 @@
 import canvas.canvas as canvasapi
 import canvas.connection as connection
 from db.get_db_conn import get_db_conn
-import psycopg2.extras
 import json
 import asyncio
 
@@ -9,49 +8,72 @@ import asyncio
 async def handle_course(course):
     cdata = course.get_data()
 
-    with get_db_conn() as db_conn:
-        cur = db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-        cur.execute('''
+    db_conn = await get_db_conn()
+    async with db_conn.transaction():
+        result = await db_conn.fetchrow('''
             SELECT * FROM courses
-            WHERE course_code = %s
-        ''', (cdata['course_code'],))
+            WHERE course_code = $1
+        ''', cdata['course_code'])
 
-        result = cur.fetchone()
         if result:
-            return result['id'], True
+            return result['id'], False
         else:
-            cur.execute('''
+            result = await db_conn.fetchrow('''
                 INSERT INTO courses (name, course_code)
-                VALUES (%s, %s)
+                VALUES ($1, $2)
                 RETURNING id
-            ''', (cdata['name'], cdata['course_code']))
-            db_conn.commit()
-            return cur.fetchone()['id'], False
+            ''', cdata['name'], cdata['course_code'])
+            return result['id'], True
+
+
+async def change_query(data, item_type, change_type, course_id):
+    db_conn = await get_db_conn()
+    async with db_conn.transaction():
+        await db_conn.execute('''
+            INSERT INTO changes (course_id, change_type, timestamp, item_type, diff)
+            VALUES ($1, $2, NOW(), $3, $4)
+        ''', course_id, change_type, item_type, json.dumps(data))
 
 
 async def save_new_course(course, course_id):
     cdata = course.get_data()
 
-    with get_db_conn() as db_conn:
-        cur = db_conn.cursor()
-
-        cur.execute('''
-            INSERT INTO changes (course_id, change_type, timestamp, item_type, diff)
-            VALUES (%s, 'Addition', NOW(), 'Course', %s)
-        ''', (course_id, json.dumps(cdata)))
+    await change_query(cdata, 'Course', 'Addition', course_id)
 
 
 async def save_course_pages(api, course, course_id):
     async for page in api.get_pages(course):
         pdata = page.get_data()
-        with get_db_conn() as db_conn:
-            cur = db_conn.cursor()
 
-            cur.execute('''
-                INSERT INTO changes (course_id, change_type, timestamp, item_type, diff)
-                VALUES (%s, 'Addition', NOW(), 'Pages', %s)
-            ''', (course_id, json.dumps(pdata)))
+        await change_query(pdata, 'Page', 'Addition', course_id)
+
+
+async def save_modules(api, course, course_id):
+    async for module in api.get_modules(course):
+        mdata = module.get_data()
+
+        await change_query(mdata, 'Module', 'Addition', course_id)
+
+
+async def save_assignments(api, course, course_id):
+    async for assignment in api.get_assignments(course):
+        adata = assignment.get_data()
+
+        await change_query(adata, 'Assignment', 'Addition', course_id)
+
+
+async def save_quizzes(api, course, course_id):
+    async for quiz in api.get_quizzes(course):
+        qdata = quiz.get_data()
+
+        await change_query(qdata, 'Quiz', 'Addition', course_id)
+
+
+async def save_sections(api, course, course_id):
+    async for section in api.get_sections(course):
+        sdata = section.get_data()
+
+        await change_query(sdata, 'Section', 'Addition', course_id)
 
 
 async def page_diffs(api, course, course_id):
@@ -86,10 +108,12 @@ async def main():
                 # store new course data
                 await save_new_course(course, course_id)
                 await save_course_pages(api, course, course_id)
+                print("New course added")
             else:
                 # calculate and store diffs
                 await page_diffs(api, course, course_id)
                 await filesystem_diffs(api, course, course_id)
+                print("Course updated")
 
 
 if __name__ == "__main__":
