@@ -10,12 +10,11 @@ async def create_tables(destroy_existing_tables=False):
     '''Creates the tables in the database. If destroy_existing_tables is True, it will first drop the existing tables.
        Warning: This will delete all data in the tables. Use with caution.'''
     conn = await get_db_conn()
-    cur = conn.cursor()
 
     if destroy_existing_tables:
 
         print('Destroying existing tables...')
-        cur.execute('''
+        await conn.execute('''
 
 
         DROP TABLE IF EXISTS annotations;
@@ -29,10 +28,9 @@ async def create_tables(destroy_existing_tables=False):
         DROP TYPE IF EXISTS user_role;
 
         ''')
-        conn.commit()
 
     print('Creating tables...')
-    cur.execute('''
+    await conn.execute('''
     CREATE TYPE change_type AS ENUM ('Deletion', 'Addition', 'Modification');
     CREATE TYPE item_types AS ENUM ('Course', 'Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections');
     CREATE TYPE user_role AS ENUM ('TA', 'Teacher');
@@ -58,7 +56,6 @@ async def create_tables(destroy_existing_tables=False):
 
     CREATE TABLE IF NOT EXISTS changes (
         id SERIAL PRIMARY KEY,
-        item_id INT NOT NULL,
         course_id INT REFERENCES courses(id),
         change_type change_type NOT NULL,
         timestamp TIMESTAMP NOT NULL,

@@ -1,66 +1,54 @@
-import unittest
+import asynctest
 import json
 from db.get_db_conn import get_db_conn
 import psycopg2.extras
 
 
-class TestDatabaseInsertion(unittest.TestCase):
-    def setUp(self):
-        self.db_conn = get_db_conn()
-        self.cur = self.db_conn.cursor(
-            cursor_factory=psycopg2.extras.DictCursor)
+class TestDatabaseInsertion(asynctest.TestCase):
+    async def setUp(self):
+        self.db_conn = await get_db_conn()
 
-    def tearDown(self):
-        self.cur.close()
-        self.db_conn.close()
+    async def tearDown(self):
+        await self.db_conn.close()
 
-    def test_insertion(self):
+    async def test_insertion(self):
         cdata = {
             'name': 'Random Course',
             'course_code': 'HIHI69RAND'
         }
 
-        self.cur.execute('''
+        course_id = await self.db_conn.fetchval('''
             INSERT INTO courses (name, course_code)
-            VALUES (%s, %s)
+            VALUES ($1, $2)
             RETURNING id
-        ''', (cdata['name'], cdata['course_code']))
-        self.db_conn.commit()
-        course_id = self.cur.fetchone()['id']
+        ''', cdata['name'], cdata['course_code'])
 
-        self.cur.execute('''
+        change_id = await self.db_conn.fetchval('''
             INSERT INTO changes (course_id, change_type, timestamp, item_type, diff)
-            VALUES (%s, 'Addition', NOW(), 'Course', %s)
+            VALUES ($1, 'Addition', NOW(), 'Course', $2)
             RETURNING id
-        ''', (course_id, json.dumps(cdata)))
-        self.db_conn.commit()
+        ''', course_id, json.dumps(cdata))
 
-        change_id = self.cur.fetchone()['id']
-
-        self.cur.execute('''
+        result = await self.db_conn.fetchrow('''
             SELECT * FROM changes
-            WHERE id = %s
-        ''', (change_id,))
-
-        result = self.cur.fetchone()
+            WHERE id = $1
+        ''', change_id)
 
         self.assertEqual(result['course_id'], course_id)
         self.assertEqual(result['change_type'], 'Addition')
         self.assertEqual(result['item_type'], 'Course')
         self.assertEqual(json.loads(result['diff']), cdata)
 
-        self.cur.execute('''
+        await self.db_conn.execute('''
             DELETE FROM changes
-            WHERE id = %s
-        ''', (change_id,))
-        self.db_conn.commit()
+            WHERE id = $1
+        ''', change_id)
 
-        self.cur.execute('''
+        await self.db_conn.execute('''
             DELETE FROM courses
-            WHERE id = %s
-        ''', (course_id,))
-        self.db_conn.commit()
+            WHERE id = $1
+        ''', course_id)
 
 
 if __name__ == '__main__':
-    unittest.main()
+    asynctest.main()
