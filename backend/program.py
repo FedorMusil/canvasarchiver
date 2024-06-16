@@ -1,139 +1,274 @@
-from flask import Flask, request, send_file
-import subprocess
-import os
-import hmac
-import ssl
+from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.security import HTTPBearer
+from datetime import datetime, timedelta, timezone
+from jwt.algorithms import RSAAlgorithm
 from hashlib import sha1
 from db.get_db_conn import get_db_conn
 from controllers.frontend_api import *
+from pydantic import BaseModel
+from typing import Optional
+from db.get_db_conn import create_pool
+import jwt
+import uvicorn, json
+import subprocess, os, hmac, secrets, requests
 
-app = Flask(__name__, static_folder='../frontend/dist', static_url_path='')
-conn = get_db_conn()
-# Run the server with `python program.py` and visit the routes in your browser.
+from typing import Dict, Any
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
-def load_json(json_obj):
+CLIENT_ID = os.getenv('CLIENT_ID')
+templates = Jinja2Templates(directory="templates")
+
+app = FastAPI()
+
+global pool
+
+pool = None  # Declare the pool variable
+
+async def startup_event():
+    global pool
+    pool = await create_pool()  # Create the pool when the application starts
+
+app.add_event_handler("startup", startup_event)
+
+async def shutdown_event():
+    await pool.close()  # Close the pool when the application shuts down
+
+app.add_event_handler("shutdown", shutdown_event)
+
+
+class User(BaseModel):
+    course_id: str
+
+
+class Annotation(BaseModel):
+    course_id: str
+    change_id: str
+
+
+class CourseCreate(BaseModel):
+    name: str
+    course_code: str
+
+
+class AnnotationCreate(BaseModel):
+    change_id: int
+    user_id: int
+    text: str
+
+
+class ChangeCreate(BaseModel):
+    course_id: int
+    item_id: int
+    change_type: str
+    item_type: str
+    older_diff: int
+    diff: Dict[str, Any]
+
+
+class UserCreate(BaseModel):
+    email: str
+    name: str
+    role: str
+
+
+def get_current_user(request: Request):
+    # Get the token from the cookies
+    token = request.cookies.get('token')
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     try:
-        return json.loads(json_obj)
-    except json.JSONDecodeError:
-        return False
+        # Replace 'your-secret-key' with your actual secret key
+        payload = jwt.decode(token, 'f3104b82021b97756ba5016a19f03d57722f75bd05e79bb596eacaba1e012558', algorithms=["HS256"])
+        return payload
+    except (jwt.PyJWTError, AttributeError):
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-# Get Routes
 
 
-@app.route('/course/<course_id>/id')
-def get_course_info_route(course_id):
+@app.get("/userself", dependencies=[Depends(get_current_user)])
+async def return_user_info(user: dict = Depends(get_current_user)):
+    '''Get your own information.'''
+    return await get_user_by_id(pool, user['user_id'])
+
+
+@app.get("/course/{course_id}/id")
+async def get_course_info_route(course_id: int):
     '''Get a course by id.'''
-    return get_course_by_id(conn, course_id)
+    return await get_course_by_id(pool, course_id)
 
-
-@app.route('/course/<course_id>/users')
-def get_course_users_route(course_id):
+@app.get("/course/{course_id}/users")
+async def get_course_users_route(course_id: int):
     '''Get all users in a course.'''
-    return get_users_by_courseid(conn, course_id)
+    return await get_users_by_courseid(pool, course_id)
 
-
-@app.route('/course/<course_id>/annotations/<change_id>')
-def get_annotation(course_id, change_id):
+@app.get("/course/{course_id}/annotations/{change_id}")
+async def get_annotation(course_id: int, change_id: int):
     '''Get all annotations for a change.'''
-    return get_annotations_by_changeid(conn, course_id, change_id)
+    return await get_annotations_by_changeid(pool, course_id, change_id)
 
-
-@app.route('/course/<course_id>/changes')
-def get_changes(course_id):
+@app.get("/course/{course_id}/changes")
+async def get_changes(course_id: int):
     '''Get all changes for a course.'''
-    return get_changes_by_courseid(conn, course_id)
+    return await get_changes_by_courseid(pool, course_id)
 
 # Post Routes
+@app.post("/course/create")
+async def post_course_route(course: CourseCreate):
+    passed_test, error_message = await check_course_create(pool, course)
+    if passed_test != 200:
+        raise HTTPException(status_code=400, detail=error_message)
+    success, return_message = await post_course(pool, course)
+    if success:
+        return {"course_id": return_message}
+    raise HTTPException(status_code=400, detail=return_message)
 
-
-@app.route('/course/create', methods=['POST'])
-def post_course_route():
-    '''Create a course.
-    JSON body must contain:
-    {
-        "name": "New Course",
-        "course_code": "123457"
-    }'''
-    request_unpacked = load_json(request.get_json())
-    passed_test, error_message = check_course_create(conn, request_unpacked)
+@app.post("/course/{course_id}/create/annotation/{change_id}")
+async def post_annotation_route(course_id: int, change_id: int, annotation: AnnotationCreate):
+    '''Create an annotation.'''
+    passed_test, error_message = await check_annotation_create(pool, course_id, change_id, annotation)
     if not passed_test:
-        return error_message
-    succes, return_message = post_course(conn, request_unpacked)
-    if succes:
-        return jsonify({"course_id": return_message})
-    return return_message
+        raise HTTPException(status_code=400, detail=error_message)
+    success, return_message = await post_annotation(pool, change_id, annotation)
+    if success:
+        return {"annotation_id": return_message}
+    raise HTTPException(status_code=400, detail=return_message)
 
-
-@app.route('/course/<course_id>/create/annotation/<change_id>',
-           methods=['POST'])
-def post_annotation_route(course_id, change_id):
-    '''Create an annotation.
-    JSON body must contain:
-    {
-        "change_id": "1",
-        "user_id": "1",
-        "text": "This is an annotation",
-    }'''
-    request_unpacked = load_json(request.get_json())
-    passed_test, error_message = check_annotation_create(
-        conn, change_id, request_unpacked)
+@app.post("/course/{course_id}/change")
+async def post_change_route(course_id: int, change: ChangeCreate):
+    '''Create a change.'''
+    passed_test, error_message = await check_change_create(pool, course_id, change)
     if not passed_test:
-        return error_message
-    succes, return_message = post_annotation(
-        conn, course_id, change_id, request_unpacked)
-    if succes:
-        return jsonify({"annotation_id": return_message})
-    return return_message
+        raise HTTPException(status_code=400, detail=error_message)
+    success, return_message = await post_change(pool, course_id, change)
+    if success:
+        return {"change_id": return_message}
+    raise HTTPException(status_code=400, detail=return_message)
 
 
-@app.route('/course/<course_id>/change', methods=['POST'])
-def post_change_route(course_id):
-    '''Create a change.
-    JSON body must contain:
-    {
-        "change_type": "Deletion",
-        "item_type": "Assignments",
-        "old_value": "10", # Reference to the item(change_id) being changed.
-        "new_value": "{'name': 'New Course', 'course_code': '123457'}"
-    }'''
-    request_unpacked = load_json(request.get_json())
-    passed_test, error_message = check_change_create(
-        conn, course_id, request_unpacked)
+@app.post("/course/{course_id}/user")
+async def post_user_route(course_id: int, user: UserCreate):
+    '''Create a user.'''
+    passed_test, error_message = await check_user_create(pool, course_id, user)
     if not passed_test:
-        return error_message
-    succes, return_message = post_change(conn, course_id, request_unpacked)
-    if succes:
-        return jsonify({"change_id": return_message})
-    return return_message
+        raise HTTPException(status_code=400, detail=error_message)
+    success, return_message = await post_user(pool, course_id, user)
+    if success:
+        return {"user_id": return_message}
+    raise HTTPException(status_code=400, detail=return_message)
+
+state_nonce_store = {}
 
 
-@app.route('/course/<course_id>/user', methods=['POST'])
-def post_user_route(course_id):
-    '''Create a user.
-    JSON body must contain:
-    {
-        "email": "test@test.nl",
-        "name": "New User",
-        "role": "Teacher"
-        }'''
-    request_unpacked = load_json(request.get_json())
-    passed_test, error_message = check_user_create(
-        conn, course_id, request_unpacked)
-    if not passed_test:
-        return error_message
-    succes, return_message = post_user(conn, course_id, request_unpacked)
-    if succes:
-        return jsonify({"user_id": return_message})
-    return jsonify(return_message)
+def clean_expired_state_nonce():
+    current_time = datetime.now(timezone.utc)
+    expired_keys = [state for state, details in state_nonce_store.items() if details['expiry'] < current_time]
+    for key in expired_keys:
+        del state_nonce_store[key]
 
 
-@app.route('/deploy', methods=['POST'])
-def deploy():
+@app.post("/initiation")
+async def handle_initiation_post(request: Request):
+    clean_expired_state_nonce()
+
+    data = await request.json()
+
+    iss = data.get('iss')
+    login_hint = data.get('login_hint')
+    client_id = data.get('client_id')
+    redirect_uri = data.get('target_link_uri')
+    message_hint = data.get('lti_message_hint')
+    state = secrets.token_urlsafe(16)
+    nonce = secrets.token_urlsafe(16)
+
+    state_nonce_store[state] = {'nonce': nonce, 'expiry': datetime.now(timezone.utc) + timedelta(minutes=10)}
+
+    if not all([iss, login_hint, client_id, redirect_uri]):
+        return JSONResponse(content={'error': 'Missing required LTI parameters'}, status_code=400)
+
+    oidc_auth_endpoint = "https://sso.test.canvaslms.com/api/lti/authorize_redirect"
+    auth_request_params = {
+        'scope': 'openid',
+        'response_type': 'id_token',
+        'client_id': client_id,
+        'redirect_uri': 'https://localhost:3000/redirect',
+        'lti_message_hint': message_hint,
+        'login_hint': login_hint,
+        'state': state,
+        'response_mode': 'form_post',
+        'nonce': nonce,
+        'prompt': 'none'
+    }
+
+    auth_request_url = f"{oidc_auth_endpoint}?{'&'.join([f'{key}={value}' for key, value in auth_request_params.items()])}"
+
+    return RedirectResponse(url=auth_request_url)
+
+
+@app.post("/redirect")
+async def handle_redirect(request: Request):
+    clean_expired_state_nonce()
+
+    data = await request.form()
+    id_token = data.get('id_token')
+    state = data.get('state')
+    client_id = CLIENT_ID
+
+    if not id_token or not state:
+        return JSONResponse(content={'error': 'Missing id_token or state'}, status_code=400)
+
+    if state not in state_nonce_store:
+        return JSONResponse(content={'error': 'Invalid state parameter'}, status_code=400)
+    nonce = state_nonce_store.pop(state)['nonce']
+
+    jwks_url = "https://sso.test.canvaslms.com/api/lti/security/jwks"
+    jwks = requests.get(jwks_url).json()
+
+    try:
+        header = jwt.get_unverified_header(id_token)
+        key = next(key for key in jwks['keys'] if key['kid'] == header['kid'])
+        rsa_key = RSAAlgorithm.from_jwk(key)
+        payload = jwt.decode(id_token, rsa_key, algorithms=['RS256'], audience=client_id, nonce=nonce)
+    except jwt.ExpiredSignatureError:
+        return JSONResponse(content={'error': 'Expired JWT token'}, status_code=400)
+    except Exception as e:
+        print(f"JWT validation error: {e}")
+        return JSONResponse(content={'error': 'Invalid JWT'}, status_code=400)
+
+    user_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/lti1p1', {}).get('user_id')
+    course_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/custom', {}).get('courseid')
+
+    response = RedirectResponse(url='/')
+    response.set_cookie('user_id', user_id, httponly=True, secure=True)
+    response.set_cookie('course_id', course_id, httponly=True, secure=True)
+
+    return response
+
+# @app.get("/{path:path}", include_in_schema=False)
+# async def serve(path: str):
+#     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+#         return FileResponse(os.path.join(app.static_folder, path))
+#     else:
+#         return templates.TemplateResponse("index.html", {})
+
+
+
+
+
+
+
+@app.post("/deploy")
+async def deploy(request: Request):
     signature = request.headers.get('X-Hub-Signature')
 
     # Get the payload
-    payload = request.data
+    payload = await request.body()
 
     # Create a HMAC hex digest of the payload
     secret = os.getenv('GITHUB_SECRET').encode()
@@ -141,36 +276,17 @@ def deploy():
 
     # Check if the digest matches the signature
     if not hmac.compare_digest(signature, digest):
-        return 'Invalid signature', 400
+        raise HTTPException(status_code=400, detail='Invalid signature')
 
     # Get the JSON data sent by GitHub
-    data = request.get_json()
+    data = await request.json()
 
     # Check if the push event is for the main branch
     if data['ref'] == 'refs/heads/main':
         # Run your deployment script
         subprocess.run(['./deploy.sh'], check=True)
 
+    return
 
-@app.route('/canvas')
-def canvas():
-    return '', 200
-
-
-@app.route('/initiation', methods=['POST'])
-def initiation():
-    # Serve the React app
-    return send_file(os.path.join(app.static_folder, 'index.html'))
-
-
-if __name__ == '__main__':
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.load_cert_chain(
-        '../frontend/localhost.pem',
-        '../frontend/localhost-key.pem')
-    app.run(
-        host='0.0.0.0',
-        port=3000,
-        debug=False,
-        ssl_context=context,
-        use_reloader=False)
+if __name__ == "__main__":
+    uvicorn.run("program:app", host="0.0.0.0", port=5000, log_level="info")
