@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
 import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
 import { useShallow } from 'zustand/react/shallow';
-import { useState, type FC, type ReactElement, type SVGProps } from 'react';
+import { type FC, type ReactElement, type SVGProps } from 'react';
 
 const CompareHeader: FC = (): ReactElement => {
     const materialId = useCompareIdContext(useShallow((state) => state.materialId));
@@ -23,17 +23,18 @@ CompareHeader.displayName = 'CompareHeader';
 export default CompareHeader;
 
 const OpenWindowActionButtons: FC = (): ReactElement => {
-    const [openTimeline, setOpenTimeline] = useState<boolean>(false);
-    const { openAnnotations, setOpenAnnotations } = useCompareWindowStore(
+    const { openAnnotations, setOpenAnnotations, openTimeline, setOpenTimeline } = useCompareWindowStore(
         useShallow((state) => ({
             openAnnotations: state.openAnnotations,
             setOpenAnnotations: state.setOpenAnnotations,
+            openTimeline: state.openTimeline,
+            setOpenTimeline: state.setOpenTimeline,
         }))
     );
 
     return (
         <div className='flex justify-end gap-2 flex-grow basis-0'>
-            <Button className='flex w-48' onClick={() => setOpenTimeline((prev) => !prev)} variant='secondary'>
+            <Button className='flex w-48' onClick={() => setOpenTimeline(!openTimeline)} variant='secondary'>
                 {openTimeline ?
                     <PanelBottomClose className='w-5 h-5 mr-2' />
                 :   <PanelBottomOpen className='w-5 h-5 mr-2' />}

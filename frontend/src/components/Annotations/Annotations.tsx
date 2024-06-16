@@ -10,17 +10,10 @@ import {
     AlertDialogTrigger,
 } from '@/src/components/ui/alert-dialog';
 import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
-import {
-    ContextMenu,
-    ContextMenuContent,
-    ContextMenuItem,
-    ContextMenuTrigger,
-} from '@/src/components/ui/context-menu';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/src/components/ui/context-menu';
 import { formatDistanceToNow } from 'date-fns';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
-import {
-    useCompareIdContext,
-} from '@/src/stores/CompareIdStore/useCompareIdStore';
+import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
 import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useShallow } from 'zustand/react/shallow';

@@ -7,6 +7,9 @@ type CompareWindowStore = {
 
     openAnnotations: boolean;
     setOpenAnnotations: (openAnnotations: boolean) => void;
+
+    openTimeline: boolean;
+    setOpenTimeline: (openTimeline: boolean) => void;
 };
 
 export const useCompareWindowStore = create<CompareWindowStore>()(
@@ -17,6 +20,9 @@ export const useCompareWindowStore = create<CompareWindowStore>()(
 
             openAnnotations: false,
             setOpenAnnotations: (openAnnotations) => set({ openAnnotations }),
+
+            openTimeline: false,
+            setOpenTimeline: (openTimeline) => set({ openTimeline }),
         }),
         {
             partialize: (state) => ({ viewMode: state.viewMode, openAnnotations: state.openAnnotations }),

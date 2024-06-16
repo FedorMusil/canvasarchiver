@@ -1,6 +1,7 @@
 import CompareHeader from '../components/Compare/CompareHeader';
 import CompareIdStoreProvider from '../stores/CompareIdStore/CompareIdStore';
 import ComparePanel from '@/src/components/Compare/ComparePanel';
+import TimelineDrawer from '../components/Timeline';
 import { Separator } from '@/src/components/ui/separator';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -57,6 +58,7 @@ const Material: FC = (): ReactElement => {
                 <CompareHeader />
                 <Separator orientation='horizontal' />
                 <ComparePanel />
+                <TimelineDrawer changes={sortedChanges} />
             </div>
         </CompareIdStoreProvider>
     );
