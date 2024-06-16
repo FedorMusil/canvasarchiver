@@ -167,7 +167,27 @@ const Annotations: FC = memo(() => {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => mutate({ annotationId: annotation.id })}>
+                                <AlertDialogAction
+                                    onClick={() => {
+                                        // Check if the annotation is a reply. If it is, set the replyTo state to the parent annotation or null.
+                                        if (annotation.parentId) {
+                                            const parentAnnotation = annotationData.find(
+                                                (a) => a.id === annotation.parentId
+                                            );
+                                            if (parentAnnotation) {
+                                                setReplyTo({
+                                                    annotationId: parentAnnotation.id,
+                                                    userId: parentAnnotation.user.id,
+                                                    name: parentAnnotation.user.name,
+                                                });
+                                            }
+                                        } else {
+                                            setReplyTo(null);
+                                        }
+
+                                        mutate({ annotationId: annotation.id });
+                                    }}
+                                >
                                     Delete
                                 </AlertDialogAction>
                             </AlertDialogFooter>

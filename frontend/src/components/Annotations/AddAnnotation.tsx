@@ -1,20 +1,12 @@
 import TooltipWrapper from '../TooltipWrapper';
 import { Button } from '@/src/components/ui/button';
 import { changeChangeContents } from '@/src/api/change';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormMessage,
-} from '@/src/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/src/components/ui/form';
 import { Highlighter, MessageSquareReply } from 'lucide-react';
 import { Input } from '@/src/components/ui/input';
 import { postAnnotation } from '@/src/api/annotation';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
-import {
-    useCompareIdContext,
-} from '@/src/stores/CompareIdStore/useCompareIdStore';
+import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
 import { useForm } from 'react-hook-form';
 import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
