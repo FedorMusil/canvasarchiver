@@ -47,7 +47,7 @@ class TestDatabaseInsertion(unittest.TestCase):
         self.assertEqual(result['course_id'], course_id)
         self.assertEqual(result['change_type'], 'Addition')
         self.assertEqual(result['item_type'], 'Course')
-        self.assertEqual(result['diff'], cdata)
+        self.assertEqual(json.loads(result['diff']), cdata)
 
         self.cur.execute('''
             DELETE FROM changes
