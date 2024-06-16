@@ -1,4 +1,6 @@
-import json, traceback, asyncio
+import json
+import traceback
+import asyncio
 
 from os import getenv
 from datetime import datetime
@@ -7,8 +9,6 @@ import sys
 # import os
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # from db.get_db_conn import create_pool
-
-
 
 
 production = getenv('PRODUCTION', False)
@@ -88,7 +88,8 @@ async def check_change_create(pool, course_id, request):
             if not course:
                 return 400, "Error: Course does not exist"
             # if not change:
-            #     return False, "Error: Old value does not link to an old change {} ||".format(request['old_value'])
+            # return False, "Error: Old value does not link to an old change {}
+            # ||".format(request['old_value'])
             return 200, "All checks passed"
         except Exception as e:
             return 400, "A exception occurred in checking the data: " + str(e)
@@ -193,7 +194,14 @@ async def post_annotation(pool, change_id, request):
 
             return True, annotation_id
     except Exception as e:
-        print("request to post_annotation failed, datadump:", "change_id:\n", change_id, "request:\n", request, "error:\n", e)
+        print(
+            "request to post_annotation failed, datadump:",
+            "change_id:\n",
+            change_id,
+            "request:\n",
+            request,
+            "error:\n",
+            e)
         return False, "Error: Annotation not created"
 
 
@@ -215,7 +223,14 @@ async def post_change(pool, course_id, request):
 
             return True, change_id
     except Exception as e:
-        print("request to post_change failed, datadump:", "course_id:\n", course_id, "request:\n", request, "error:\n", e)
+        print(
+            "request to post_change failed, datadump:",
+            "course_id:\n",
+            course_id,
+            "request:\n",
+            request,
+            "error:\n",
+            e)
         return False, "Error: Change not created"
 
 
@@ -240,7 +255,14 @@ async def post_user(pool, course_id, request):
 
             return True, user_id
         except Exception as e:
-            print("request to post_user failed, datadump:", "course_id:\n", course_id, "request:\n", request, "error:\n", e)
+            print(
+                "request to post_user failed, datadump:",
+                "course_id:\n",
+                course_id,
+                "request:\n",
+                request,
+                "error:\n",
+                e)
             return False, "Error: User not created"
 
 

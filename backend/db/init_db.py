@@ -82,4 +82,4 @@ async def create_tables(destroy_existing_tables=False):
 if __name__ == '__main__':
     import asyncio
     asyncio.run(create_tables(True))
-    print ('Tables created successfully.')
+    print('Tables created successfully.')
