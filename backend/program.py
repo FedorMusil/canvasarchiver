@@ -74,7 +74,7 @@ class ChangeCreate(BaseModel):
     change_type: str
     item_type: str
     older_diff: int
-    diff: Dict[str, Any]
+    diff: str
 
 
 class UserCreate(BaseModel):

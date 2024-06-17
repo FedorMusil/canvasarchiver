@@ -32,7 +32,7 @@ async def handle_course(pool, course):
 
 async def add_change(pool, course_id, request):
     err, msg = await fapi.post_change(pool, course_id, request)
-    if err != 200:
+    if not err:
         raise Exception(f"Error: {err} - {msg}")
 
 
@@ -108,23 +108,24 @@ async def main():
     async with connection.ManualCanvasConnection.make_from_environment() as conn:
         api = canvasapi.Canvas(conn)
 
-        async with create_pool() as pool:
-            async for course in api.get_courses():
-                course_id, is_new = await handle_course(pool, course)
-                print(f"Course: {course_id}")
-                if is_new:
-                    await save_new_course(pool, course, course_id)
-                    await save_course_pages(pool, api, course, course_id)
-                    await save_new_items(pool, course, course_id, 'Assignment', api.get_assignments)
-                    await save_new_items(pool, course, course_id, 'File', api.get_files)
-                    await save_new_items(pool, course, course_id, 'Quiz', api.get_quizes)
-                    await save_new_items(pool, course, course_id, 'Module', api.get_modules)
-                    await save_new_items(pool, course, course_id, 'Section', api.get_sections)
-                    print("New course added")
-                else:
-                    await page_diffs(pool, api, course, course_id)
-                    await filesystem_diffs(pool, api, course, course_id)
-                    print("Course updated")
+        pool = await create_pool()
+        async for course in api.get_courses():
+            course_id, is_new = await handle_course(pool, course)
+            print(f"Course: {course_id}")
+            print(f"New: {is_new}")
+            if is_new:
+                await save_new_course(pool, course, course_id)
+                await save_course_pages(pool, api, course, course_id)
+                await save_new_items(pool, course, course_id, 'Assignment', api.get_assignments)
+                await save_new_items(pool, course, course_id, 'Quiz', api.get_quizes)
+                await save_new_items(pool, course, course_id, 'Module', api.get_modules)
+                await save_new_items(pool, course, course_id, 'Section', api.get_sections)
+                print("New course added")
+            else:
+                await page_diffs(pool, api, course, course_id)
+                await filesystem_diffs(pool, api, course, course_id)
+                print("Course updated")
+        await pool.close()
 
 
 if __name__ == "__main__":
