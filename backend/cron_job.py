@@ -11,7 +11,10 @@ import asyncio
 async def handle_course(pool, course):
     cdata = course.get_data()
 
-    obj = prog.CourseCreate(name=cdata['name'], course_code=cdata['course_code'])
+    obj = prog.CourseCreate(
+        name=cdata['name'],
+        course_code=cdata['course_code']
+    )
     err, msg = await fapi.check_course_create(pool, obj)
     if err == 200:
         err, course_id = await fapi.post_course(pool, obj)
