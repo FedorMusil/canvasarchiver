@@ -4,6 +4,7 @@ from os import getenv
 
 load_dotenv(dotenv_path='../../.env', encoding='utf-8')
 
+
 def get_db_conn():
     return connect(
         dbname=getenv('DB_NAME'),

@@ -1,7 +1,9 @@
-import json, traceback
+import json
+import traceback
 from flask import jsonify
 from db.get_db_conn import get_db_conn
 from controllers.canvas_api import get_current_time
+
 
 def check_required_keys(json_obj, required_keys):
     for key, value in required_keys.items():
@@ -15,15 +17,21 @@ def check_required_keys(json_obj, required_keys):
             return False, f"Invalid value for key: {key}. Expected one of {value['enum']}, got {json_obj[key]}"
     return True, "All checks passed"
 
+
 def check_course_create(conn, request):
     cur = conn.cursor()
     try:
-        check_result, error_message = check_required_keys(request, {'name': {'type': str, 'length': 255}, 'course_code': {'type': str, 'length': 255}})
+        check_result, error_message = check_required_keys(
+            request, {
+                'name': {
+                    'type': str, 'length': 255}, 'course_code': {
+                    'type': str, 'length': 255}})
 
         if not check_result:
             return False, error_message
 
-        cur.execute('SELECT * FROM courses WHERE course_code = %s', (request['course_code'], ))
+        cur.execute('SELECT * FROM courses WHERE course_code = %s',
+                    (request['course_code'], ))
         course = cur.fetchone()
         cur.close()
 
@@ -34,11 +42,17 @@ def check_course_create(conn, request):
     except Exception as e:
         tb = traceback.format_exc()
         return False, f"Invalid JSON format. Error: {str(e)}, Traceback: {tb}"
-    
+
+
 def check_annotation_create(conn, change_id, request):
     cur = conn.cursor()
     try:
-        check_result, error_message = check_required_keys(request, {'change_id': {'type': str,'length': 255},'text': {'type': str, 'length': 255}, 'user_id': {'type': str, 'length': 255}})
+        check_result, error_message = check_required_keys(
+            request, {
+                'change_id': {
+                    'type': str, 'length': 255}, 'text': {
+                    'type': str, 'length': 255}, 'user_id': {
+                    'type': str, 'length': 255}})
 
         if not check_result:
             return False, error_message
@@ -46,17 +60,27 @@ def check_annotation_create(conn, change_id, request):
         cur.execute('SELECT * FROM changes WHERE id = %s', (change_id,))
         change = cur.fetchone()
         cur.close()
-        
+
         if not change:
             return False, "Error: Change does not exist"
         return True, "All checks passed"
     except Exception as e:
         return False, "A exception accured in checking the data: " + str(e)
-    
+
+
 def check_change_create(conn, course_id, request):
     cur = conn.cursor()
     try:
-        check_result, error_message = check_required_keys(request, {'course_id': {'type': int,'length': 255}, 'change_type': {'type': str, 'enum': ['Deletion', 'Addition', 'Modification']}, 'item_type': {'type': str, 'enum': ['Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections']}, 'old_value': {'type': str, 'length': 255}, 'new_value': {'type': str}})
+        check_result, error_message = check_required_keys(
+            request, {
+                'course_id': {
+                    'type': int, 'length': 255}, 'change_type': {
+                    'type': str, 'enum': [
+                        'Deletion', 'Addition', 'Modification']}, 'item_type': {
+                        'type': str, 'enum': [
+                            'Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections']}, 'old_value': {
+                                'type': str, 'length': 255}, 'new_value': {
+                                    'type': str}})
 
         if not check_result:
             return False, error_message
@@ -78,15 +102,23 @@ def check_change_create(conn, course_id, request):
         if not course:
             return False, "Error: Course does not exist"
         if not change:
-            return False, "Error: Old value does not link to an old change {} ||".format(request['old_value'])
+            return False, "Error: Old value does not link to an old change {} ||".format(
+                request['old_value'])
         return True, "All checks passed"
     except Exception as e:
         return False, "A exception accured in checking the data: " + str(e)
-    
+
+
 def check_user_create(conn, course_id, request):
     cur = conn.cursor()
     try:
-        check_result, error_message = check_required_keys(request, {'email': {'type': str, 'length': 255}, 'name': {'type': str, 'length': 255}, 'role': {'type': str, 'enum': ['TA', 'Teacher']}})
+        check_result, error_message = check_required_keys(
+            request, {
+                'email': {
+                    'type': str, 'length': 255}, 'name': {
+                    'type': str, 'length': 255}, 'role': {
+                    'type': str, 'enum': [
+                        'TA', 'Teacher']}})
 
         if not check_result:
             return False, error_message
@@ -100,7 +132,8 @@ def check_user_create(conn, course_id, request):
         return True, "All checks passed"
     except Exception as e:
         return False, "A exception accured in checking the data: " + str(e)
-    
+
+
 def get_course_by_id(conn, course_id):
     cur = conn.cursor()
 
@@ -115,6 +148,7 @@ def get_course_by_id(conn, course_id):
     # Assuming `course` is a dictionary with the course data
     return jsonify(course)
 
+
 def get_users(conn):
     cur = conn.cursor()
 
@@ -125,13 +159,14 @@ def get_users(conn):
 
     return users
 
+
 def get_users_by_courseid(conn, course_id):
     conn = get_db_conn()
     cur = conn.cursor()
 
-    cur.execute('SELECT * FROM teacher_courses WHERE course_id = %s', (course_id,))
+    cur.execute(
+        'SELECT * FROM teacher_courses WHERE course_id = %s', (course_id,))
     user_ids = cur.fetchall()
-
 
     if not user_ids:
         return []
@@ -148,7 +183,7 @@ def get_annotations_by_changeid(conn, course_id, change_id):
     cur = conn.cursor()
 
     cur.execute('''
-    SELECT a.* 
+    SELECT a.*
     FROM annotations a
     JOIN changes c ON a.change_id = c.id
     WHERE c.course_id = %s AND c.id = %s
@@ -159,6 +194,7 @@ def get_annotations_by_changeid(conn, course_id, change_id):
 
     return annotations
 
+
 def get_changes_by_courseid(conn, course_id):
     cur = conn.cursor()
 
@@ -168,6 +204,7 @@ def get_changes_by_courseid(conn, course_id):
     cur.close()
 
     return changes
+
 
 def post_course(conn, course_data):
     cur = conn.cursor()
@@ -188,6 +225,7 @@ def post_course(conn, course_data):
 
     return True, course_id
 
+
 def post_annotation(conn, course_id, change_id, request):
     cur = conn.cursor()
 
@@ -202,6 +240,7 @@ def post_annotation(conn, course_id, change_id, request):
     cur.close()
 
     return True, annotation_id
+
 
 def post_change(conn, course_id, request):
     cur = conn.cursor()
@@ -218,9 +257,10 @@ def post_change(conn, course_id, request):
 
     return True, change_id
 
+
 def post_user(conn, course_id, request):
     cur = conn.cursor()
-    
+
     # check if the user already exists
     cur.execute('SELECT * FROM users WHERE email = %s', (request['email'],))
     user = cur.fetchone()
@@ -232,12 +272,15 @@ def post_user(conn, course_id, request):
         RETURNING id
         ''', (request['email'], request['name']))
         user_id = cur.fetchone()[0]
-        cur.execute('''INSERT INTO teacher_courses (user_id, course_id, role) VALUES (%s, %s, %s)''', (user_id, course_id, request['role']))
+        cur.execute(
+            '''INSERT INTO teacher_courses (user_id, course_id, role) VALUES (%s, %s, %s)''',
+            (user_id,
+             course_id,
+             request['role']))
     else:
         user_id = user[0]
-    
+
     conn.commit()
     cur.close()
 
     return True, user_id
-

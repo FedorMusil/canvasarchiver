@@ -1,3 +1,4 @@
+import animate from 'tailwindcss-animate';
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
@@ -13,6 +14,7 @@ const config: Config = {
         },
         extend: {
             colors: {
+                text: 'hsl(var(--text))',
                 border: 'hsl(var(--border))',
                 input: 'hsl(var(--input))',
                 ring: 'hsl(var(--ring))',
@@ -46,6 +48,10 @@ const config: Config = {
                     DEFAULT: 'hsl(var(--card))',
                     foreground: 'hsl(var(--card-foreground))',
                 },
+                highlight: {
+                    DEFAULT: 'var(--highlight)',
+                    selected: 'var(--highlight-selected)',
+                },
             },
             borderRadius: {
                 lg: `var(--radius)`,
@@ -68,7 +74,7 @@ const config: Config = {
             },
         },
     },
-    plugins: [require('tailwindcss-animate')],
+    plugins: [animate],
 };
 
 export default config;
