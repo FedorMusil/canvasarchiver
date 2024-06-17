@@ -23,12 +23,24 @@ frontend/*.njsproj
 frontend/*.sln
 frontend/*.sw?
 
+# Cache directories
 **/__pycache__
 .github
-
-.env
-./env
-
 .vscode
-frontend/localhost-key.pem
-frontend/localhost.pem
+
+# env directories
+**/.env
+
+# Build files
+*.exe
+
+# Dependency directories
+**/nlohmann
+
+# Package files
+**/package-lock.json
+
+*.pem
+
+# coverage
+/frontend/coverage

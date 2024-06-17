@@ -14,7 +14,6 @@ from db.get_db_conn import create_pool
 import jwt
 import uvicorn, json
 import subprocess, os, hmac, secrets, requests
-
 from typing import Dict, Any
 from dotenv import load_dotenv
 
@@ -87,7 +86,6 @@ def get_current_user(request: Request):
 
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-
     try:
         # Replace 'your-secret-key' with your actual secret key
         payload = jwt.decode(token, 'f3104b82021b97756ba5016a19f03d57722f75bd05e79bb596eacaba1e012558', algorithms=["HS256"])
@@ -96,12 +94,10 @@ def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-
 @app.get("/userself", dependencies=[Depends(get_current_user)])
 async def return_user_info(user: dict = Depends(get_current_user)):
     '''Get your own information.'''
     return await get_user_by_id(pool, user['user_id'])
-
 
 @app.get("/course/{course_id}/id")
 async def get_course_info_route(course_id: int):
@@ -303,7 +299,6 @@ async def deploy(request: Request):
     if data['ref'] == 'refs/heads/main':
         # Run your deployment script
         subprocess.run(['./deploy.sh'], check=True)
-
     return
 
 if __name__ == "__main__":
