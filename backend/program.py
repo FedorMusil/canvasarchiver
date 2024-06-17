@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, Depends
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer
 from datetime import datetime, timedelta, timezone
 from jwt.algorithms import RSAAlgorithm
@@ -17,27 +18,31 @@ from typing import Dict, Any
 from dotenv import load_dotenv
 
 load_dotenv()
+app = FastAPI()
 
 
 CLIENT_ID = os.getenv('CLIENT_ID')
-templates = Jinja2Templates(directory="templates")
+frontend_dist_folder = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
+templates = Jinja2Templates(directory=frontend_dist_folder)
 
-app = FastAPI()
+# Mount the dist folder as static files directory
+app.mount("/static", StaticFiles(directory=frontend_dist_folder), name="static")
+
 
 global pool
 
 pool = None  # Declare the pool variable
 
-async def startup_event():
-    global pool
-    pool = await create_pool()  # Create the pool when the application starts
+# async def startup_event():
+#     global pool
+#     pool = await create_pool()  # Create the pool when the application starts
 
-app.add_event_handler("startup", startup_event)
+# app.add_event_handler("startup", startup_event)
 
-async def shutdown_event():
-    await pool.close()  # Close the pool when the application shuts down
+# async def shutdown_event():
+    # await pool.close()  # Close the pool when the application shuts down
 
-app.add_event_handler("shutdown", shutdown_event)
+# app.add_event_handler("shutdown", shutdown_event)
 
 
 class User(BaseModel):
@@ -173,7 +178,14 @@ def clean_expired_state_nonce():
 async def handle_initiation_post(request: Request):
     clean_expired_state_nonce()
 
-    data = await request.json()
+    try:
+        form = await request.form()
+        data = {key: value for key, value in form.items()}
+
+        print("Request Form Data:", data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid form data: {str(e)}")
+
 
     iss = data.get('iss')
     login_hint = data.get('login_hint')
@@ -246,12 +258,25 @@ async def handle_redirect(request: Request):
 
     return response
 
-# @app.get("/{path:path}", include_in_schema=False)
-# async def serve(path: str):
-#     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
-#         return FileResponse(os.path.join(app.static_folder, path))
-#     else:
-#         return templates.TemplateResponse("index.html", {})
+
+@app.post("/", include_in_schema=False)
+async def serve_root():
+    index_path = os.path.join(frontend_dist_folder, "index.html")
+    if not os.path.exists(index_path):
+        raise HTTPException(status_code=404, detail="index.html not found")
+    return FileResponse(index_path)
+
+@app.get("/{path:path}", include_in_schema=False)
+async def catch_all(path: str):
+    file_path = os.path.join(frontend_dist_folder, path)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    else:
+        index_path = os.path.join(frontend_dist_folder, "index.html")
+        if not os.path.exists(index_path):
+            raise HTTPException(status_code=404, detail="index.html not found")
+        return FileResponse(index_path)
+
 @app.post("/deploy")
 async def deploy(request: Request):
     signature = request.headers.get('X-Hub-Signature')
@@ -277,4 +302,9 @@ async def deploy(request: Request):
     return
 
 if __name__ == "__main__":
-    uvicorn.run("program:app", host="0.0.0.0", port=5000, log_level="info")
+    uvicorn.run(
+        "program:app", host="0.0.0.0", port=3000, log_level="info",
+        ssl_certfile="../frontend/localhost.pem",
+        ssl_keyfile="../frontend/localhost-key.pem"
+    )
+
