@@ -48,6 +48,10 @@ const config: Config = {
                     DEFAULT: 'hsl(var(--card))',
                     foreground: 'hsl(var(--card-foreground))',
                 },
+                highlight: {
+                    DEFAULT: 'var(--highlight)',
+                    selected: 'var(--highlight-selected)',
+                },
             },
             borderRadius: {
                 lg: `var(--radius)`,

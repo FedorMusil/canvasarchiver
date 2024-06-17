@@ -1,42 +1,24 @@
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/src/components/ui/card';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/src/components/ui/resizable';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { addWeeks, differenceInWeeks, format, max, min, subWeeks } from 'date-fns';
-import { useTheme } from 'next-themes';
-import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import {
-    Legend,
-    Tooltip as RechartsTooltip,
-    ResponsiveContainer,
-    Scatter,
-    ScatterChart,
-    XAxis,
-    YAxis,
-    type TooltipProps,
-} from 'recharts';
-import { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
-import { postAnnotation } from '../api/annotation';
-import { ChangeType, getChangesByMaterial, ItemTypes, type Change } from '../api/change';
-import Annotations from '../components/Annotations';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
-import { useGlobalContext } from '../stores/GlobalStore/useGlobalStore';
+import ComparePanel from '@/src/components/Compare/ComparePanel';
+import { Separator } from '@/src/components/ui/separator';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState, type FC, type ReactElement } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { getChangesByMaterial, ItemTypes, type Change } from '../api/change';
+import CompareHeader from '../components/Compare/CompareHeader';
+import TimelineDrawer from '../components/Timeline';
+import CompareIdStoreProvider from '../stores/CompareIdStore/CompareIdStore';
 
-export type RouteParams = {
-    'material-id': string;
-    'change-id'?: string;
-};
+const useRequiredParams = <T extends Record<string, unknown>>() => useParams() as T;
+const Material: FC = (): ReactElement => {
+    // Get URL params. Material ID is required and comes from the URL. Change ID is optional and comes from the query string
+    const { materialId } = useRequiredParams<{ materialId: string }>();
+    const queryParams = new URLSearchParams(useLocation().search);
+    const changeIdParam = queryParams.get('changeId');
 
-const Material: FC = () => {
-    const { 'material-id': materialId, 'change-id': changeId } = useParams<RouteParams>();
-
+    // Redirect to home if the material ID is invalid.
     const navigate = useNavigate();
     useEffect(() => {
-        if (!materialId || isNaN(+materialId) || +materialId < 0 || +materialId >= Object.values(ItemTypes).length) {
-            navigate('/');
-        }
+        if (+materialId < 0 || +materialId >= Object.values(ItemTypes).length) navigate('/');
     }, [materialId, navigate]);
 
     const {
@@ -44,273 +26,41 @@ const Material: FC = () => {
         isLoading,
         isError,
     } = useQuery({
-        queryKey: ['changes', materialId!],
+        queryKey: ['changes', materialId],
         queryFn: getChangesByMaterial,
     });
 
-    const { userId } = useGlobalContext((state) => ({
-        userId: state.userCode,
-    }));
-
-    const [changes, setChanges] = useState<Change[]>([]);
-    const [curChangeId, setCurChangeId] = useState<string | null>(changeId || null);
-
-    const [responseTo, setResponseTo] = useState<{ annotationId: number; name: string } | null>(null);
-
-    const { mutate, status } = useMutation({
-        mutationFn: postAnnotation,
-    });
-
-    const queryClient = useQueryClient();
-    useEffect(() => {
-        if (status === 'success')
-            queryClient.invalidateQueries({ queryKey: ['annotations', materialId!, curChangeId!] });
-    }, [status, queryClient, materialId, curChangeId]);
-
-    const AddAnnotation = (annotation: string) => {
-        if (!curChangeId) return;
-
-        if (typeof annotation !== 'string' || annotation.length === 0) return;
-
-        mutate({
-            annotation: {
-                annotation,
-                parentId: responseTo?.annotationId || null,
-                changeId: +curChangeId,
-                userId,
-                selectedText: null,
-                selectionStart: null,
-                selectionEnd: null,
-            },
-        });
-    };
-
+    const [sortedChanges, setChanges] = useState<Change[]>([]);
+    const [selectedChange, setSelectedChange] = useState<number | null>(changeIdParam ? +changeIdParam : null);
     useEffect(() => {
         if (changesData) {
             // Each change holds a reference to the previous change
             // So we need to sort the changes based on the old_value
-            const sortedChanges = changesData.sort((a, b) => a.old_value - b.old_value);
+            const sortedChanges = changesData.sort(
+                (a, b) => new Date(a.change_date).getTime() - new Date(b.change_date).getTime()
+            );
             setChanges(sortedChanges);
 
-            if (!changeId) setCurChangeId(sortedChanges[0].id.toString());
+            if (!selectedChange) setSelectedChange(changesData[changesData.length - 1].id);
         }
-    }, [changesData, changeId]);
+    }, [changesData, selectedChange]);
 
-    const typeToColor = useCallback((type: string) => {
-        switch (type) {
-            case ChangeType.CREATE:
-                return '#6f4e7c';
-            case ChangeType.DELETE:
-                return '#0b84a5';
-            case ChangeType.UPDATE:
-                return '#f6c85f';
-            default:
-                return '#9dd866';
-        }
-    }, []);
-
-    const formatXAxis = useCallback((tickItem: number) => {
-        return format(new Date(tickItem), 'yyyy-MM-dd');
-    }, []);
-
-    const timeLineData = useMemo(() => {
-        if (!changes.length) return [];
-
-        return changes.map((change) => ({
-            date: new Date(change.change_date).getTime(),
-            fill: typeToColor(change.change_type),
-            height: 2.5,
-        }));
-    }, [changes, typeToColor]);
-
-    const { tickCount, earliestDate, latestDate } = useMemo(() => {
-        if (!changes.length) return { tickCount: 0, earliestDate: 0, latestDate: 0 };
-
-        // The earliestDate and latestDate are buffered such that the first and last ticks are not on the edge of the chart.
-        const timestamps = changes.map((change) => new Date(change.change_date));
-        const earliestDate = subWeeks(new Date(min(timestamps)), 1).getTime();
-        const latestDate = addWeeks(new Date(max(timestamps)), 1).getTime();
-        const tickCount = differenceInWeeks(latestDate, earliestDate);
-
-        return { tickCount, earliestDate, latestDate };
-    }, [changes]);
-
-    const customTooltip = useCallback(({ active, payload }: TooltipProps<ValueType, NameType>) => {
-        if (!active || !payload) return null;
-
-        const date = new Date(payload[0].payload.date);
-        const formattedDate = format(date, 'yyyy-MM-dd');
-
-        return (
-            <div className='z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2'>
-                <p className='text-sm'>Date: {formattedDate}</p>
-            </div>
-        );
-    }, []);
-
-    const { theme } = useTheme();
-
-    if (isLoading) return <p>Loading...</p>;
-    if (isError) return <p>Error...</p>;
-
-    const cardBgColor = theme === 'light' ? 'hsl(0 0% 100%)' : 'hsl(24 9.8% 10%)';
-    const textColor = theme === 'light' ? 'black' : 'white';
-
-    // TODO: Change with actual difference.
-    const diffBeforeHTML = `
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <style>
-                    body {
-                        background-color: ${cardBgColor};
-                    }
-
-                    h1 {
-                        color: ${textColor};
-                    }
-                </style>
-            </head>
-            <body>
-                <h1>This is a placeholder for the before view.</h1>
-            </body>
-        </html>
-    `;
-
-    const diffAfterHTML = `
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <style>
-                    body {
-                        background-color: ${cardBgColor};
-                    }
-
-                    h1 {
-                        color: ${textColor};
-                    }
-                </style>
-            </head>
-            <body>
-                <h1>This is a placeholder for the after view.</h1>
-            </body>
-        </html>
-    `;
+    if (isLoading || selectedChange === null) return <div>Loading...</div>;
+    if (isError) return <div>Error</div>;
 
     return (
-        <div className='w-full h-full flex flex-col'>
-            <h1 className='text-4xl'>{Object.values(ItemTypes)[+materialId!]}</h1>
-            <div className='w-full flex-grow py-4 overflow-hidden'>
-                <ResizablePanelGroup direction='vertical'>
-                    <ResizablePanel defaultSize={75}>
-                        <ResizablePanelGroup direction='horizontal'>
-                            <ResizablePanel defaultSize={75}>
-                                <div className='border h-full'>
-                                    <ResizablePanelGroup direction='vertical'>
-                                        <ResizablePanel defaultSize={50}>
-                                            <iframe className='w-full h-full' srcDoc={diffBeforeHTML} title='before' />
-                                        </ResizablePanel>
-                                        <ResizableHandle withHandle />
-                                        <ResizablePanel defaultSize={50}>
-                                            <iframe className='w-full h-full' srcDoc={diffAfterHTML} title='after' />
-                                        </ResizablePanel>
-                                    </ResizablePanelGroup>
-                                </div>
-                            </ResizablePanel>
-                            <ResizableHandle withHandle />
-                            <ResizablePanel defaultSize={25}>
-                                <div className='border h-full overflow-hidden'>
-                                    <Card className='flex flex-col overflow-auto h-full'>
-                                        <CardHeader>
-                                            <CardTitle>Annotations</CardTitle>
-                                            <CardDescription>
-                                                View and add annotations to this course change
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className='flex-grow overflow-hidden'>
-                                            {curChangeId ?
-                                                <Annotations
-                                                    changeId={curChangeId}
-                                                    materialId={materialId!}
-                                                    setResponseTo={setResponseTo}
-                                                />
-                                            :   <div>Loading...</div>}
-                                        </CardContent>
-                                        <CardFooter className='mt-auto'>
-                                            <form
-                                                className='flex flex-col gap-2 w-full'
-                                                onSubmit={(event) => {
-                                                    event.preventDefault();
-                                                    const form = event.target as HTMLFormElement;
-                                                    const annotation = (form.elements[0] as HTMLInputElement).value;
-                                                    AddAnnotation(annotation);
-                                                }}
-                                            >
-                                                <Input placeholder='Add a new annotation...' />
-                                                <div className='flex w-full justify-between gap-2'>
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <p
-                                                                    className='text-xs text-muted-foreground h-fit hover:line-through'
-                                                                    onClick={() => setResponseTo(null)}
-                                                                >
-                                                                    {responseTo && `Responding to ${responseTo.name}`}
-                                                                </p>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent side='bottom'>
-                                                                <p className='text-xs text-muted-foreground'>
-                                                                    Click to remove 'reply to' status
-                                                                </p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-
-                                                    <Button
-                                                        aria-disabled={status === 'pending' || status === 'error'}
-                                                        className='self-end'
-                                                        disabled={status === 'pending' || status === 'error'}
-                                                        type='submit'
-                                                    >
-                                                        Add Annotation
-                                                    </Button>
-                                                </div>
-                                            </form>
-                                        </CardFooter>
-                                    </Card>
-                                </div>
-                            </ResizablePanel>
-                        </ResizablePanelGroup>
-                    </ResizablePanel>
-                    <ResizableHandle withHandle />
-                    <ResizablePanel defaultSize={25}>
-                        <ResponsiveContainer width='100%' height='100%'>
-                            <ScatterChart data={timeLineData} margin={{ top: 50, right: 50, bottom: 50, left: 50 }}>
-                                <XAxis
-                                    dataKey='date'
-                                    domain={[earliestDate, latestDate]}
-                                    strokeWidth={1}
-                                    tickCount={tickCount}
-                                    tickFormatter={formatXAxis}
-                                    tickLine={{ stroke: theme === 'light' ? 'black' : 'white' }}
-                                    type='number'
-                                />
-                                <YAxis dataKey='height' domain={[0, 5]} hide type='number' />
-                                <RechartsTooltip content={customTooltip} />
-                                <Legend
-                                    payload={[
-                                        { value: 'Create', type: 'square', color: typeToColor(ChangeType.CREATE) },
-                                        { value: 'Delete', type: 'square', color: typeToColor(ChangeType.DELETE) },
-                                        { value: 'Update', type: 'square', color: typeToColor(ChangeType.UPDATE) },
-                                    ]}
-                                />
-                                <Scatter name='Changes' />
-                            </ScatterChart>
-                        </ResponsiveContainer>
-                    </ResizablePanel>
-                </ResizablePanelGroup>
+        <CompareIdStoreProvider
+            changeId={selectedChange}
+            materialId={+materialId}
+            change={sortedChanges.filter((change) => change.id === selectedChange)[0]}
+        >
+            <div className='w-full h-full flex flex-col'>
+                <CompareHeader />
+                <Separator orientation='horizontal' />
+                <ComparePanel />
+                <TimelineDrawer changes={sortedChanges} />
             </div>
-        </div>
+        </CompareIdStoreProvider>
     );
 };
 Material.displayName = 'Material';

@@ -1,5 +1,9 @@
 from flask import Flask, request, send_file, redirect, render_template_string
-import subprocess, os, hmac, ssl, sys
+import subprocess
+import os
+import hmac
+import ssl
+import sys
 from hashlib import sha1
 from db.get_db_conn import get_db_conn
 from controllers.frontend_api import *
@@ -22,6 +26,7 @@ if len(sys.argv) > 1 and sys.argv[1].lower() == 'true':
 
 
 app = Flask(__name__, static_folder='../frontend/dist', static_url_path='')
+
 
 # Run the server with `python program.py` and visit the routes in your browser.
 
@@ -170,15 +175,20 @@ def deploy():
 def canvas():
     return '', 200
 
+
 # Use a dictionary to store state and nonce with an expiration time
 # Possibly change this in the future??
 state_nonce_store = {}
 
+
 def clean_expired_state_nonce():
     current_time = datetime.now(timezone.utc)
-    expired_keys = [state for state, details in state_nonce_store.items() if details['expiry'] < current_time]
+    expired_keys = [
+        state for state,
+        details in state_nonce_store.items() if details['expiry'] < current_time]
     for key in expired_keys:
         del state_nonce_store[key]
+
 
 @app.route('/initiation', methods=['POST'])
 def handle_initiation_post():
@@ -198,8 +208,12 @@ def handle_initiation_post():
     nonce = secrets.token_urlsafe(16)
 
     # Store nonce securely with expiration time
-    state_nonce_store[state] = {'nonce': nonce, 'expiry': datetime.now(timezone.utc) + timedelta(minutes=10)}
-
+    state_nonce_store[state] = {
+        'nonce': nonce,
+        'expiry': datetime.now(
+            timezone.utc) +
+        timedelta(
+            minutes=10)}
 
     if not all([iss, login_hint, client_id, redirect_uri]):
         return jsonify({'error': 'Missing required LTI parameters'}), 400
@@ -222,6 +236,7 @@ def handle_initiation_post():
     auth_request_url = f"{oidc_auth_endpoint}?{'&'.join([f'{key}={value}' for key, value in auth_request_params.items()])}"
 
     return redirect(auth_request_url)
+
 
 @app.route('/redirect', methods=['POST'])
 def handle_redirect():
@@ -249,7 +264,12 @@ def handle_redirect():
         header = jwt.get_unverified_header(id_token)
         key = next(key for key in jwks['keys'] if key['kid'] == header['kid'])
         rsa_key = RSAAlgorithm.from_jwk(key)
-        payload = jwt.decode(id_token, rsa_key, algorithms=['RS256'], audience=client_id, nonce=nonce)
+        payload = jwt.decode(
+            id_token,
+            rsa_key,
+            algorithms=['RS256'],
+            audience=client_id,
+            nonce=nonce)
     except jwt.ExpiredSignatureError:
         return jsonify({'error': 'Expired JWT token'}), 400
     except Exception as e:
@@ -257,8 +277,12 @@ def handle_redirect():
         return jsonify({'error': 'Invalid JWT'}), 400
 
     # Extract user_id and course_id from payload
-    user_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/lti1p1', {}).get('user_id')
-    course_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/custom', {}).get('courseid')
+    user_id = payload.get(
+        'https://purl.imsglobal.org/spec/lti/claim/lti1p1',
+        {}).get('user_id')
+    course_id = payload.get(
+        'https://purl.imsglobal.org/spec/lti/claim/custom',
+        {}).get('courseid')
 
     # Create a response to set the user_id and course_id in cookies
     response = redirect('/')
@@ -267,14 +291,18 @@ def handle_redirect():
 
     return response
 
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_file(os.path.join(app.static_folder, path))
     else:
-        return render_template_string(open(os.path.join(app.static_folder, 'index.html')).read())
-
+        return render_template_string(
+            open(
+                os.path.join(
+                    app.static_folder,
+                    'index.html')).read())
 
 
 if __name__ == '__main__':
