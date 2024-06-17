@@ -93,7 +93,7 @@ async def dir_diffs(api, dir, course_id):
 
 
 async def filesystem_diffs(api, course, course_id):
-    dir = await api.get_folders(course=course)
+    dir = await api.get_directories(course=course)
     await dir_diffs(api, dir, course_id)
 
 
@@ -105,12 +105,10 @@ async def main():
             course_id, is_new = await handle_course(course)
             print(f"Course: {course_id}")
             if is_new:
-                # store new course data
                 await save_new_course(course, course_id)
                 await save_course_pages(api, course, course_id)
                 print("New course added")
             else:
-                # calculate and store diffs
                 await page_diffs(api, course, course_id)
                 await filesystem_diffs(api, course, course_id)
                 print("Course updated")
