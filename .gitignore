@@ -30,3 +30,5 @@ frontend/*.sw?
 ./env
 
 .vscode
+frontend/localhost-key.pem
+frontend/localhost.pem
