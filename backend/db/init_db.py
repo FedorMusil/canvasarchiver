@@ -56,6 +56,7 @@ async def create_tables(destroy_existing_tables=False):
 
     CREATE TABLE IF NOT EXISTS changes (
         id SERIAL PRIMARY KEY,
+        item_id INT NOT NULL,
         course_id INT REFERENCES courses(id),
         change_type change_type NOT NULL,
         timestamp TIMESTAMP NOT NULL,

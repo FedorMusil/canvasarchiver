@@ -1,79 +1,83 @@
 import canvas.canvas as canvasapi
 import canvas.connection as connection
-from db.get_db_conn import get_db_conn
+import program as prog
+import controllers.frontend_api as fapi
+from db.get_db_conn import create_pool
+import time
 import json
 import asyncio
 
 
-async def handle_course(course):
+async def handle_course(pool, course):
     cdata = course.get_data()
 
-    db_conn = await get_db_conn()
-    async with db_conn.transaction():
-        result = await db_conn.fetchrow('''
-            SELECT * FROM courses
-            WHERE course_code = $1
-        ''', cdata['course_code'])
+    obj = prog.CourseCreate(name=cdata['name'], course_code=cdata['course_code'])
+    err, msg = await fapi.check_course_create(pool, obj)
+    if err == 200:
+        err, course_id = await fapi.post_course(pool, obj)
+        if err != 200:
+            raise Exception(f"Error: {err} - {course_id}")
+        return course_id, True
 
-        if result:
-            return result['id'], False
-        else:
-            result = await db_conn.fetchrow('''
-                INSERT INTO courses (name, course_code)
-                VALUES ($1, $2)
-                RETURNING id
-            ''', cdata['name'], cdata['course_code'])
-            return result['id'], True
+    elif err == 400:
+        course_id = await fapi.get_course_id(pool, cdata['course_code'])
+        return course_id, False
+
+    else:
+        raise Exception(f"Error: {err} - {msg}")
 
 
-async def change_query(data, item_type, change_type, course_id):
-    db_conn = await get_db_conn()
-    async with db_conn.transaction():
-        await db_conn.execute('''
-            INSERT INTO changes (course_id, change_type, timestamp, item_type, diff)
-            VALUES ($1, $2, NOW(), $3, $4)
-        ''', course_id, change_type, item_type, json.dumps(data))
+async def add_change(pool, course_id, request):
+    err, msg = await fapi.post_change(pool, course_id, request)
+    if err != 200:
+        raise Exception(f"Error: {err} - {msg}")
 
 
-async def save_new_course(course, course_id):
+async def save_new_course(pool, course, course_id):
     cdata = course.get_data()
+    request = prog.ChangeCreate(
+        item_id=cdata['id'],
+        course_id=course_id,
+        change_type='Addition',
+        timestamp=time.time(),
+        item_type='Course',
+        older_diff=0,
+        diff=json.dumps(cdata)
+    )
 
-    await change_query(cdata, 'Course', 'Addition', course_id)
+    await add_change(pool, course_id, request)
 
 
-async def save_course_pages(api, course, course_id):
+async def save_course_pages(pool, api, course, course_id):
     async for page in api.get_pages(course):
         pdata = page.get_data()
+        request = prog.ChangeCreate(
+            item_id=pdata['page_id'],
+            course_id=course_id,
+            change_type='Addition',
+            timestamp=time.time(),
+            item_type='Page',
+            older_diff=0,
+            diff=json.dumps(pdata)
+        )
 
-        await change_query(pdata, 'Page', 'Addition', course_id)
-
-
-async def save_modules(api, course, course_id):
-    async for module in api.get_modules(course):
-        mdata = module.get_data()
-
-        await change_query(mdata, 'Module', 'Addition', course_id)
-
-
-async def save_assignments(api, course, course_id):
-    async for assignment in api.get_assignments(course):
-        adata = assignment.get_data()
-
-        await change_query(adata, 'Assignment', 'Addition', course_id)
+        await add_change(pool, course_id, request)
 
 
-async def save_quizzes(api, course, course_id):
-    async for quiz in api.get_quizzes(course):
-        qdata = quiz.get_data()
+async def save_new_items(pool, course, course_id, item_type, api_method):
+    async for item in api_method(course):
+        data = item.get_data()
+        request = prog.ChangeCreate(
+            item_id=data['id'],
+            course_id=course_id,
+            change_type='Addition',
+            timestamp=time.time(),
+            item_type=item_type,
+            older_diff=0,
+            diff=json.dumps(data)
+        )
 
-        await change_query(qdata, 'Quiz', 'Addition', course_id)
-
-
-async def save_sections(api, course, course_id):
-    async for section in api.get_sections(course):
-        sdata = section.get_data()
-
-        await change_query(sdata, 'Section', 'Addition', course_id)
+        await add_change(pool, course_id, request)
 
 
 async def page_diffs(api, course, course_id):
@@ -101,17 +105,23 @@ async def main():
     async with connection.ManualCanvasConnection.make_from_environment() as conn:
         api = canvasapi.Canvas(conn)
 
-        async for course in api.get_courses():
-            course_id, is_new = await handle_course(course)
-            print(f"Course: {course_id}")
-            if is_new:
-                await save_new_course(course, course_id)
-                await save_course_pages(api, course, course_id)
-                print("New course added")
-            else:
-                await page_diffs(api, course, course_id)
-                await filesystem_diffs(api, course, course_id)
-                print("Course updated")
+        async with create_pool() as pool:
+            async for course in api.get_courses():
+                course_id, is_new = await handle_course(pool, course)
+                print(f"Course: {course_id}")
+                if is_new:
+                    await save_new_course(pool, course, course_id)
+                    await save_course_pages(pool, api, course, course_id)
+                    await save_new_items(pool, course, course_id, 'Assignment', api.get_assignments)
+                    await save_new_items(pool, course, course_id, 'File', api.get_files)
+                    await save_new_items(pool, course, course_id, 'Quiz', api.get_quizes)
+                    await save_new_items(pool, course, course_id, 'Module', api.get_modules)
+                    await save_new_items(pool, course, course_id, 'Section', api.get_sections)
+                    print("New course added")
+                else:
+                    await page_diffs(pool, api, course, course_id)
+                    await filesystem_diffs(pool, api, course, course_id)
+                    print("Course updated")
 
 
 if __name__ == "__main__":

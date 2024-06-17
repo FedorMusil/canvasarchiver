@@ -23,8 +23,8 @@ class TestDatabaseInsertion(asynctest.TestCase):
         ''', cdata['name'], cdata['course_code'])
 
         change_id = await self.db_conn.fetchval('''
-            INSERT INTO changes (course_id, change_type, timestamp, item_type, diff)
-            VALUES ($1, 'Addition', NOW(), 'Course', $2)
+            INSERT INTO changes (course_id, item_id, change_type, timestamp, item_type, diff)
+            VALUES ($1, 1, 'Addition', NOW(), 'Course', $2)
             RETURNING id
         ''', course_id, json.dumps(cdata))
 
@@ -34,6 +34,7 @@ class TestDatabaseInsertion(asynctest.TestCase):
         ''', change_id)
 
         self.assertEqual(result['course_id'], course_id)
+        self.assertEqual(result['item_id'], 1)
         self.assertEqual(result['change_type'], 'Addition')
         self.assertEqual(result['item_type'], 'Course')
         self.assertEqual(json.loads(result['diff']), cdata)
