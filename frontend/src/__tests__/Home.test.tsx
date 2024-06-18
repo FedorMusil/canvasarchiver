@@ -1,23 +1,17 @@
-import Home from '../components/pages/Home';
-import { describe, expect, test } from 'vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import Home from '@/src/pages/Home';
 import { render, waitFor, type RenderResult } from '@testing-library/react';
+import { describe, expect, test } from 'vitest';
 
-const queryClient = new QueryClient();
 describe('Home', () => {
     let renderResult: RenderResult;
 
     beforeEach(() => {
-        renderResult = render(
-            <QueryClientProvider client={queryClient}>
-                <Home />
-            </QueryClientProvider>
-        );
+        renderResult = render(<Home />);
     });
 
     test('renders', async () => {
         await waitFor(() => {
-            const element = renderResult.getByTestId('home-account-data');
+            const element = renderResult.getByText('Home');
             expect(element).toBeInTheDocument();
         });
     });

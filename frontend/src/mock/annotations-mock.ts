@@ -1,34 +1,81 @@
-import { Annotation } from '../api/annotation';
-import { exampleUsers } from './account-mock';
+import { faker } from '@faker-js/faker';
 import { http, HttpHandler, HttpResponse } from 'msw';
+import { Annotation, type PostAnnotation } from '../api/annotation';
+import { exampleChanges } from './change-mock';
+import { exampleUsers } from './self-mock';
 
 export const annotationHandlers: HttpHandler[] = [
-    http.get(`${import.meta.env.VITE_BACKEND_URL}/annotations/*`, () => {
-        return HttpResponse.json<Annotation[]>(exampleAnnotations);
+    http.get(`${import.meta.env.VITE_BACKEND_URL}/annotations/:courseId/:changeId`, ({ params }) => {
+        const changeId = params.changeId;
+        const annotations = exampleAnnotations.filter((annotation) => annotation.changeId === +changeId);
+        return HttpResponse.json<Annotation[]>(annotations);
+    }),
+
+    http.post(`${import.meta.env.VITE_BACKEND_URL}/annotations`, async ({ request }) => {
+        const annotation = (await request.json()) as PostAnnotation;
+
+        const id = faker.number.int();
+        const newAnnotation: Annotation = {
+            ...annotation,
+            id,
+            user: exampleUsers.find((user) => user.id === annotation.userId)!,
+            timestamp: new Date(),
+        };
+
+        exampleAnnotations.push(newAnnotation);
+        return HttpResponse.json<Annotation>(newAnnotation);
+    }),
+
+    http.delete(`${import.meta.env.VITE_BACKEND_URL}/annotations/:annotationId`, ({ params }) => {
+        const annotationId = params.annotationId;
+
+        // Delete both the annotation and its children
+        const annotationsToBeDeleted = exampleAnnotations.filter(
+            (annotation) => annotation.id !== +annotationId && annotation.parentId !== +annotationId
+        );
+
+        exampleAnnotations.splice(0, exampleAnnotations.length, ...annotationsToBeDeleted);
+        return new HttpResponse();
     }),
 ];
 
-function getRandomDate(start: Date, end: Date): Date {
-    return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
-}
+const exampleAnnotations: Annotation[] = [];
+exampleChanges.map((change) => {
+    const annotationsForChange: Annotation[] = [];
+    let parentId: number | null = null;
 
-const exampleAnnotations: Annotation[] = [
-    {
-        id: 0,
-        user: exampleUsers[0],
-        text: 'Increasing time limit for students',
-        timestamp: getRandomDate(new Date(2012, 0, 1), new Date()),
-    },
-    {
-        id: 1,
-        user: exampleUsers[1],
-        text: 'Adding description to the assignment',
-        timestamp: getRandomDate(new Date(2012, 0, 1), new Date()),
-    },
-    {
-        id: 2,
-        user: exampleUsers[2],
-        text: 'Revealing course information to the students',
-        timestamp: getRandomDate(new Date(2012, 0, 1), new Date()),
-    },
-];
+    const numAnnotations = faker.number.int({ min: 1, max: 10 });
+    const numSubTreeAnnotations = faker.number.int({ min: 1, max: 3 });
+
+    for (let i = 0; i < numAnnotations; i++) {
+        const id = faker.number.int();
+        const annotation: Annotation = {
+            id,
+            user: faker.helpers.arrayElement(exampleUsers),
+            annotation: faker.lorem.sentence(),
+            parentId: null,
+            changeId: change.id,
+            timestamp: faker.date.recent(),
+            selectionId: null,
+        };
+
+        parentId = id;
+        annotationsForChange.push(annotation);
+    }
+
+    for (let j = 0; j < numSubTreeAnnotations; j++) {
+        const annotation: Annotation = {
+            id: faker.number.int(),
+            user: faker.helpers.arrayElement(exampleUsers),
+            annotation: faker.lorem.sentence(),
+            parentId,
+            changeId: change.id,
+            timestamp: faker.date.recent(),
+            selectionId: null,
+        };
+
+        annotationsForChange.push(annotation);
+    }
+
+    exampleAnnotations.push(...annotationsForChange);
+});

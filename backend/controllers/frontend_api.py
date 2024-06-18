@@ -1,4 +1,10 @@
-import json, traceback, asyncio
+
+import json
+import traceback
+from flask import jsonify
+from db.get_db_conn import get_db_conn
+from controllers.canvas_api import get_current_time
+import asyncio
 
 from os import getenv
 from datetime import datetime
@@ -9,9 +15,8 @@ import sys
 # from db.get_db_conn import create_pool
 
 
-
-
 production = getenv('PRODUCTION', False)
+
 
 def check_required_keys(json_obj, required_keys):
     for key, value in required_keys.items():
@@ -33,6 +38,10 @@ async def check_course_create(pool, request):
             # if not check_result:
             #     return False, error_message
 
+        cur.execute('SELECT * FROM courses WHERE course_code = %s',
+                    (request['course_code'], ))
+        course = cur.fetchone()
+        cur.close()
             course = await conn.fetchrow('SELECT * FROM courses WHERE course_code = $1', request.course_code)
 
             if course:
@@ -41,7 +50,9 @@ async def check_course_create(pool, request):
         except Exception as e:
             print(f"Error: {e}")
             return 400, str(e)
-
+    except Exception as e:
+        tb = traceback.format_exc()
+        return False, f"Invalid JSON format. Error: {str(e)}, Traceback: {tb}"
 
 async def check_annotation_create(pool, course_id, change_id, request):
     async with pool.acquire() as conn:
@@ -50,21 +61,11 @@ async def check_annotation_create(pool, course_id, change_id, request):
 
             # if not check_result:
             #     return False, error_message
-
-            # Check if the user has permission to do so
-            user = await conn.fetchrow('SELECT * FROM teacher_courses WHERE user_id = $1 AND course_id = $2', request.user_id, course_id)
-
-            if not user:
-                return 400, "Error: User does not have permission to annotate this change"
-
-            change = await conn.fetchrow('SELECT * FROM changes WHERE id = $1', int(change_id))
-
-            if not change:
-                return 400, "Error: Change does not exist"
-            return 200, "All checks passed"
-        except Exception as e:
-            return 400, "A exception occurred in checking the data: " + str(e)
-
+        if not course:
+            return False, "Error: Course does not exist"
+        return True, "All checks passed"
+    except Exception as e:
+        return False, "A exception accured in checking the data: " + str(e)
 
 async def check_change_create(pool, course_id, request):
     async with pool.acquire() as conn:
@@ -98,9 +99,6 @@ async def check_user_create(pool, course_id, request):
         try:
             # check_result, error_message = check_required_keys(request, {'email': {'type': str, 'length': 255}, 'name': {'type': str, 'length': 255}, 'role': {'type': str, 'enum': ['TA', 'Teacher']}})
 
-            # if not check_result:
-            #     return False, error_message
-
             course = await conn.fetchrow('SELECT * FROM courses WHERE id = $1', int(course_id))
 
             if not course:
@@ -124,7 +122,6 @@ async def get_users(pool):
         users = await conn.fetch('SELECT * FROM users')
         return users
 
-
 async def get_user_by_id(pool, user_id):
     async with pool.acquire() as conn:
         user = await conn.fetch('SELECT * FROM users WHERE id = $1', user_id)
@@ -139,8 +136,6 @@ async def get_users_by_courseid(pool, course_id):
             return []
         user_ids = tuple([user_id[0] for user_id in user_ids])
         users = await conn.fetch('SELECT * FROM users WHERE id=ANY($1)', user_ids)
-
-        return users
 
 
 async def get_annotations_by_changeid(pool, course_id, change_id):
@@ -179,7 +174,6 @@ async def post_course(pool, course_data):
             return 200, course_id
     except Exception as e:
         return 500, "An error occurred in the database"
-
 
 async def post_annotation(pool, change_id, request):
     try:

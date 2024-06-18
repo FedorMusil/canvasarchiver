@@ -99,16 +99,22 @@ async def get_course_info_route(course_id: int):
     '''Get a course by id.'''
     return await get_course_by_id(pool, course_id)
 
+@app.route('/course/<course_id>/users')
+def get_course_users_route(course_id):
+
+  
 @app.get("/course/{course_id}/users")
 async def get_course_users_route(course_id: int):
     '''Get all users in a course.'''
     return await get_users_by_courseid(pool, course_id)
 
+  
 @app.get("/course/{course_id}/annotations/{change_id}")
 async def get_annotation(course_id: int, change_id: int):
     '''Get all annotations for a change.'''
     return await get_annotations_by_changeid(pool, course_id, change_id)
 
+  
 @app.get("/course/{course_id}/changes")
 async def get_changes(course_id: int):
     '''Get all changes for a course.'''
