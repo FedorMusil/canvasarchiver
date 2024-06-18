@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, Depends
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer
 from datetime import datetime, timedelta, timezone
 from jwt.algorithms import RSAAlgorithm
@@ -23,29 +24,31 @@ from typing import Dict, Any
 from dotenv import load_dotenv
 
 load_dotenv()
+app = FastAPI()
 
 
 CLIENT_ID = os.getenv('CLIENT_ID')
-templates = Jinja2Templates(directory="templates")
+frontend_dist_folder = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
+templates = Jinja2Templates(directory=frontend_dist_folder)
 
-app = FastAPI()
+# Mount the dist folder as static files directory
+app.mount("/static", StaticFiles(directory=frontend_dist_folder), name="static")
+
 
 global pool
 
 pool = None  # Declare the pool variable
 
+# async def startup_event():
+#     global pool
+#     pool = await create_pool()  # Create the pool when the application starts
 
-async def startup_event():
-    global pool
-    pool = await create_pool()  # Create the pool when the application starts
+# app.add_event_handler("startup", startup_event)
 
-app.add_event_handler("startup", startup_event)
+# async def shutdown_event():
+    # await pool.close()  # Close the pool when the application shuts down
 
-
-async def shutdown_event():
-    await pool.close()  # Close the pool when the application shuts down
-
-app.add_event_handler("shutdown", shutdown_event)
+# app.add_event_handler("shutdown", shutdown_event)
 
 
 class User(BaseModel):
@@ -92,10 +95,7 @@ def get_current_user(request: Request):
 
     try:
         # Replace 'your-secret-key' with your actual secret key
-        payload = jwt.decode(
-            token,
-            'f3104b82021b97756ba5016a19f03d57722f75bd05e79bb596eacaba1e012558',
-            algorithms=["HS256"])
+        payload = jwt.decode(token, os.getenv("JWT-secret"), algorithms=["HS256"])
         return payload
     except (jwt.PyJWTError, AttributeError):
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -106,29 +106,25 @@ async def return_user_info(user: dict = Depends(get_current_user)):
     '''Get your own information.'''
     return await get_user_by_id(pool, user['user_id'])
 
-
-@app.get("/course/{course_id}/id")
-async def get_course_info_route(course_id: int):
+@app.get("/course/getinfo", dependencies=[Depends(get_current_user)])
+async def get_course_info_route(user: dict = Depends(get_current_user)):
     '''Get a course by id.'''
-    return await get_course_by_id(pool, course_id)
+    return await get_course_by_id(pool, user['course_id'])
 
-
-@app.get("/course/{course_id}/users")
-async def get_course_users_route(course_id: int):
+@app.get("/course/users", dependencies=[Depends(get_current_user)])
+async def get_course_users_route(user: dict = Depends(get_current_user)):
     '''Get all users in a course.'''
-    return await get_users_by_courseid(pool, course_id)
+    return await get_users_by_courseid(pool, user['course_id'])
 
-
-@app.get("/course/{course_id}/annotations/{change_id}")
-async def get_annotation(course_id: int, change_id: int):
+@app.get("/course/annotations/{change_id}", dependencies=[Depends(get_current_user)])
+async def get_annotation(change_id: int, user: dict = Depends(get_current_user)):
     '''Get all annotations for a change.'''
-    return await get_annotations_by_changeid(pool, course_id, change_id)
+    return await get_annotations_by_changeid(pool, user['course_id'], change_id)
 
-
-@app.get("/course/{course_id}/changes")
-async def get_changes(course_id: int):
+@app.get("/course/changes", dependencies=[Depends(get_current_user)])
+async def get_changes(course_id: int, user: dict = Depends(get_current_user)):
     '''Get all changes for a course.'''
-    return await get_changes_by_courseid(pool, course_id)
+    return await get_changes_by_courseid(pool, user['course_id'])
 
 # Post Routes
 
@@ -143,14 +139,10 @@ async def post_course_route(course: CourseCreate):
         return {"course_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
 
-
-@app.post("/course/{course_id}/create/annotation/{change_id}")
-async def post_annotation_route(
-        course_id: int,
-        change_id: int,
-        annotation: AnnotationCreate):
+@app.post("/course/create/annotation/{change_id}", dependencies=[Depends(get_current_user)])
+async def post_annotation_route(change_id: int, annotation: AnnotationCreate, user: dict = Depends(get_current_user)):
     '''Create an annotation.'''
-    passed_test, error_message = await check_annotation_create(pool, course_id, change_id, annotation)
+    passed_test, error_message = await check_annotation_create(pool, user['course_id'], change_id, annotation)
     if not passed_test:
         raise HTTPException(status_code=400, detail=error_message)
     success, return_message = await post_annotation(pool, change_id, annotation)
@@ -198,7 +190,14 @@ def clean_expired_state_nonce():
 async def handle_initiation_post(request: Request):
     clean_expired_state_nonce()
 
-    data = await request.json()
+    try:
+        form = await request.form()
+        data = {key: value for key, value in form.items()}
+
+        print("Request Form Data:", data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid form data: {str(e)}")
+
 
     iss = data.get('iss')
     login_hint = data.get('login_hint')
@@ -297,13 +296,24 @@ async def handle_redirect(request: Request):
 
     return response
 
-# @app.get("/{path:path}", include_in_schema=False)
-# async def serve(path: str):
-#     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
-#         return FileResponse(os.path.join(app.static_folder, path))
-#     else:
-#         return templates.TemplateResponse("index.html", {})
 
+@app.post("/", include_in_schema=False)
+async def serve_root():
+    index_path = os.path.join(frontend_dist_folder, "index.html")
+    if not os.path.exists(index_path):
+        raise HTTPException(status_code=404, detail="index.html not found")
+    return FileResponse(index_path)
+
+@app.get("/{path:path}", include_in_schema=False)
+async def catch_all(path: str):
+    file_path = os.path.join(frontend_dist_folder, path)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    else:
+        index_path = os.path.join(frontend_dist_folder, "index.html")
+        if not os.path.exists(index_path):
+            raise HTTPException(status_code=404, detail="index.html not found")
+        return FileResponse(index_path)
 
 @app.post("/deploy")
 async def deploy(request: Request):
@@ -331,4 +341,9 @@ async def deploy(request: Request):
     return
 
 if __name__ == "__main__":
-    uvicorn.run("program:app", host="0.0.0.0", port=5000, log_level="info")
+    uvicorn.run(
+        "program:app", host="0.0.0.0", port=3000, log_level="info",
+        ssl_certfile="../frontend/localhost.pem",
+        ssl_keyfile="../frontend/localhost-key.pem"
+    )
+
