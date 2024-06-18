@@ -1,4 +1,5 @@
 import { AxiosWrapper } from './wrapper';
+import type { Self } from './self';
 
 export type Annotation = {
     id: number;

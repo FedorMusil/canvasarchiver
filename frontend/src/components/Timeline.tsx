@@ -1,4 +1,4 @@
-import { Button } from './ui/button';
+import { Button } from './ui/Button';
 import { ChevronLeftCircle, ChevronRightCircle, Eraser, Pencil, Plus } from 'lucide-react';
 import {
     Drawer,
