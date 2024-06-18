@@ -245,6 +245,22 @@ async def get_annotations_by_changeid(pool, course_id, change_id):
         return annotations
 
 
+async def get_change_by_id(pool, change_id):
+    """
+    Retrieve a change by its ID.
+
+    Args:
+        pool: The connection pool to the database.
+        change_id: The ID of the change to retrieve.
+
+    Returns:
+        The change record as a dictionary, or None if the change is not found.
+    """
+    async with pool.acquire() as conn:
+        change = await conn.fetchrow('SELECT * FROM changes WHERE id = $1', change_id)
+        return change
+
+
 async def get_changes_by_courseid(pool, course_id):
     """
     Retrieve changes from the database based on the given course ID.
@@ -362,13 +378,13 @@ async def post_change(pool, course_id, request):
                 INSERT INTO changes (course_id, timestamp, item_id, change_type, item_type, diff)
                 VALUES ($1, $2, $3, $4, $5, $6)
                 RETURNING id
-                ''', int(course_id), datetime.now(), request.item_id, request.change_type, request.item_type, json.dumps(request.diff))
+                ''', int(course_id), datetime.now(), request.item_id, request.change_type, request.item_type, request.diff)
             else:
                 change_id = await conn.fetchval('''
                 INSERT INTO changes (course_id, timestamp, item_id, change_type, item_type, older_diff, diff)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING id
-                ''', int(course_id), datetime.now(), request.item_id, request.change_type, request.item_type, request.older_diff, json.dumps(request.diff))
+                ''', int(course_id), datetime.now(), request.item_id, request.change_type, request.item_type, request.older_diff, request.diff)
 
             return True, change_id
     except Exception as e:
@@ -425,3 +441,43 @@ async def post_user(pool, course_id, request):
                 "error:\n",
                 e)
             return False, "Error: User not created"
+
+
+async def remove_course_by_id(pool, course_id):
+    """
+    Remove a course from the database by its ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course to remove.
+
+    Returns:
+        A boolean indicating the success of the operation.
+    """
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute('DELETE FROM courses WHERE id = $1', int(course_id))
+            return True
+        except Exception as e:
+            print(f"Error: {e}")
+            return False
+
+
+async def remove_change_by_id(pool, change_id):
+    """
+    Remove a change from the database by its ID.
+
+    Args:
+        pool: The connection pool to the database.
+        change_id: The ID of the change to remove.
+
+    Returns:
+        A boolean indicating the success of the operation.
+    """
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute('DELETE FROM changes WHERE id = $1', int(change_id))
+            return True
+        except Exception as e:
+            print(f"Error: {e}")
+            return False

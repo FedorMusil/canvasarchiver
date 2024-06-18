@@ -1,0 +1,3 @@
+diff
+{"id": 123,"workflow_state": "active","position": 2,"name": "Imaginary Numbers and You","unlock_at": "2012-12-31T06:00:00-06:00","require_sequential_progress": true,"prerequisite_module_ids": [121, 122],"items_count": 10,"items": null,"state": "started","completed_at": null,"publish_final_grade": null,"published": false}
+{"id": 123,"workflow_state": "active","position": 2,"name": "Imaginary Numbers and You","unlock_at": "2012-12-31T06:00:00-06:00","require_sequential_progress": true,"prerequisite_module_ids": [121, 122],"items_count": 10,"items": null,"state": "started","completed_at": null,"publish_final_grade": null,"published": false}
