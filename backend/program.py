@@ -28,11 +28,16 @@ app = FastAPI()
 
 
 CLIENT_ID = os.getenv('CLIENT_ID')
-frontend_dist_folder = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
+frontend_dist_folder = os.path.join(
+    os.path.dirname(__file__), '..', 'frontend', 'dist')
 templates = Jinja2Templates(directory=frontend_dist_folder)
 
 # Mount the dist folder as static files directory
-app.mount("/static", StaticFiles(directory=frontend_dist_folder), name="static")
+app.mount(
+    "/static",
+    StaticFiles(
+        directory=frontend_dist_folder),
+    name="static")
 
 
 global pool
@@ -46,7 +51,7 @@ pool = None  # Declare the pool variable
 # app.add_event_handler("startup", startup_event)
 
 # async def shutdown_event():
-    # await pool.close()  # Close the pool when the application shuts down
+# await pool.close()  # Close the pool when the application shuts down
 
 # app.add_event_handler("shutdown", shutdown_event)
 
@@ -95,7 +100,10 @@ def get_current_user(request: Request):
 
     try:
         # Replace 'your-secret-key' with your actual secret key
-        payload = jwt.decode(token, os.getenv("JWT-secret"), algorithms=["HS256"])
+        payload = jwt.decode(
+            token,
+            os.getenv("JWT-secret"),
+            algorithms=["HS256"])
         return payload
     except (jwt.PyJWTError, AttributeError):
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -106,20 +114,27 @@ async def return_user_info(user: dict = Depends(get_current_user)):
     '''Get your own information.'''
     return await get_user_by_id(pool, user['user_id'])
 
+
 @app.get("/course/getinfo", dependencies=[Depends(get_current_user)])
 async def get_course_info_route(user: dict = Depends(get_current_user)):
     '''Get a course by id.'''
     return await get_course_by_id(pool, user['course_id'])
+
 
 @app.get("/course/users", dependencies=[Depends(get_current_user)])
 async def get_course_users_route(user: dict = Depends(get_current_user)):
     '''Get all users in a course.'''
     return await get_users_by_courseid(pool, user['course_id'])
 
-@app.get("/course/annotations/{change_id}", dependencies=[Depends(get_current_user)])
-async def get_annotation(change_id: int, user: dict = Depends(get_current_user)):
+
+@app.get("/course/annotations/{change_id}",
+         dependencies=[Depends(get_current_user)])
+async def get_annotation(
+        change_id: int,
+        user: dict = Depends(get_current_user)):
     '''Get all annotations for a change.'''
     return await get_annotations_by_changeid(pool, user['course_id'], change_id)
+
 
 @app.get("/course/changes", dependencies=[Depends(get_current_user)])
 async def get_changes(course_id: int, user: dict = Depends(get_current_user)):
@@ -139,8 +154,13 @@ async def post_course_route(course: CourseCreate):
         return {"course_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
 
-@app.post("/course/create/annotation/{change_id}", dependencies=[Depends(get_current_user)])
-async def post_annotation_route(change_id: int, annotation: AnnotationCreate, user: dict = Depends(get_current_user)):
+
+@app.post("/course/create/annotation/{change_id}",
+          dependencies=[Depends(get_current_user)])
+async def post_annotation_route(
+        change_id: int,
+        annotation: AnnotationCreate,
+        user: dict = Depends(get_current_user)):
     '''Create an annotation.'''
     passed_test, error_message = await check_annotation_create(pool, user['course_id'], change_id, annotation)
     if not passed_test:
@@ -196,8 +216,9 @@ async def handle_initiation_post(request: Request):
 
         print("Request Form Data:", data)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid form data: {str(e)}")
-
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid form data: {str(e)}")
 
     iss = data.get('iss')
     login_hint = data.get('login_hint')
@@ -304,6 +325,7 @@ async def serve_root():
         raise HTTPException(status_code=404, detail="index.html not found")
     return FileResponse(index_path)
 
+
 @app.get("/{path:path}", include_in_schema=False)
 async def catch_all(path: str):
     file_path = os.path.join(frontend_dist_folder, path)
@@ -314,6 +336,7 @@ async def catch_all(path: str):
         if not os.path.exists(index_path):
             raise HTTPException(status_code=404, detail="index.html not found")
         return FileResponse(index_path)
+
 
 @app.post("/deploy")
 async def deploy(request: Request):
@@ -346,4 +369,3 @@ if __name__ == "__main__":
         ssl_certfile="../frontend/localhost.pem",
         ssl_keyfile="../frontend/localhost-key.pem"
     )
-
