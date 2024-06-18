@@ -10,7 +10,6 @@ if not production:
     print("|TEST is running in debug mode|")
 
 
-
 def generate_random_string(length=10):
     letters = string.ascii_letters
     result_str = ''.join(random.choice(letters) for i in range(length))
@@ -80,7 +79,8 @@ def create_user(
 
 
 def get_all_course_users(course_id):
-    check_user_create_url = "http://localhost:5000/course/{}/users".format(course_id)
+    check_user_create_url = "http://localhost:5000/course/{}/users".format(
+        course_id)
     response = requests.get(check_user_create_url)
     if not production:
         try:

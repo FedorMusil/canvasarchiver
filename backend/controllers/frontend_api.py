@@ -14,7 +14,6 @@ import sys
 production = getenv('PRODUCTION', False)
 
 
-
 def check_required_keys(json_obj, required_keys):
     for key, value in required_keys.items():
         if key not in json_obj:
@@ -52,6 +51,7 @@ async def check_course_create(pool, request):
         except Exception as e:
             print(f"Error: {e}")
             return 400, str(e)
+
 
 async def check_annotation_create(pool, course_id, change_id, request):
     """
@@ -178,6 +178,7 @@ async def get_users(pool):
     async with pool.acquire() as conn:
         users = await conn.fetch('SELECT * FROM users')
         return users
+
 
 async def get_user_by_id(pool, user_id):
     """
@@ -317,6 +318,7 @@ async def post_course(pool, course_data):
             return 200, course_id
     except Exception as e:
         return 500, "An error occurred in the database"
+
 
 async def post_annotation(pool, change_id, request):
     """
