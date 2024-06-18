@@ -2,6 +2,7 @@
 import canvas.canvas as canvasapi
 import canvas.connection as connection
 import asyncio
+import json
 
 
 class Printer:
@@ -76,7 +77,7 @@ async def main():
                 await list_files(directory.get_folder())
 
         async def list_folders(course):
-            directory = await api.get_folders(course=course)
+            directory = await api.get_directory(course=course)
             await rec_print_dir(directory)
 
         async def list_module_items(course, module):
@@ -129,7 +130,15 @@ async def main():
                 with p.indent():
                     async for c in api.get_rubrics(course):
                         cdata = c.get_data()
-                        p.print(f"{cdata['id']}, {cdata['name']}")
+                        p.print(f"{cdata['id']}, {cdata['title']}")
+
+        async def list_quiz_questions(course, quiz):
+            with p.indent():
+                p.print("Questions")
+                with p.indent():
+                    async for c in api.get_quiz_questions(course, quiz):
+                        cdata = c.get_data()
+                        p.print(f"{cdata['id']}, {cdata['question_text']}")
 
         async def list_quizzes(course):
             with p.indent():
@@ -138,11 +147,13 @@ async def main():
                     async for c in api.get_quizes(course):
                         cdata = c.get_data()
                         p.print(f"{cdata['id']}, {cdata['title']}")
+                        await list_quiz_questions(course, c)
 
         async def list_courses():
             async for c in api.get_courses():
                 cdata = c.get_data()
                 p.print(f"{cdata['id']} {cdata['name']}")
+                await c.resolve()
                 await list_assignments(c)
                 await list_folders(c)
                 await list_modules(c)
@@ -151,6 +162,15 @@ async def main():
                 await list_rubrics(c)
                 await list_quizzes(c)
 
+        async def make_assignment(name):
+            course = await anext(api.get_courses())
+            obj = await api.create_assignment(
+                course, assignment={"name": name, "published": True}
+            )
+            print(json.dumps(obj.get_data(), indent=2))
+
+        # for i in range(20):
+        #     await make_assignment(f"aa{i}")
         await list_courses()
 
 

@@ -1,8 +1,21 @@
+
 import json
 import traceback
 from flask import jsonify
 from db.get_db_conn import get_db_conn
 from controllers.canvas_api import get_current_time
+import asyncio
+
+from os import getenv
+from datetime import datetime
+import sys
+
+# import os
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# from db.get_db_conn import create_pool
+
+
+production = getenv('PRODUCTION', False)
 
 
 def check_required_keys(json_obj, required_keys):
@@ -18,269 +31,222 @@ def check_required_keys(json_obj, required_keys):
     return True, "All checks passed"
 
 
-def check_course_create(conn, request):
-    cur = conn.cursor()
-    try:
-        check_result, error_message = check_required_keys(
-            request, {
-                'name': {
-                    'type': str, 'length': 255}, 'course_code': {
-                    'type': str, 'length': 255}})
-
-        if not check_result:
-            return False, error_message
+async def check_course_create(pool, request):
+    async with pool.acquire() as conn:
+        try:
+            # check_result, error_message = check_required_keys(request, {'name': {'type': str, 'length': 255}, 'course_code': {'type': str, 'length': 255}})
+            # if not check_result:
+            #     return False, error_message
 
         cur.execute('SELECT * FROM courses WHERE course_code = %s',
                     (request['course_code'], ))
         course = cur.fetchone()
         cur.close()
+            course = await conn.fetchrow('SELECT * FROM courses WHERE course_code = $1', request.course_code)
 
-        if course:
-            return False, "Error: Course exists already"
-        return True, "All checks passed"
-
+            if course:
+                return 400, "Error: Course exists already"
+            return 200, "All checks passed"
+        except Exception as e:
+            print(f"Error: {e}")
+            return 400, str(e)
     except Exception as e:
         tb = traceback.format_exc()
         return False, f"Invalid JSON format. Error: {str(e)}, Traceback: {tb}"
 
+async def check_annotation_create(pool, course_id, change_id, request):
+    async with pool.acquire() as conn:
+        try:
+            # check_result, error_message = check_required_keys(request, {'change_id': {'type': str,'length': 255},'text': {'type': str, 'length': 255}, 'user_id': {'type': str, 'length': 255}})
 
-def check_annotation_create(conn, change_id, request):
-    cur = conn.cursor()
-    try:
-        check_result, error_message = check_required_keys(
-            request, {
-                'change_id': {
-                    'type': str, 'length': 255}, 'text': {
-                    'type': str, 'length': 255}, 'user_id': {
-                    'type': str, 'length': 255}})
-
-        if not check_result:
-            return False, error_message
-
-        cur.execute('SELECT * FROM changes WHERE id = %s', (change_id,))
-        change = cur.fetchone()
-        cur.close()
-
-        if not change:
-            return False, "Error: Change does not exist"
-        return True, "All checks passed"
-    except Exception as e:
-        return False, "A exception accured in checking the data: " + str(e)
-
-
-def check_change_create(conn, course_id, request):
-    cur = conn.cursor()
-    try:
-        check_result, error_message = check_required_keys(
-            request, {
-                'course_id': {
-                    'type': int, 'length': 255}, 'change_type': {
-                    'type': str, 'enum': [
-                        'Deletion', 'Addition', 'Modification']}, 'item_type': {
-                        'type': str, 'enum': [
-                            'Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections']}, 'old_value': {
-                                'type': str, 'length': 255}, 'new_value': {
-                                    'type': str}})
-
-        if not check_result:
-            return False, error_message
-
-        cur.execute('SELECT * FROM courses WHERE id = %s', (course_id, ))
-        course = cur.fetchone()
-        change = True
-
-        # Disabled for now, tracking to see if the values form a tree.
-        # if int(request['old_value']) != 0:
-        #     # Check if old_value links to an older change
-        #     cur.execute('SELECT * FROM changes WHERE id = %s', (request['old_value'], ))
-        #     change = cur.fetchone()
-        # else:
-        #     change = False
-
-        cur.close()
-
-        if not course:
-            return False, "Error: Course does not exist"
-        if not change:
-            return False, "Error: Old value does not link to an old change {} ||".format(
-                request['old_value'])
-        return True, "All checks passed"
-    except Exception as e:
-        return False, "A exception accured in checking the data: " + str(e)
-
-
-def check_user_create(conn, course_id, request):
-    cur = conn.cursor()
-    try:
-        check_result, error_message = check_required_keys(
-            request, {
-                'email': {
-                    'type': str, 'length': 255}, 'name': {
-                    'type': str, 'length': 255}, 'role': {
-                    'type': str, 'enum': [
-                        'TA', 'Teacher']}})
-
-        if not check_result:
-            return False, error_message
-
-        cur.execute('SELECT * FROM courses WHERE id = %s', (course_id, ))
-        course = cur.fetchone()
-        cur.close()
-
+            # if not check_result:
+            #     return False, error_message
         if not course:
             return False, "Error: Course does not exist"
         return True, "All checks passed"
     except Exception as e:
         return False, "A exception accured in checking the data: " + str(e)
 
+async def check_change_create(pool, course_id, request):
+    async with pool.acquire() as conn:
+        try:
+            # check_result, error_message = check_required_keys(request, {'course_id': {'type': int,'length': 255}, 'item_id': {'type': int,'length': 255}, 'change_type': {'type': str, 'enum': ['Deletion', 'Addition', 'Modification']}, 'item_type': {'type': str, 'enum': ['Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections']}, 'older_diff': {'type': int, 'length': 255}, 'diff': {'type': str}})
 
-def get_course_by_id(conn, course_id):
-    cur = conn.cursor()
+            # if not check_result:
+            #     return False, error_message
 
-    cur.execute('SELECT * FROM courses WHERE id = %s', (course_id,))
-    course = cur.fetchone()
+            course = await conn.fetchrow('SELECT * FROM courses WHERE id = $1', int(course_id))
+            # change = True
 
-    cur.close()
+            # Disabled for now, tracking to see if the values form a tree.
+            # if int(request['old_value']) != 0:
+            #     # Check if old_value links to an older change
+            #     change = await conn.fetchrow('SELECT * FROM changes WHERE id = $1', request['old_value'])
+            # else:
+            #     change = False
 
-    if course is None:
-        return jsonify(error="Course not found"), 404
-
-    # Assuming `course` is a dictionary with the course data
-    return jsonify(course)
-
-
-def get_users(conn):
-    cur = conn.cursor()
-
-    cur.execute('SELECT * FROM users')
-    users = cur.fetchall()
-
-    cur.close()
-
-    return users
-
-
-def get_users_by_courseid(conn, course_id):
-    conn = get_db_conn()
-    cur = conn.cursor()
-
-    cur.execute(
-        'SELECT * FROM teacher_courses WHERE course_id = %s', (course_id,))
-    user_ids = cur.fetchall()
-
-    if not user_ids:
-        return []
-    user_ids = tuple([user_id[0] for user_id in user_ids])
-    cur.execute('SELECT * FROM users WHERE id IN %s', (user_ids,))
-    users = cur.fetchall()
-
-    cur.close()
-
-    return users
+            if not course:
+                return 400, "Error: Course does not exist"
+            # if not change:
+            #     return False, "Error: Old value does not link to an old change {} ||".format(request['old_value'])
+            return 200, "All checks passed"
+        except Exception as e:
+            return 400, "A exception occurred in checking the data: " + str(e)
 
 
-def get_annotations_by_changeid(conn, course_id, change_id):
-    cur = conn.cursor()
+async def check_user_create(pool, course_id, request):
+    async with pool.acquire() as conn:
+        try:
+            # check_result, error_message = check_required_keys(request, {'email': {'type': str, 'length': 255}, 'name': {'type': str, 'length': 255}, 'role': {'type': str, 'enum': ['TA', 'Teacher']}})
 
-    cur.execute('''
-    SELECT a.*
-    FROM annotations a
-    JOIN changes c ON a.change_id = c.id
-    WHERE c.course_id = %s AND c.id = %s
-    ''', (course_id, change_id))
-    annotations = cur.fetchall()
+            course = await conn.fetchrow('SELECT * FROM courses WHERE id = $1', int(course_id))
 
-    cur.close()
-
-    return annotations
-
-
-def get_changes_by_courseid(conn, course_id):
-    cur = conn.cursor()
-
-    cur.execute('SELECT * FROM changes WHERE course_id = %s', (course_id,))
-    changes = cur.fetchall()
-
-    cur.close()
-
-    return changes
+            if not course:
+                return False, "Error: Course does not exist"
+            return 200, "All checks passed"
+        except Exception as e:
+            print(f"Error:\n {e}")
+            return 400, "A exception occurred in checking the data"
 
 
-def post_course(conn, course_data):
-    cur = conn.cursor()
-
-    cur.execute('''
-    INSERT INTO courses (name, course_code)
-    VALUES (%s, %s)
-    RETURNING id
-    ''', (course_data['name'], course_data['course_code']))
-    course_id = cur.fetchone()[0]
-
-    # Check if the request succeeded
-    if not course_id:
-        return False, "Error: Course not created"
-
-    conn.commit()
-    cur.close()
-
-    return True, course_id
+async def get_course_by_id(pool, course_id):
+    async with pool.acquire() as conn:
+        course = await conn.fetchrow('SELECT * FROM courses WHERE id = $1', course_id)
+        if course is not None:
+            course = dict(course)
+        return json.dumps(course)
 
 
-def post_annotation(conn, course_id, change_id, request):
-    cur = conn.cursor()
+async def get_users(pool):
+    async with pool.acquire() as conn:
+        users = await conn.fetch('SELECT * FROM users')
+        return users
 
-    cur.execute('''
-    INSERT INTO annotations (change_id, user_id, text, timestamp)
-    VALUES (%s, %s, %s, %s)
-    RETURNING id
-    ''', (change_id, request['user_id'], request['text'], get_current_time()))
-    annotation_id = cur.fetchone()[0]
-
-    conn.commit()
-    cur.close()
-
-    return True, annotation_id
+async def get_user_by_id(pool, user_id):
+    async with pool.acquire() as conn:
+        user = await conn.fetch('SELECT * FROM users WHERE id = $1', user_id)
+        return user
 
 
-def post_change(conn, course_id, request):
-    cur = conn.cursor()
+async def get_users_by_courseid(pool, course_id):
+    async with pool.acquire() as conn:
+        user_ids = await conn.fetch('SELECT * FROM teacher_courses WHERE course_id = $1', int(course_id))
 
-    cur.execute('''
-    INSERT INTO changes (course_id, timestamp, change_type_id, item_type, old_value, new_value)
-    VALUES (%s, %s, %s, %s, %s, %s)
-    RETURNING id
-    ''', (course_id, get_current_time(), request['change_type'], request['item_type'], request['old_value'], request['new_value']))
-    change_id = cur.fetchone()[0]
-
-    conn.commit()
-    cur.close()
-
-    return True, change_id
+        if not user_ids:
+            return []
+        user_ids = tuple([user_id[0] for user_id in user_ids])
+        users = await conn.fetch('SELECT * FROM users WHERE id=ANY($1)', user_ids)
 
 
-def post_user(conn, course_id, request):
-    cur = conn.cursor()
+async def get_annotations_by_changeid(pool, course_id, change_id):
+    async with pool.acquire() as conn:
+        annotations = await conn.fetch('''
+        SELECT a.* 
+        FROM annotations a
+        JOIN changes c ON a.change_id = c.id
+        WHERE c.course_id = $1 AND c.id = $2
+        ''', course_id, change_id)
 
-    # check if the user already exists
-    cur.execute('SELECT * FROM users WHERE email = %s', (request['email'],))
-    user = cur.fetchone()
+        return annotations
 
-    if not user:
-        cur.execute('''
-        INSERT INTO users (email, name)
-        VALUES (%s, %s)
-        RETURNING id
-        ''', (request['email'], request['name']))
-        user_id = cur.fetchone()[0]
-        cur.execute(
-            '''INSERT INTO teacher_courses (user_id, course_id, role) VALUES (%s, %s, %s)''',
-            (user_id,
-             course_id,
-             request['role']))
-    else:
-        user_id = user[0]
 
-    conn.commit()
-    cur.close()
+async def get_changes_by_courseid(pool, course_id):
+    async with pool.acquire() as conn:
+        changes = await conn.fetch('SELECT * FROM changes WHERE course_id = $1', course_id)
+        return changes
 
-    return True, user_id
+
+async def post_course(pool, course_data):
+    try:
+        async with pool.acquire() as conn:
+            try:
+                course_id = await conn.fetchval('''
+                INSERT INTO courses (name, course_code)
+                VALUES ($1, $2)
+                RETURNING id
+                ''', course_data.name, course_data.course_code)
+            except Exception as e:
+                return 500, "An error happend in the database"
+
+            if not course_id:
+                return 400, "Error: Course not created"
+
+            return 200, course_id
+    except Exception as e:
+        return 500, "An error occurred in the database"
+
+async def post_annotation(pool, change_id, request):
+    try:
+        async with pool.acquire() as conn:
+            annotation_id = await conn.fetchval('''
+            INSERT INTO annotations (change_id, user_id, text, timestamp)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id
+            ''', int(change_id), request.user_id, request.text, datetime.now())
+
+            return True, annotation_id
+    except Exception as e:
+        print("request to post_annotation failed, datadump:", "change_id:\n", change_id, "request:\n", request, "error:\n", e)
+        return False, "Error: Annotation not created"
+
+
+async def post_change(pool, course_id, request):
+    try:
+        async with pool.acquire() as conn:
+            if request.older_diff == 0:
+                change_id = await conn.fetchval('''
+                INSERT INTO changes (course_id, timestamp, item_id, change_type, item_type, diff)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING id
+                ''', int(course_id), datetime.now(), request.item_id, request.change_type, request.item_type, json.dumps(request.diff))
+            else:
+                change_id = await conn.fetchval('''
+                INSERT INTO changes (course_id, timestamp, item_id, change_type, item_type, older_diff, diff)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING id
+                ''', int(course_id), datetime.now(), request.item_id, request.change_type, request.item_type, request.older_diff, json.dumps(request.diff))
+
+            return True, change_id
+    except Exception as e:
+        print("request to post_change failed, datadump:", "course_id:\n", course_id, "request:\n", request, "error:\n", e)
+        return False, "Error: Change not created"
+
+
+async def post_user(pool, course_id, request):
+    async with pool.acquire() as conn:
+        # check if the user already exists
+        user = await conn.fetchrow('SELECT * FROM users WHERE email = $1', request.email)
+        try:
+            if not user:
+                user_id = await conn.fetchval('''
+                INSERT INTO users (email, name)
+                VALUES ($1, $2)
+                RETURNING id
+                ''', request.email, request.name)
+                await conn.execute('''INSERT INTO teacher_courses (user_id, course_id, role) VALUES ($1, $2, $3)''', int(user_id), int(course_id), request.role)
+            else:
+                user_id = user[0]
+                try:
+                    await conn.execute('''INSERT INTO teacher_courses (user_id, course_id, role) VALUES ($1, $2, $3)''', int(user_id), int(course_id), request.role)
+                except Exception as e:
+                    return False, "Error: User already exists in course"
+
+            return True, user_id
+        except Exception as e:
+            print("request to post_user failed, datadump:", "course_id:\n", course_id, "request:\n", request, "error:\n", e)
+            return False, "Error: User not created"
+
+
+async def run():
+    pool = await create_pool()
+    course_id = await post_course(pool, {'name': 'Test Course', 'course_code': 'TEST103'})
+    print(course_id)
+    course = await get_course_by_id(pool, 1)
+    print(course)
+    await pool.close()
+
+if __name__ == '__main__':
+    import os
+    import sys
+    # Create pool
+    asyncio.run(run())
