@@ -104,10 +104,12 @@ async def get_course_info_route(user: dict = Depends(get_current_user)):
     '''Get a course by id.'''
     return await get_course_by_id(pool, user['course_id'])
 
+  
 @app.get("/course/users", dependencies=[Depends(get_current_user)])
 async def get_course_users_route(user: dict = Depends(get_current_user)):
     '''Get all users in a course.'''
     return await get_users_by_courseid(pool, user['course_id'])
+
 
 @app.get("/course/annotations/{change_id}", dependencies=[Depends(get_current_user)])
 async def get_annotation(change_id: int, user: dict = Depends(get_current_user)):
