@@ -47,11 +47,6 @@ async def check_course_create(pool, request):
             # check_result, error_message = check_required_keys(request, {'name': {'type': str, 'length': 255}, 'course_code': {'type': str, 'length': 255}})
             # if not check_result:
             #     return False, error_message
-
-        cur.execute('SELECT * FROM courses WHERE course_code = %s',
-                    (request['course_code'], ))
-        course = cur.fetchone()
-        cur.close()
             course = await conn.fetchrow('SELECT * FROM courses WHERE course_code = $1', request.course_code)
 
             if course:
@@ -60,9 +55,6 @@ async def check_course_create(pool, request):
         except Exception as e:
             print(f"Error: {e}")
             return 400, str(e)
-    except Exception as e:
-        tb = traceback.format_exc()
-        return False, f"Invalid JSON format. Error: {str(e)}, Traceback: {tb}"
 
 async def check_annotation_create(pool, course_id, change_id, request):
     """
