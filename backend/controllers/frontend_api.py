@@ -27,6 +27,16 @@ def check_required_keys(json_obj, required_keys):
 
 
 async def check_course_create(pool, request):
+    """
+    Check if a course can be created based on the provided request.
+
+    Args:
+        pool: The connection pool to the database.
+        request: The request object containing the course information.
+
+    Returns:
+        A tuple containing the HTTP status code and a message indicating the result of the checks.
+    """
     async with pool.acquire() as conn:
         try:
             # check_result, error_message = check_required_keys(request, {'name': {'type': str, 'length': 255}, 'course_code': {'type': str, 'length': 255}})
@@ -44,6 +54,22 @@ async def check_course_create(pool, request):
 
 
 async def check_annotation_create(pool, course_id, change_id, request):
+    """
+    Check if the user has permission to annotate a change and if the change exists.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        change_id: The ID of the change.
+        request: The request object containing user information.
+
+    Returns:
+        A tuple containing the status code and a message.
+        - If the user has permission and the change exists, returns (200, "All checks passed").
+        - If the user does not have permission, returns (400, "Error: User does not have permission to annotate this change").
+        - If the change does not exist, returns (400, "Error: Change does not exist").
+        - If an exception occurs during the data check, returns (400, "An exception occurred in checking the data: <exception message>").
+    """
     async with pool.acquire() as conn:
         try:
             # check_result, error_message = check_required_keys(request, {'change_id': {'type': str,'length': 255},'text': {'type': str, 'length': 255}, 'user_id': {'type': str, 'length': 255}})
@@ -63,37 +89,51 @@ async def check_annotation_create(pool, course_id, change_id, request):
                 return 400, "Error: Change does not exist"
             return 200, "All checks passed"
         except Exception as e:
-            return 400, "A exception occurred in checking the data: " + str(e)
+            return 400, "An exception occurred in checking the data: " + str(e)
 
 
 async def check_change_create(pool, course_id, request):
+    """
+    Check if the change can be created for the given course.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        request: The request data containing the change details.
+
+    Returns:
+        A tuple containing the status code and a message.
+        - If the checks pass, returns (200, "All checks passed").
+        - If the course does not exist, returns (400, "Error: Course does not exist").
+        - If an exception occurs during the check, returns (400, "An exception occurred in checking the data: <exception message>").
+    """
     async with pool.acquire() as conn:
         try:
-            # check_result, error_message = check_required_keys(request, {'course_id': {'type': int,'length': 255}, 'item_id': {'type': int,'length': 255}, 'change_type': {'type': str, 'enum': ['Deletion', 'Addition', 'Modification']}, 'item_type': {'type': str, 'enum': ['Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections']}, 'older_diff': {'type': int, 'length': 255}, 'diff': {'type': str}})
-
-            # if not check_result:
-            #     return False, error_message
-
             course = await conn.fetchrow('SELECT * FROM courses WHERE id = $1', int(course_id))
-            # change = True
-
-            # Disabled for now, tracking to see if the values form a tree.
-            # if int(request['old_value']) != 0:
-            #     # Check if old_value links to an older change
-            #     change = await conn.fetchrow('SELECT * FROM changes WHERE id = $1', request['old_value'])
-            # else:
-            #     change = False
 
             if not course:
                 return 400, "Error: Course does not exist"
-            # if not change:
-            #     return False, "Error: Old value does not link to an old change {} ||".format(request['old_value'])
+
             return 200, "All checks passed"
         except Exception as e:
-            return 400, "A exception occurred in checking the data: " + str(e)
+            return 400, "An exception occurred in checking the data: " + str(e)
 
 
 async def check_user_create(pool, course_id, request):
+    """
+    Check if a user can be created for a given course.
+
+    Args:
+        pool (object): The connection pool to the database.
+        course_id (int): The ID of the course.
+        request (object): The request object containing user data.
+
+    Returns:
+        tuple: A tuple containing the result code and a message.
+            - If the checks pass, returns (200, "All checks passed").
+            - If the course does not exist, returns (False, "Error: Course does not exist").
+            - If an exception occurs, returns (400, "An exception occurred in checking the data").
+    """
     async with pool.acquire() as conn:
         try:
             # check_result, error_message = check_required_keys(request, {'email': {'type': str, 'length': 255}, 'name': {'type': str, 'length': 255}, 'role': {'type': str, 'enum': ['TA', 'Teacher']}})
@@ -108,10 +148,20 @@ async def check_user_create(pool, course_id, request):
             return 200, "All checks passed"
         except Exception as e:
             print(f"Error:\n {e}")
-            return 400, "A exception occurred in checking the data"
+            return 400, "An exception occurred in checking the data"
 
 
 async def get_course_by_id(pool, course_id):
+    """
+    Retrieve a course by its ID from the database.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course to retrieve.
+
+    Returns:
+        A JSON string representation of the course if found, otherwise None.
+    """
     async with pool.acquire() as conn:
         course = await conn.fetchrow('SELECT * FROM courses WHERE id = $1', course_id)
         if course is not None:
@@ -120,18 +170,47 @@ async def get_course_by_id(pool, course_id):
 
 
 async def get_users(pool):
+    """
+    Retrieve all users from the database.
+
+    Args:
+        pool: The connection pool to the database.
+
+    Returns:
+        A list of user records retrieved from the database.
+    """
     async with pool.acquire() as conn:
         users = await conn.fetch('SELECT * FROM users')
         return users
 
 
 async def get_user_by_id(pool, user_id):
+    """
+    Retrieve a user from the database by their ID.
+
+    Args:
+        pool: The connection pool to the database.
+        user_id: The ID of the user to retrieve.
+
+    Returns:
+        The user record as a dictionary, or None if the user is not found.
+    """
     async with pool.acquire() as conn:
         user = await conn.fetch('SELECT * FROM users WHERE id = $1', user_id)
         return user
 
 
 async def get_users_by_courseid(pool, course_id):
+    """
+    Retrieve users associated with a given course ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+
+    Returns:
+        A list of users associated with the given course ID.
+    """
     async with pool.acquire() as conn:
         user_ids = await conn.fetch('SELECT * FROM teacher_courses WHERE course_id = $1', int(course_id))
 
@@ -144,6 +223,17 @@ async def get_users_by_courseid(pool, course_id):
 
 
 async def get_annotations_by_changeid(pool, course_id, change_id):
+    """
+    Retrieve annotations by change ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        change_id: The ID of the change.
+
+    Returns:
+        A list of annotations associated with the specified change ID.
+    """
     async with pool.acquire() as conn:
         annotations = await conn.fetch('''
         SELECT a.* 
@@ -156,12 +246,51 @@ async def get_annotations_by_changeid(pool, course_id, change_id):
 
 
 async def get_changes_by_courseid(pool, course_id):
+    """
+    Retrieve changes from the database based on the given course ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course to retrieve changes for.
+
+    Returns:
+        A list of changes matching the given course ID.
+    """
     async with pool.acquire() as conn:
         changes = await conn.fetch('SELECT * FROM changes WHERE course_id = $1', course_id)
         return changes
 
 
+async def get_course_id_by_code(pool, course_code):
+    """
+    Retrieve the course ID based on the course code.
+
+    Args:
+        pool: The connection pool to the database.
+        course_code: The course code to search for.
+
+    Returns:
+        The ID of the course if found, otherwise None.
+    """
+    async with pool.acquire() as conn:
+        course_id = await conn.fetchval('SELECT id FROM courses WHERE course_code = $1', course_code)
+        return course_id
+
+
 async def post_course(pool, course_data):
+    """
+    Inserts a new course into the database.
+
+    Args:
+        pool: The connection pool to the database.
+        course_data: An object containing the course name and course code.
+
+    Returns:
+        A tuple containing the HTTP status code and the course ID.
+        If an error occurs, the status code will be 500 and an error message will be returned.
+        If the course is not created successfully, the status code will be 400 and an error message will be returned.
+        Otherwise, the status code will be 200 and the course ID will be returned.
+    """
     try:
         async with pool.acquire() as conn:
             try:
@@ -171,7 +300,7 @@ async def post_course(pool, course_data):
                 RETURNING id
                 ''', course_data.name, course_data.course_code)
             except Exception as e:
-                return 500, "An error happend in the database"
+                return 500, "An error happened in the database"
 
             if not course_id:
                 return 400, "Error: Course not created"
@@ -182,6 +311,17 @@ async def post_course(pool, course_data):
 
 
 async def post_annotation(pool, change_id, request):
+    """
+    Inserts a new annotation into the database.
+
+    Args:
+        pool: The connection pool to the database.
+        change_id: The ID of the change associated with the annotation.
+        request: The request object containing user ID, text, and timestamp.
+
+    Returns:
+        A tuple containing a boolean indicating success or failure, and the ID of the created annotation.
+    """
     try:
         async with pool.acquire() as conn:
             annotation_id = await conn.fetchval('''
@@ -197,6 +337,17 @@ async def post_annotation(pool, change_id, request):
 
 
 async def post_change(pool, course_id, request):
+    """
+    Inserts a change record into the database.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        request: The request object containing the change details.
+
+    Returns:
+        A tuple containing a boolean indicating the success of the operation and the ID of the inserted change record.
+    """
     try:
         async with pool.acquire() as conn:
             if request.older_diff == 0:
@@ -219,6 +370,18 @@ async def post_change(pool, course_id, request):
 
 
 async def post_user(pool, course_id, request):
+    """
+    Create a new user and associate them with a course.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course to associate the user with.
+        request: An object containing the user's email, name, and role.
+
+    Returns:
+        A tuple containing a boolean indicating the success of the operation and the ID of the created user.
+        If the operation fails, the boolean value will be False and an error message will be returned instead.
+    """
     async with pool.acquire() as conn:
         # check if the user already exists
         user = await conn.fetchrow('SELECT * FROM users WHERE email = $1', request.email)
@@ -241,18 +404,3 @@ async def post_user(pool, course_id, request):
         except Exception as e:
             print("request to post_user failed, datadump:", "course_id:\n", course_id, "request:\n", request, "error:\n", e)
             return False, "Error: User not created"
-
-
-async def run():
-    pool = await create_pool()
-    course_id = await post_course(pool, {'name': 'Test Course', 'course_code': 'TEST103'})
-    print(course_id)
-    course = await get_course_by_id(pool, 1)
-    print(course)
-    await pool.close()
-
-if __name__ == '__main__':
-    import os
-    import sys
-    # Create pool
-    asyncio.run(run())
