@@ -285,21 +285,15 @@ async def deploy(request: Request):
     payload = await request.body()
 
     # Create a HMAC hex digest of the payload
-    secret = os.getenv('GITHUB_SECRET').encode()
+    secret = os.getenv('GITHUB_WEBHOOK_SECRET').encode()
     digest = 'sha1=' + hmac.new(secret, payload, sha1).hexdigest()
 
     # Check if the digest matches the signature
     if not hmac.compare_digest(signature, digest):
         raise HTTPException(status_code=400, detail='Invalid signature')
 
-    # Get the JSON data sent by GitHub
-    data = await request.json()
-
-    # Check if the push event is for the main branch
-    if data['ref'] == 'refs/heads/main':
-        # Run your deployment script
-        subprocess.run(['./deploy.sh'], check=True)
-    return
+    subprocess.run(['./deploy.sh'], check=True)
+    return JSONResponse(content={'message': 'Deployment successful'})
 
 if __name__ == "__main__":
     uvicorn.run(
