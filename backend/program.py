@@ -33,11 +33,11 @@ frontend_dist_folder = os.path.join(
 templates = Jinja2Templates(directory=frontend_dist_folder)
 
 # Mount the dist folder as static files directory
-app.mount(
-    "/static",
-    StaticFiles(
-        directory=frontend_dist_folder),
-    name="static")
+# app.mount(
+#     "/static",
+#     StaticFiles(
+#         directory=frontend_dist_folder),
+#     name="static")
 
 
 global pool
