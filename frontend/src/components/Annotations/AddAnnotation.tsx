@@ -1,7 +1,7 @@
 import resolveConfig from 'tailwindcss/resolveConfig';
 import tailwindConfig from '@/tailwind.config';
 import TooltipWrapper from '../TooltipWrapper';
-import { Button } from '@/src/components/ui/button';
+import { Button } from '@/src/components/ui/Button';
 import { changeChangeContents } from '@/src/api/change';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/src/components/ui/form';
 import { Highlighter, MessageSquareReply } from 'lucide-react';

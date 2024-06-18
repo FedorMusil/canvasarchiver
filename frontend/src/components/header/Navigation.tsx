@@ -1,5 +1,5 @@
 import ThemeSwitcher from '../ThemeSwitcher';
-import { Button } from '@/src/components/ui/button';
+import { Button } from '@/src/components/ui/Button';
 import { cn } from '@/src/lib/utils';
 import { Cog, SunMoon } from 'lucide-react';
 import { Label } from '@/src/components/ui/label';

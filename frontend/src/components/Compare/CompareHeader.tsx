@@ -1,5 +1,5 @@
 import TooltipWrapper from '../TooltipWrapper';
-import { Button } from '@/src/components/ui/button';
+import { Button } from '@/src/components/ui/Button';
 import { ItemTypes } from '@/src/api/change';
 import { PanelBottomClose, PanelBottomOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
