@@ -14,6 +14,7 @@ import sys
 production = getenv('PRODUCTION', False)
 
 
+
 def check_required_keys(json_obj, required_keys):
     for key, value in required_keys.items():
         if key not in json_obj:
@@ -43,7 +44,6 @@ async def check_course_create(pool, request):
             # check_result, error_message = check_required_keys(request, {'name': {'type': str, 'length': 255}, 'course_code': {'type': str, 'length': 255}})
             # if not check_result:
             #     return False, error_message
-
             course = await conn.fetchrow('SELECT * FROM courses WHERE course_code = $1', request.course_code)
 
             if course:
@@ -52,7 +52,6 @@ async def check_course_create(pool, request):
         except Exception as e:
             print(f"Error: {e}")
             return 400, str(e)
-
 
 async def check_annotation_create(pool, course_id, change_id, request):
     """
@@ -138,9 +137,6 @@ async def check_user_create(pool, course_id, request):
         try:
             # check_result, error_message = check_required_keys(request, {'email': {'type': str, 'length': 255}, 'name': {'type': str, 'length': 255}, 'role': {'type': str, 'enum': ['TA', 'Teacher']}})
 
-            # if not check_result:
-            #     return False, error_message
-
             course = await conn.fetchrow('SELECT * FROM courses WHERE id = $1', int(course_id))
 
             if not course:
@@ -183,7 +179,6 @@ async def get_users(pool):
         users = await conn.fetch('SELECT * FROM users')
         return users
 
-
 async def get_user_by_id(pool, user_id):
     """
     Retrieve a user from the database by their ID.
@@ -218,8 +213,6 @@ async def get_users_by_courseid(pool, course_id):
             return []
         user_ids = tuple([user_id[0] for user_id in user_ids])
         users = await conn.fetch('SELECT * FROM users WHERE id=ANY($1)', user_ids)
-
-        return users
 
 
 async def get_annotations_by_changeid(pool, course_id, change_id):
@@ -324,7 +317,6 @@ async def post_course(pool, course_data):
             return 200, course_id
     except Exception as e:
         return 500, "An error occurred in the database"
-
 
 async def post_annotation(pool, change_id, request):
     """

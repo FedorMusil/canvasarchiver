@@ -346,7 +346,7 @@ async def deploy(request: Request):
     payload = await request.body()
 
     # Create a HMAC hex digest of the payload
-    secret = os.getenv('GITHUB_SECRET').encode()
+    secret = os.getenv('GITHUB_WEBHOOK_SECRET').encode()
     digest = 'sha1=' + hmac.new(secret, payload, sha1).hexdigest()
 
     # Check if the digest matches the signature
