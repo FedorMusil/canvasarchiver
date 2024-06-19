@@ -1,3 +1,4 @@
+import tempfile
 import json
 import traceback
 import asyncio
@@ -273,8 +274,10 @@ async def get_changes_by_item(pool, item_id, item_type):
         return changes
 
 
-# probably temporary solution with tempfile, will switch to server process instead of subprocess
-import tempfile
+# probably temporary solution with tempfile, will switch to server process
+# instead of subprocess
+
+
 async def get_patched(json_data, patch):
     json_diff_path = '.\\json\\json'
     str1 = json.dumps(json_data)
