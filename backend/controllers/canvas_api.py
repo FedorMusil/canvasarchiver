@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# If the environment variables are not found in the .env file, get them from the system
+# If the environment variables are not found in the .env file, get them
+# from the system
 CANVAS_API_TOKEN = os.getenv('CANVAS_API_TOKEN')
 CANVAS_DOMAIN = os.getenv('CANVAS_DOMAIN')
 

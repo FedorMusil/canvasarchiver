@@ -7,26 +7,54 @@ export enum ChangeType {
 }
 
 export enum ItemTypes {
-    ASSIGNMENTS = 'Assignments',
+    SECTIONS = 'Sections',
+    MODULES = 'Modules',
     PAGES = 'Pages',
     FILES = 'Files',
+    ASSIGNMENTS = 'Assignments',
     QUIZZES = 'Quizzes',
-    MODULES = 'Modules',
-    SECTIONS = 'Sections',
+    RUBRICS = 'Rubrics',
 }
 
 export type Change = {
     id: number;
+    old_id: number;
+
     change_type: ChangeType;
     item_type: ItemTypes;
-    old_value: { [key: string]: unknown };
-    new_value: { [key: string]: unknown };
+
+    change_date: string;
+
+    old_contents: string;
+    new_contents: string;
 };
 
-export const getChanges = async (courseCode: number): Promise<Change[]> => {
+export const getChangesByMaterial = async ({ queryKey }: { queryKey: [string, string] }): Promise<Change[]> => {
+    const [, materialId] = queryKey;
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/changes/${courseCode}`,
+        url: `/changes/material/${materialId}`,
+    });
+
+    return response;
+};
+
+export const getRecentChanges = async ({ queryKey }: { queryKey: [string, string] }): Promise<Change[]> => {
+    const [, courseCode] = queryKey;
+    const response = await AxiosWrapper({
+        method: 'GET',
+        url: `/changes/recent/${courseCode}`,
+    });
+
+    return response;
+};
+
+export type ChangeChangeContents = { id: number; oldContent: string; newContent: string };
+export const changeChangeContents = async (changeContents: ChangeChangeContents): Promise<Change> => {
+    const response = await AxiosWrapper({
+        method: 'PUT',
+        url: '/changes',
+        data: changeContents,
     });
 
     return response;

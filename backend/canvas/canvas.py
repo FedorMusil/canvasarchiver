@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import canvas._impl as _impl
 import httpx
 import json
 import typing
@@ -11,7 +12,14 @@ class CanvasConnection:
     see canvas.connection.
     """
 
-    async def request(self, method: str, url: str) -> httpx.Response:
+    async def request(
+        self,
+        method: str,
+        url: httpx.URL | str,
+        *,
+        data=None,
+        params=None,
+    ) -> httpx.Response:
         raise NotImplementedError()
 
 
@@ -36,7 +44,7 @@ class ResponseError(RuntimeError):
         return self._response
 
     def raise_on_error(response: httpx.Response):
-        if response.status_code != 200:
+        if response.status_code < 200 or response.status_code >= 300:
             raise ResponseError(response)
 
 
@@ -60,6 +68,20 @@ class CanvasObject:
         self._id: int | None = None
         self._canvas: "Canvas" = canvas
         self._related = None
+
+    def get_canvas_post_arg_name(self) -> str:
+        """
+        The string used for post arguments in the data.
+        Largely an implementation detail.
+        """
+        raise NotImplementedError()
+
+    def get_canvas_url_part(self) -> str:
+        """
+        The string used in the url to select the object.
+        Largely an implementation detail.
+        """
+        raise NotImplementedError()
 
     def get_canvas(self) -> "Canvas":
         """
@@ -99,7 +121,7 @@ class CanvasObject:
         self._id = obj_id
         return self
 
-    async def apply_based_on_related(
+    def apply_based_on_related(
         self, *cases: tuple[tuple["CanvasObject"], typing.Callable]
     ) -> typing.Any:
         """
@@ -115,14 +137,8 @@ class CanvasObject:
 
         for objtypes, func in cases:
             if try_case(objtypes, callable):
-                return await func(*(self.get_relate(o) for o in objtypes))
+                return func(*(self.get_relate(o) for o in objtypes))
         raise MissingRelatedObjects()
-
-    def _set_related_dict_no_filter(
-        self, objs: dict[type["CanvasObject"], "CanvasObject"]
-    ) -> "CanvasObject":
-        self._related = objs
-        return self
 
     def set_related(
         self, *objs: typing.Union["CanvasObject", None]
@@ -130,14 +146,18 @@ class CanvasObject:
         """
         Sets related canvas objects.
         """
-        return self._set_related_dict_no_filter(
-            {type(v): v for v in objs if v is not None}
-        )
+        self._related = {type(v): v for v in objs if v is not None}
+        return self
 
-    def get_id(self) -> int:
+    def has_id(self):
+        return self._id is not None
+
+    def get_id(self, raise_on_unresolved=True) -> int:
         """
         gets a canvas objects id.
         """
+        if raise_on_unresolved and not self.has_id():
+            raise UnresolvedObjectError()
         return self._id
 
     def has_data(self) -> bool:
@@ -147,152 +167,364 @@ class CanvasObject:
         """
         return self._data is not None
 
-    def get_data(self) -> dict:
+    def get_data(self, raise_on_unresolved=True) -> dict:
         """
         gets a canvas objects parsed data in the same format as
         specified in canvas documentation.
         """
-        if self._data is None:
+        if raise_on_unresolved and not self.has_data():
             raise UnresolvedObjectError()
         return self._data
 
-    async def _fast_resolve(
+    def get_possible_object_relations_for_get(
         self,
-        *cases: tuple[tuple["CanvasObject"], typing.Callable],
-    ) -> "CanvasObject":
-        def url_caller(url_func):
-            async def func(*objs):
-                res = await self._canvas.get_connection().request(
-                    "GET", url_func(*objs)
-                )
-                ResponseError.raise_on_error(res)
-                self.json_init(json.load(res))
-                return self
+    ) -> tuple[tuple["CanvasObject"]]:
+        """
+        The object relations needed to get this object.
+        Largely an implementation detail.
+        """
+        raise NotImplementedError()
 
-            return func
+    def get_possible_object_relations_for_list(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        """
+        The object relations needed to list this object.
+        Largely an implementation detail.
+        """
+        return self.get_possible_object_relations_for_get()
 
-        return await self.apply_based_on_related(
-            *((objs, url_caller(func)) for objs, func in cases)
-        )
+    def get_possible_object_relations_for_create(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        """
+        The object relations needed to create this object.
+        Largely an implementation detail.
+        """
+        return self.get_possible_object_relations_for_list()
+
+    def get_possible_object_relations_for_edit(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        """
+        The object relations needed to edit this object.
+        Largely an implementation detail.
+        """
+        return self.get_possible_object_relations_for_get()
+
+    def get_possible_object_relations_for_delete(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        """
+        The object relations needed to delete this object.
+        Largely an implementation detail.
+        """
+        return self.get_possible_object_relations_for_edit()
 
     async def resolve(self) -> "CanvasObject":
         """
         If basic data is set (like id, or "url" in the case of Page), this
         function retrieves the object from canvas.
         """
-        return self
+
+        async def make_url(*objs):
+            url = (
+                "/api/v1"
+                + "".join(
+                    (f"/{o.get_canvas_url_part()}/{o.get_id()}" for o in objs)
+                )
+                + f"/{self.get_canvas_url_part()}/{self.get_id()}"
+            )
+            res = await self._canvas.get_connection().request("GET", url)
+            ResponseError.raise_on_error(res)
+            self.json_init(json.load(res))
+            return self
+
+        return await self.apply_based_on_related(
+            *(
+                (objtypes, make_url)
+                for objtypes in self.get_possible_object_relations_for_get()
+            )
+        )
+
+    def get_list(self) -> typing.AsyncGenerator["CanvasObject", None]:
+        async def make_url(*objs):
+            url = (
+                "/api/v1"
+                + "".join(
+                    (f"/{o.get_canvas_url_part()}/{o.get_id()}" for o in objs)
+                )
+                + f"/{self.get_canvas_url_part()}"
+            )
+            while url is not None:
+                res = await self._canvas.get_connection().request("GET", url)
+                ResponseError.raise_on_error(res)
+                for r in json.load(res):
+                    yield type(self)(self.get_canvas()).json_init(
+                        r
+                    ).set_related(*self._related.values())
+                url = _impl.get_link_rel(res, "next")
+                if url is not None:
+                    url = httpx.URL(url)
+
+        return self.apply_based_on_related(
+            *(
+                (objtypes, make_url)
+                for objtypes in self.get_possible_object_relations_for_list()
+            )
+        )
+
+    def create(self, **kwargs):
+        if self.has_data():
+            kwargs.update(self.get_data())
+        flattened = _impl.flatten_dict(kwargs)
+        print(flattened)
+
+        async def make_url(*objs):
+            url = (
+                "/api/v1"
+                + "".join(
+                    (f"/{o.get_canvas_url_part()}/{o.get_id()}" for o in objs)
+                )
+                + f"/{self.get_canvas_url_part()}"
+            )
+            res = await self._canvas.get_connection().request(
+                "POST", url, data=flattened
+            )
+            ResponseError.raise_on_error(res)
+            self.json_init(json.load(res))
+            return self
+
+        return self.apply_based_on_related(
+            *(
+                (objtypes, make_url)
+                for objtypes in self.get_possible_object_relations_for_create()
+            )
+        )
 
 
 class User(CanvasObject):
-    pass
+    def get_canvas_post_arg_name(self) -> str:
+        return "user"
+
+    def get_canvas_url_part(self) -> str:
+        return "users"
 
 
 class Account(CanvasObject):
-    pass
+    def get_canvas_post_arg_name(self) -> str:
+        return "account"
+
+    def get_canvas_url_part(self) -> str:
+        return "accounts"
 
 
 class AssignmentGroup(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return self._fast_resolve(
-            ((Course,), lambda c: f"/api/v1/course/{c.get_id()}")
-        )
+    """
+    https://canvas.instructure.com/doc/api/assignment_groups.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return None
+
+    def get_canvas_url_part(self) -> str:
+        return "assignment_groups"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course,),)
 
 
 class AssignmentOverride(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return await self._fast_resolve(
-            (
-                (Course, Assignment),
-                lambda c, a: f"/api/v1/courses/{c.get_id()}"
-                f"/assignments/{a.get_id()}"
-                f"/overrides/{self.get_id()}",
-            )
-        )
+    """
+    https://canvas.instructure.com/doc/api/assignments.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return "assignment_override"
+
+    def get_canvas_url_part(self) -> str:
+        return "overrides"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course, Assignment),)
 
 
 class Assignment(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return await self._fast_resolve(
-            (
-                (Course,),
-                lambda c: f"/api/v1/courses/{c.get_id()}"
-                f"/assignments/{self.get_id()}",
-            )
-        )
+    """
+    https://canvas.instructure.com/doc/api/assignments.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return "assignment"
+
+    def get_canvas_url_part(self) -> str:
+        return "assignments"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course,),)
+
+    def get_possible_object_relations_for_list(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((Course,), (AssignmentGroup,), (User,))
+
+    def get_possible_object_relations_for_create(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((Course,),)
 
 
 class Course(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return await self._fast_resolve(
-            (
-                (Account,),
-                lambda a: f"/api/v1/accounts/{a.get_id()}"
-                f"courses/{self.get_id()}",
-            ),
-            ((), lambda: f"/api/v1/courses/{self.get_id()}"),
-        )
+    """
+    https://canvas.instructure.com/doc/api/courses.html
+    """
 
+    def get_canvas_post_arg_name(self) -> str:
+        return "course"
 
-class Group(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return await self._fast_resolve(
-            ((), lambda: f"/api/v1/groups/{self.get_id()}")
-        )
+    def get_canvas_url_part(self) -> str:
+        return "courses"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Account,), ())
+
+    def get_possible_object_relations_for_list(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((User,), ())
+
+    def get_possible_object_relations_for_create(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((Account,),)
+
+    def get_possible_object_relations_for_edit(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        """
+        The object relations needed to edit this object.
+        Largely an implementation detail.
+        """
+        return ((),)
 
 
 class File(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return await self._fast_resolve(
-            (
-                (Course,),
-                lambda c: f"/api/v1/courses/{c.get_id()}"
-                f"/files/{self.get_id()}",
-            ),
-            (
-                (Group,),
-                lambda g: f"/api/v1/courses/{g.get_id()}"
-                f"/files/{self.get_id()}",
-            ),
-            (
-                (User,),
-                lambda u: f"/api/v1/users/{u.get_id()}"
-                f"/files/{self.get_id()}",
-            ),
-            ((), lambda: f"/api/v1/files/{self.get_id()}"),
-        )
+    """
+    https://canvas.instructure.com/doc/api/files.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return None
+
+    def get_canvas_url_part(self) -> str:
+        return "files"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course,), (Group,), (User,), ())
+
+    def get_possible_object_relations_for_list(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((Course,), (Group,), (User,), (Folder,))
+
+    def get_possible_object_relations_for_create(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((Folder,),)
+
+    def get_possible_object_relations_for_edit(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((),)
 
 
 class Folder(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return await self._fast_resolve(
-            (
-                (Course,),
-                lambda c: f"/api/v1/courses/{c.get_id()}"
-                f"/folders/{self.get_id()}",
-            ),
-            (
-                (Group,),
-                lambda g: f"/api/v1/courses/{g.get_id()}"
-                f"/folders/{self.get_id()}",
-            ),
-            (
-                (User,),
-                lambda u: f"/api/v1/users/{u.get_id()}"
-                f"/folders/{self.get_id()}",
-            ),
-            ((), lambda: f"/api/v1/folders/{self.get_id()}"),
-        )
+    """
+    https://canvas.instructure.com/doc/api/files.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return None
+
+    def get_canvas_url_part(self) -> str:
+        return "folders"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course,), (Group,), (User,), ())
+
+    def get_possible_object_relations_for_list(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((Course,), (Group,), (User,), (Folder,))
+
+    def get_possible_object_relations_for_edit(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((),)
+
+    def get_possible_object_relations_for_delete(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((),)
+
+
+class Group(CanvasObject):
+    """
+    https://canvas.instructure.com/doc/api/groups.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return None
+
+    def get_canvas_url_part(self) -> str:
+        return "groups"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((),)
+
+    def get_possible_object_relations_for_list(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        raise NotImplementedError()
+
+    def get_list(self) -> typing.AsyncGenerator[CanvasObject, None]:
+        raise NotImplementedError()
+
+    def get_possible_object_relations_for_create(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((),)
 
 
 class Module(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return await self._fast_resolve(
-            (
-                (Course,),
-                lambda c: f"/api/v1/courses/{c.get_id()}"
-                f"/modules/{self.get_id()}",
-            )
-        )
+    """
+    https://canvas.instructure.com/doc/api/modules.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return "module"
+
+    def get_canvas_url_part(self) -> str:
+        return "modules"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course,),)
 
 
 class Url:
@@ -304,75 +536,72 @@ class Url:
 
 
 class ModuleItem(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return await self._fast_resolve(
-            (
-                (Course, Module),
-                lambda c, m: f"/api/v1/courses/{c.get_id()}"
-                f"/modules/{m.get_id()}/items/{self.get_id()}",
-            )
-        )
+    """
+    https://canvas.instructure.com/doc/api/modules.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return "module_item"
+
+    def get_canvas_url_part(self) -> str:
+        return "items"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course, Module),)
 
     def get_associated_content(
         self,
-    ) -> typing.Tuple[File, Assignment, "Quizz", Url, "Page", None]:
+    ) -> typing.Tuple[File, Assignment, "Quiz", Url, "Page", None]:
         """
         Gets the object associated with this content.
         Note this content is not yet resolved.
         """
-        match (self.get_data()["type"]):
-            case "File":
-                return (
-                    File(self.get_canvas())
-                    .set_id(self.get_data()["content_id"])
-                    .set_related(
-                        self.get_relate(Course, raise_on_keyerror=False), self
-                    )
+        simple_mapping = {"File": File, "Assignment": Assignment, "Quiz": Quiz}
+        if self.get_data()["type"] in simple_mapping:
+            return (
+                simple_mapping[self.get_data()["type"]](self.get_canvas())
+                .set_id(self.get_data()["content_id"])
+                .set_related(
+                    self.get_relate(Course, raise_on_keyerror=False), self
                 )
-            case "Discussion":
-                return None
-            case "Assignment":
-                return (
-                    Assignment(self.get_canvas())
-                    .set_id(self.get_data()["content_id"])
-                    .set_related(
-                        self.get_relate(Course, raise_on_keyerror=False), self
-                    )
+            )
+        elif self.get_data()["type"] == "Page":
+            return (
+                Page(self.get_canvas())
+                .set_url(self.get_data()["page_url"])
+                .set_related(
+                    self.get_relate(Course, raise_on_keyerror=False), self
                 )
-            case "Quiz":
-                return (
-                    Quizz(self.get_canvas())
-                    .set_id(self.get_data()["content_id"])
-                    .set_related(
-                        self.get_relate(Course, raise_on_keyerror=False), self
-                    )
-                )
-            case "Subheader":
-                return None
-            case "ExternalUrl":
-                return Url(self.get_data()["external_url"])
-            case "ExternalTool":
-                return None
-            case "Page":
-                return (
-                    Page(self.get_canvas())
-                    .set_url(self.get_data()["page_url"])
-                    .set_related(
-                        self.get_relate(Course, raise_on_keyerror=False), self
-                    )
-                )
+            )
+        elif self.get_data()["type"] == "ExternalUrl":
+            return Url(self.get_data()["external_url"])
 
 
 class Page(CanvasObject):
-    def __init__(self, canvas: "Canvas"):
+    """
+    https://canvas.instructure.com/doc/api/pages.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return "wiki_page"
+
+    def get_canvas_url_part(self) -> str:
+        return "pages"
+
+    def __init__(self, canvas: "Canvas") -> None:
         super().__init__(canvas)
         self._url = None
 
-    def json_init(self, json_data: dict) -> "Course":
+    def json_init(self, json_data: dict) -> Course:
         self._data = json_data
         self._id = int(json_data["page_id"])
         self._url = json_data["url"]
         return self
+
+    def get_id(self) -> int | str:
+        return self._id or self._url
 
     def set_url(self, url: str | None) -> None:
         """
@@ -387,55 +616,105 @@ class Page(CanvasObject):
         """
         return self._url
 
-    async def resolve(self):
-        identifier = self.get_id() or self.get_url()
-        return await self._fast_resolve(
-            (
-                (Course,),
-                lambda c: f"/api/v1/courses/{c.get_id()}/pages/{identifier}",
-            ),
-            (
-                (Group,),
-                lambda g: f"/api/v1/groups/{g.get_id()}/pages/{identifier}",
-            ),
-        )
-
-
-class Section(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return await self._fast_resolve(
-            (
-                (Course,),
-                lambda c: f"/api/v1/courses/{c.get_id()}"
-                f"/sections/{self.get_id()}",
-            ),
-            ((), lambda: f"/api/v1/sections/{self.get_id()}"),
-        )
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course,), (Group,))
 
 
 class Rubric(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return await self._fast_resolve(
-            (
-                (Account,),
-                lambda a: f"/api/v1/accounts/{a.get_id()}"
-                f"/rubrics/{self.get_id()}",
-            ),
-            (
-                (Course,),
-                lambda c: f"/api/v1/courses/{c.get_id()}"
-                f"/rubrics/{self.get_id()}",
-            ),
-        )
+    """
+    https://canvas.instructure.com/doc/api/rubrics.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return "rubric"
+
+    def get_canvas_url_part(self) -> str:
+        return "rubrics"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course,), (Account,))
+
+    def get_possible_object_relations_for_create(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((Course,),)
+
+    def get_possible_object_relations_for_edit(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((Course,),)
 
 
-class Quizz(CanvasObject):
-    async def resolve(self) -> CanvasObject:
-        return await self._fast_resolve(
+class Section(CanvasObject):
+    """
+    https://canvas.instructure.com/doc/api/sections.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return "course_section"
+
+    def get_canvas_url_part(self) -> str:
+        return "sections"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course,), ())
+
+    def get_possible_object_relations_for_list(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((Course,),)
+
+    def get_possible_object_relations_for_edit(
+        self,
+    ) -> tuple[tuple["CanvasObject"]]:
+        return ((),)
+
+
+class QuizQuestion(CanvasObject):
+    """
+    https://canvas.instructure.com/doc/api/quiz_questions.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return "question"
+
+    def get_canvas_url_part(self) -> str:
+        return "questions"
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course, Quiz),)
+
+
+class Quiz(CanvasObject):
+    """
+    https://canvas.instructure.com/doc/api/quizzes.html
+    """
+
+    def get_canvas_post_arg_name(self) -> str:
+        return "quiz"
+
+    def get_canvas_url_part(self) -> str:
+        return "quizzes"
+
+    def resolve(self) -> CanvasObject:
+        return self._fast_resolve(
             (Course,),
             lambda c: f"/api/v1/courses/{c.get_id()}"
             f"/quizzes/{self.get_id()}",
         )
+
+    def get_possible_object_relations_for_get(
+        self,
+    ) -> tuple[tuple[CanvasObject]]:
+        return ((Course,),)
 
 
 class Directory:
@@ -455,7 +734,7 @@ class Directory:
         """
         return self._folder
 
-    def items(self):
+    def items(self) -> typing.Generator[tuple[str, "Directory"], None, None]:
         """
         To iterate over folder names and associated directories.
         """
@@ -473,7 +752,7 @@ class Directory:
             self._dir[name] = Directory()
         self._dir[name]._add_split(path, folder)
 
-    def _resolve_split(self, path: list[str]):
+    def _resolve_split(self, path: list[str]) -> "Directory":
         if not len(path):
             return self
         name, *path = path
@@ -481,19 +760,19 @@ class Directory:
             return None
         return self._dir[name]._resolve_split(path)
 
-    def add(self, path: str, folder: None | Folder = None):
+    def add(self, path: str, folder: None | Folder = None) -> None:
         """
         Adds a path to the directory.
         """
         return self._add_split(path.split("/"), folder)
 
-    def resolve(self, path: str):
+    def resolve(self, path: str) -> "Directory":
         """
         Gets a directory at a given path.
         """
         return self._resolve_split(path.split("/"))
 
-    def at(self, name: str):
+    def at(self, name: str) -> "Directory":
         """
         Gets a subfolder directory (like resolve but only one deep).
         """
@@ -506,31 +785,24 @@ class Canvas:
     def __init__(self, conn: CanvasConnection) -> None:
         self._conn = conn
 
-    def get_connection(self):
+    def get_connection(self) -> CanvasConnection:
         """
         Gets the canvas connection object.
         """
         return self._conn
 
-    async def get_assignment_overrides(
+    def get_assignment_overrides(
         self, course: Course, assignment: Assignment
     ) -> typing.AsyncGenerator[AssignmentOverride, None]:
         """
         Gets a list of assignment overrides from a given
         course and assignment object.
         """
-        res = await self._conn.request(
-            "GET",
-            f"/api/v1/courses/{course.get_id()}/"
-            f"assignments/{assignment.get_id()}/overrides",
+        return (
+            AssignmentOverride(self).set_related(course, assignment).get_list()
         )
-        ResponseError.raise_on_error(res)
-        for r in json.load(res):
-            yield AssignmentOverride(self).json_init(r).set_related(
-                course, assignment
-            )
 
-    async def get_assignments(
+    def get_assignments(
         self,
         course: Course,
         *,
@@ -541,150 +813,88 @@ class Canvas:
         Gets a list of assignment objects from course and
         optionally from a specific user or assigment group.
         """
-        if user is not None:
-            res = await self._conn.request(
-                "GET",
-                f"/api/v1/users/{user.get_id()}/"
-                f"courses/{course.get_id()}/assignments",
-            )
-        elif group is not None:
-            res = await self._conn.request(
-                "GET",
-                f"/api/v1/courses/{course.get_id()}/"
-                f"assignment_groups/{group.get_id()}/assignments",
-            )
-        else:
-            res = await self._conn.request(
-                "GET", f"/api/v1/courses/{course.get_id()}/assignments"
-            )
-        ResponseError.raise_on_error(res)
-        for r in json.load(res):
-            yield Assignment(self).json_init(r).set_related(
-                course, group, user
-            )
+        return Assignment(self).set_related(course, group, user).get_list()
 
-    async def get_courses(
+    async def create_assignment(
+        self,
+        course: Course,
+        *,
+        assignment_object: Assignment | None = None,
+        **kwargs,
+    ) -> Assignment:
+        if assignment_object is None:
+            assignment_object = Assignment(self)
+        return await assignment_object.set_related(course).create(**kwargs)
+
+    def get_courses(
         self, *, user: User | None = None
     ) -> typing.AsyncGenerator[Course, None]:
         """
         Gets a list of courses, optionally from a specific user.
         """
-        if user is None:
-            res = await self._conn.request("GET", "/api/v1/courses")
-        else:
-            res = await self._conn.request(
-                "GET", f"/api/v1/users/{user.get_id()}/courses"
-            )
-        ResponseError.raise_on_error(res)
-        for c in json.load(res):
-            yield Course(self).json_init(c).set_related(user)
+        return Course(self).set_related(user).get_list()
 
-    async def get_files(
+    def get_files(
         self,
         *,
         course: Course | None = None,
         user: User | None = None,
         group: Group | None = None,
         folder: Folder | None = None,
-    ):
+    ) -> typing.AsyncGenerator[File, None]:
         """
         Gets a list of files, from a course, user, group of folder.
         """
-        if course is not None:
-            res = await self._conn.request(
-                "GET", f"/api/v1/courses/{course.get_id()}/files"
-            )
-        elif user is not None:
-            res = await self._conn.request(
-                "GET", f"/api/v1/users/{user.get_id()}/files"
-            )
-        elif group is not None:
-            res = await self._conn.request(
-                "GET", f"/api/v1/groups/{group.get_id()}/files"
-            )
-        elif folder is not None:
-            res = await self._conn.request(
-                "GET", f"/api/v1/folders/{folder.get_id()}/files"
-            )
-        else:
-            raise ValueError("select a course, user, group or folder")
-        ResponseError.raise_on_error(res)
-        for c in json.load(res):
-            yield File(self).json_init(c).set_related(
-                course, user, group, folder
-            )
+        return File(self).set_related(course, user, group, folder).get_list()
 
-    async def get_folders(
+    def get_folders(
         self,
         *,
         course: Course | None = None,
         user: User | None = None,
         group: Group | None = None,
-    ):
-        """
-        Gets a Directory from a course, user or group.
-        """
-        if course is not None:
-            res = await self._conn.request(
-                "GET", f"/api/v1/courses/{course.get_id()}/folders"
-            )
-        elif user is not None:
-            res = await self._conn.request(
-                "GET", f"/api/v1/users/{user.get_id()}/folders"
-            )
-        elif group is not None:
-            res = await self._conn.request(
-                "GET", f"/api/v1/groups/{group.get_id()}/folders"
-            )
-        else:
-            raise ValueError("select a course, user, group or folder")
+        folder: Folder | None = None,
+    ) -> typing.AsyncGenerator[File, None]:
+        return Folder(self).set_related(course, user, group, folder).get_list()
 
-        ResponseError.raise_on_error(res)
+    async def get_directory(
+        self,
+        *,
+        course: Course | None = None,
+        user: User | None = None,
+        group: Group | None = None,
+        folder: Folder | None = None,
+    ) -> Directory:
         d = Directory()
-        for c in json.load(res):
-            f = Folder(self).json_init(c).set_related(course, user, group)
-            path = c["full_name"]
-            d.add(path, f)
+        async for f in (
+            Folder(self).set_related(course, user, group).get_list()
+        ):
+            d.add(f.get_data()["full_name"], f)
         return d
 
-    async def get_modules(self, course: Course):
+    def get_modules(
+        self, course: Course
+    ) -> typing.AsyncGenerator[ModuleItem, None]:
         """
         Gets a list of modules from a course.
         """
-        res = await self._conn.request(
-            "GET", f"/api/v1/courses/{course.get_id()}/modules"
-        )
-        ResponseError.raise_on_error(res)
-        for c in json.load(res):
-            yield Module(self).json_init(c).set_related(course)
+        return Module(self).set_related(course).get_list()
 
-    async def get_module_items(
+    def get_module_items(
         self, course: Course, module: Module
     ) -> typing.AsyncGenerator[ModuleItem, None]:
         """
         Gets a list of module items from a course and module.
         """
-        res = await self._conn.request(
-            "GET",
-            f"/api/v1/courses/{course.get_id()}/"
-            f"modules/{module.get_id()}/items",
-        )
-        ResponseError.raise_on_error(res)
-        for c in json.load(res):
-            yield ModuleItem(self).json_init(c).set_related(course)
+        return ModuleItem(self).set_related(course, module).get_list()
 
-    async def get_pages(self, course: Course):
+    def get_pages(self, course: Course) -> typing.AsyncGenerator[Page, None]:
         """
         Gets a list of pages from a course.
         """
-        res = await self._conn.request(
-            "GET", f"/api/v1/courses/{course.get_id()}/pages"
-        )
-        ResponseError.raise_on_error(res)
-        for c in json.load(res):
-            yield Page(self).json_init(c).set_related(course)
+        return Page(self).set_related(course).get_list()
 
-    async def get_front_page(self, course: Course):
+    async def get_front_page(self, course: Course) -> Page:
         """
         Gets the front page of a course.
         """
@@ -694,35 +904,32 @@ class Canvas:
         ResponseError.raise_on_error(res)
         return Page(self).json_init(json.load(res)).set_related(course)
 
-    async def get_sections(self, course: Course):
+    def get_sections(
+        self, course: Course
+    ) -> typing.AsyncGenerator[Section, None]:
         """
         Gets a list of sections from a course.
         """
-        res = await self._conn.request(
-            "GET", f"/api/v1/courses/{course.get_id()}/sections"
-        )
-        ResponseError.raise_on_error(res)
-        for c in json.load(res):
-            yield Section(self).json_init(c).set_related(course)
+        return Section(self).set_related(course).get_list()
 
-    async def get_rubrics(self, course: Course):
+    def get_rubrics(
+        self, course: Course
+    ) -> typing.AsyncGenerator[Rubric, None]:
         """
         Gets a list of rubrics from a course.
         """
-        res = await self._conn.request(
-            "GET", f"/api/v1/courses/{course.get_id()}/rubrics"
-        )
-        ResponseError.raise_on_error(res)
-        for c in json.load(res):
-            yield Rubric(self).json_init(c).set_related(course)
+        return Rubric(self).set_related(course).get_list()
 
-    async def get_quizes(self, course: Course):
+    def get_quizes(self, course: Course) -> typing.AsyncGenerator[Quiz, None]:
         """
         Gets a list of quizzes from a course.
         """
-        res = await self._conn.request(
-            "GET", f"/api/v1/courses/{course.get_id()}/quizzes"
-        )
-        ResponseError.raise_on_error(res)
-        for c in json.load(res):
-            yield Quizz(self).json_init(c).set_related(course)
+        return Quiz(self).set_related(course).get_list()
+
+    def get_quiz_questions(
+        self, course: Course, quiz: Quiz
+    ) -> typing.AsyncGenerator[QuizQuestion, None]:
+        """
+        Gets a list of quiz question from a course and quiz.
+        """
+        return QuizQuestion(self).set_related(course, quiz).get_list()

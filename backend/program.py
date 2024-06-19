@@ -88,7 +88,7 @@ def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         # Replace 'your-secret-key' with your actual secret key
-        payload = jwt.decode(token, 'f3104b82021b97756ba5016a19f03d57722f75bd05e79bb596eacaba1e012558', algorithms=["HS256"])
+        payload = jwt.decode(token, os.getenv("JWT-secret"), algorithms=["HS256"])
         return payload
     except (jwt.PyJWTError, AttributeError):
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -99,25 +99,27 @@ async def return_user_info(user: dict = Depends(get_current_user)):
     '''Get your own information.'''
     return await get_user_by_id(pool, user['user_id'])
 
-@app.get("/course/{course_id}/id")
-async def get_course_info_route(course_id: int):
+@app.get("/course/getinfo", dependencies=[Depends(get_current_user)])
+async def get_course_info_route(user: dict = Depends(get_current_user)):
     '''Get a course by id.'''
-    return await get_course_by_id(pool, course_id)
+    return await get_course_by_id(pool, user['course_id'])
 
-@app.get("/course/{course_id}/users")
-async def get_course_users_route(course_id: int):
+  
+@app.get("/course/users", dependencies=[Depends(get_current_user)])
+async def get_course_users_route(user: dict = Depends(get_current_user)):
     '''Get all users in a course.'''
-    return await get_users_by_courseid(pool, course_id)
+    return await get_users_by_courseid(pool, user['course_id'])
 
-@app.get("/course/{course_id}/annotations/{change_id}")
-async def get_annotation(course_id: int, change_id: int):
+
+@app.get("/course/annotations/{change_id}", dependencies=[Depends(get_current_user)])
+async def get_annotation(change_id: int, user: dict = Depends(get_current_user)):
     '''Get all annotations for a change.'''
-    return await get_annotations_by_changeid(pool, course_id, change_id)
+    return await get_annotations_by_changeid(pool, user['course_id'], change_id)
 
-@app.get("/course/{course_id}/changes")
-async def get_changes(course_id: int):
+@app.get("/course/changes", dependencies=[Depends(get_current_user)])
+async def get_changes(course_id: int, user: dict = Depends(get_current_user)):
     '''Get all changes for a course.'''
-    return await get_changes_by_courseid(pool, course_id)
+    return await get_changes_by_courseid(pool, user['course_id'])
 
 # Post Routes
 @app.post("/course/create")
@@ -130,10 +132,10 @@ async def post_course_route(course: CourseCreate):
         return {"course_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
 
-@app.post("/course/{course_id}/create/annotation/{change_id}")
-async def post_annotation_route(course_id: int, change_id: int, annotation: AnnotationCreate):
+@app.post("/course/create/annotation/{change_id}", dependencies=[Depends(get_current_user)])
+async def post_annotation_route(change_id: int, annotation: AnnotationCreate, user: dict = Depends(get_current_user)):
     '''Create an annotation.'''
-    passed_test, error_message = await check_annotation_create(pool, course_id, change_id, annotation)
+    passed_test, error_message = await check_annotation_create(pool, user['course_id'], change_id, annotation)
     if not passed_test:
         raise HTTPException(status_code=400, detail=error_message)
     success, return_message = await post_annotation(pool, change_id, annotation)
@@ -285,21 +287,15 @@ async def deploy(request: Request):
     payload = await request.body()
 
     # Create a HMAC hex digest of the payload
-    secret = os.getenv('GITHUB_SECRET').encode()
+    secret = os.getenv('GITHUB_WEBHOOK_SECRET').encode()
     digest = 'sha1=' + hmac.new(secret, payload, sha1).hexdigest()
 
     # Check if the digest matches the signature
     if not hmac.compare_digest(signature, digest):
         raise HTTPException(status_code=400, detail='Invalid signature')
 
-    # Get the JSON data sent by GitHub
-    data = await request.json()
-
-    # Check if the push event is for the main branch
-    if data['ref'] == 'refs/heads/main':
-        # Run your deployment script
-        subprocess.run(['./deploy.sh'], check=True)
-    return
+    subprocess.run(['./deploy.sh'], check=True)
+    return JSONResponse(content={'message': 'Deployment successful'})
 
 if __name__ == "__main__":
     uvicorn.run(

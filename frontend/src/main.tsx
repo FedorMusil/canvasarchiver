@@ -1,8 +1,8 @@
-import App from './App.tsx';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { allHandlers } from './mock/allHandlers.ts';
+import App from './App.tsx';
 import './globals.css';
+import { allHandlers } from './mock/allHandlers.ts';
 
 async function enableMocking() {
     if (import.meta.env.MODE !== 'mock' || typeof window === 'undefined') return;
@@ -14,16 +14,14 @@ async function enableMocking() {
     });
 }
 
-enableMocking().then(() => {
-    ReactDOM.createRoot(document.getElementById('root')!).render(
-        <React.StrictMode>
-            <App />
-        </React.StrictMode>
-    );
-});
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>
-);
+enableMocking()
+    .then(() => {
+        ReactDOM.createRoot(document.getElementById('root')!).render(
+            <React.StrictMode>
+                <App />
+            </React.StrictMode>
+        );
+    })
+    .catch((error) => {
+        console.error('Failed to enable mocking', error);
+    });
