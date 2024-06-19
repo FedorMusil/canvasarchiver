@@ -342,6 +342,7 @@ async def get_item_history(pool, item_id, item_type):
     while prev_version:
         change = await get_change_by_id(pool, prev_version)
         change['diff'] = json.loads(change['diff'])
+        change['diff'] = await get_patched(history[-1]['diff'], change['diff'])
         history.append(change)
         prev_version = change['older_diff']
 
