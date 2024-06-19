@@ -126,15 +126,15 @@ async def get_diff(json1, json2):
         f.seek(0)
 
         file_content = f.read()
-        process = subprocess.Popen(
-            [json_diff_path],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+    process = await asyncio.create_subprocess_exec(
+        json_diff_path,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
 
-        output = process.communicate(input=file_content)[0].decode()
-        return json.loads(output.rstrip('\n'))
+    output = (await process.communicate(input=file_content))[0].decode()
+    return json.loads(output.rstrip('\n'))
 
 
 async def page_diffs(pool, api, course, changes, course_id):
