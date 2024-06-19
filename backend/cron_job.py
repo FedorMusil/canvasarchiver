@@ -113,7 +113,7 @@ def get_most_recent_change(changes, item_type, item_id):
     return sorted_changes[0] if sorted_changes else None
 
 
-def get_diff(json1, json2):
+async def get_diff(json1, json2):
     json_diff_path = '.\\json\\json'
     str1 = json.dumps(json1)
     str2 = json.dumps(json2)
@@ -155,7 +155,7 @@ async def page_diffs(pool, api, course, changes, course_id):
             await add_change(pool, course_id, request)
 
         else:
-            diff = get_diff(data, json.loads(most_recent_version['diff']))
+            diff = await get_diff(data, json.loads(most_recent_version['diff']))
             if diff:
                 older_diff = most_recent_version['older_diff'] if most_recent_version['older_diff'] else 0
                 await fapi.remove_change_by_id(pool, most_recent_version['id'])
@@ -198,7 +198,7 @@ async def process_item_diff(pool, item, item_type, course_id, changes):
         )
         await add_change(pool, course_id, request)
     else:
-        diff = get_diff(data, json.loads(most_recent_version['diff']))
+        diff = await get_diff(data, json.loads(most_recent_version['diff']))
         if diff:
             older_diff = most_recent_version['older_diff'] if most_recent_version['older_diff'] else 0
             await fapi.remove_change_by_id(pool, most_recent_version['id'])
