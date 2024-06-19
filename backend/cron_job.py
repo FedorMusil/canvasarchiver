@@ -126,6 +126,7 @@ async def get_diff(json1, json2):
         f.seek(0)
 
         file_content = f.read()
+
     process = await asyncio.create_subprocess_exec(
         json_diff_path,
         stdin=asyncio.subprocess.PIPE,
