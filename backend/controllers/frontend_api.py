@@ -255,6 +255,96 @@ async def get_change_by_id(pool, change_id):
         return change
 
 
+async def get_changes_by_item(pool, item_id, item_type):
+    """
+    Retrieve changes from the database based on the item ID and item type.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        item_id: The ID of the item.
+        item_type: The type of the item.
+
+    Returns:
+        A list of changes matching the given item ID and item type.
+    """
+    async with pool.acquire() as conn:
+        changes = await conn.fetch('SELECT * FROM changes WHERE item_id = $1 AND item_type = $2', item_id, item_type)
+        return changes
+
+
+# probably temporary solution with tempfile, will switch to server process instead of subprocess
+import tempfile
+async def get_patched(json_data, patch):
+    json_diff_path = '.\\json\\json'
+    str1 = json.dumps(json_data)
+    str2 = json.dumps(patch)
+    with tempfile.TemporaryFile() as f:
+        f.write(b'patch')
+        f.write(b'\n')
+        f.write(str1.encode())
+        f.write(b'\n')
+        f.write(str2.encode())
+        f.seek(0)
+
+        file_content = f.read()
+
+    process = await asyncio.create_subprocess_exec(
+        json_diff_path,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+
+    output = (await process.communicate(input=file_content))[0].decode()
+    return json.loads(output.rstrip('\n'))
+
+
+async def get_most_recent(changes):
+    """
+    Retrieve the most recent change from a list of changes.
+
+    Args:
+        changes: A list of changes.
+
+    Returns:
+        The most recent change from the list.
+    """
+    most_recent = None
+    for change in changes:
+        if not most_recent or change['timestamp'] > most_recent['timestamp']:
+            most_recent = change
+    return most_recent
+
+
+async def get_item_history(pool, item_id, item_type):
+    """
+    Retrieve the history of an item from the database.
+
+    Args:
+        pool: The connection pool to the database.
+        item_id: The ID of the item.
+        item_type: The type of the item.
+
+    Returns:
+        A list of changes associated with the item.
+    """
+    changes = await get_changes_by_item(pool, item_id, item_type)
+    history = []
+    most_recent = get_most_recent(changes)
+    most_recent['diff'] = json.loads(most_recent['diff'])
+    history.append(most_recent)
+
+    prev_version = most_recent['older_diff'] if most_recent else None
+    while prev_version:
+        change = await get_change_by_id(pool, prev_version)
+        change['diff'] = json.loads(change['diff'])
+        history.append(change)
+        prev_version = change['older_diff']
+
+    return json.dumps(history)
+
+
 async def get_changes_by_courseid(pool, course_id):
     """
     Retrieve changes from the database based on the given course ID.
