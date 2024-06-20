@@ -177,6 +177,14 @@ def clean_expired_state_nonce():
         del state_nonce_store[key]
 
 
+def create_jwt_token(data: dict, expires_delta: timedelta = timedelta(hours=1)):
+    to_encode = data.copy()
+    expire = datetime.now(datetime.UTC) + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
+    return encoded_jwt
+
+
 @app.post("/initiation")
 async def handle_initiation_post(request: Request):
     clean_expired_state_nonce()
