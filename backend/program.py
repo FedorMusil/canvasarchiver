@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer
+from fastapi.middleware.cors import  CORSMiddleware
 from datetime import datetime, timedelta, timezone
 from jwt.algorithms import RSAAlgorithm
 from hashlib import sha1
@@ -20,9 +21,27 @@ from dotenv import load_dotenv
 load_dotenv()
 app = FastAPI()
 
+origins = [
+    "https://localhost:3000",
+    "https://localhost:5000",
+    "https://uvadlo-dev.test.instructure.com",
+    "http://canvasarchived.musil.nl:5000",
+    "http://canvasarchived.musil.nl:3000"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allow these origins
+    allow_credentials=True,  # Allow cookies and other credentials
+    allow_methods=["*"],  # Allow all methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
+
 
 CLIENT_ID = os.getenv('CLIENT_ID')
 SECRET_KEY = os.getenv("JWT-secret")
+
+
 frontend_dist_folder = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
 templates = Jinja2Templates(directory=frontend_dist_folder)
 
@@ -270,7 +289,14 @@ async def handle_redirect(request: Request):
     jwt_token = create_jwt_token(token_data)
 
     response = RedirectResponse(url='/')
-    response.set_cookie('token', jwt_token, httponly=True, secure=True)
+    response.set_cookie(
+        key='token',
+        value=jwt_token,
+        httponly=True,
+        secure=True,
+        samesite='None',  # or 'Strict' or 'None' depending on your requirements
+        path='/'
+    )
 
     return response
 
