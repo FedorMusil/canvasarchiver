@@ -22,6 +22,7 @@ app = FastAPI()
 
 
 CLIENT_ID = os.getenv('CLIENT_ID')
+SECRET_KEY = os.getenv("JWT-secret")
 frontend_dist_folder = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
 templates = Jinja2Templates(directory=frontend_dist_folder)
 
@@ -88,7 +89,7 @@ def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         # Replace 'your-secret-key' with your actual secret key
-        payload = jwt.decode(token, os.getenv("JWT-secret"), algorithms=["HS256"])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return payload
     except (jwt.PyJWTError, AttributeError):
         raise HTTPException(status_code=401, detail="Invalid token")
