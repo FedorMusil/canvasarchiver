@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from jwt.algorithms import RSAAlgorithm
 from hashlib import sha1
 from db.get_db_conn import get_db_conn
-from controllers.frontend_api import *
+# from controllers.frontend_api import *
 from pydantic import BaseModel
 from typing import Optional
 from db.get_db_conn import create_pool
