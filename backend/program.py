@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer
+from fastapi.middleware.cors import  CORSMiddleware
 from datetime import datetime, timedelta, timezone
 from jwt.algorithms import RSAAlgorithm
 from hashlib import sha1
@@ -20,8 +21,28 @@ from dotenv import load_dotenv
 load_dotenv()
 app = FastAPI()
 
+if os.getenv('ENV') == 'production':
+    origins = ["https://uvadlo-dev.test.instructure.com"]
+else:
+    origins = [
+        "https://localhost:3000",
+        "https://localhost:5000",
+        "https://uvadlo-dev.test.instructure.com",
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["Get", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
+
 
 CLIENT_ID = os.getenv('CLIENT_ID')
+SECRET_KEY = os.getenv("JWT-secret")
+
+
 frontend_dist_folder = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
 templates = Jinja2Templates(directory=frontend_dist_folder)
 
@@ -33,16 +54,16 @@ global pool
 
 pool = None  # Declare the pool variable
 
-# async def startup_event():
-#     global pool
-#     pool = await create_pool()  # Create the pool when the application starts
+async def startup_event():
+    global pool
+    pool = await create_pool()  # Create the pool when the application starts
 
-# app.add_event_handler("startup", startup_event)
+app.add_event_handler("startup", startup_event)
 
-# async def shutdown_event():
-    # await pool.close()  # Close the pool when the application shuts down
+async def shutdown_event():
+    await pool.close()  # Close the pool when the application shuts down
 
-# app.add_event_handler("shutdown", shutdown_event)
+app.add_event_handler("shutdown", shutdown_event)
 
 
 class User(BaseModel):
@@ -87,8 +108,7 @@ def get_current_user(request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        # Replace 'your-secret-key' with your actual secret key
-        payload = jwt.decode(token, os.getenv("JWT-secret"), algorithms=["HS256"])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return payload
     except (jwt.PyJWTError, AttributeError):
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -176,6 +196,14 @@ def clean_expired_state_nonce():
         del state_nonce_store[key]
 
 
+def create_jwt_token(data: dict, expires_delta: timedelta = timedelta(hours=24)):
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
+    return encoded_jwt
+
+
 @app.post("/initiation")
 async def handle_initiation_post(request: Request):
     clean_expired_state_nonce()
@@ -254,9 +282,21 @@ async def handle_redirect(request: Request):
     user_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/lti1p1', {}).get('user_id')
     course_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/custom', {}).get('courseid')
 
+    token_data = {
+        "user_id": user_id,
+        "course_id": course_id
+    }
+    jwt_token = create_jwt_token(token_data)
+
     response = RedirectResponse(url='/')
-    response.set_cookie('user_id', user_id, httponly=True, secure=True)
-    response.set_cookie('course_id', course_id, httponly=True, secure=True)
+    response.set_cookie(
+        key='token',
+        value=jwt_token,
+        httponly=True,
+        secure=True,
+        samesite='None',
+        path='/'
+    )
 
     return response
 

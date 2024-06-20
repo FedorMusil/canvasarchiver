@@ -14,18 +14,19 @@ export type Annotation = {
 export const getAnnotationsByChange = async ({
     queryKey,
 }: {
-    queryKey: [string, number, number];
+    queryKey: [string, number];
 }): Promise<Annotation[]> => {
-    const [, courseId, materialId] = queryKey;
+    const [, changeId] = queryKey;
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/annotations/${courseId}/${materialId}`,
+        url: `/course/annotations/${changeId}`,
     });
 
     return response;
 };
 
-export type PostAnnotation = Omit<Annotation, 'id' | 'user' | 'timestamp'> & { userId: string };
+
+export type PostAnnotation = {change_id: number; change_text: string; timestamp: Date};
 export const postAnnotation = async ({ annotation }: { annotation: PostAnnotation }): Promise<Annotation> => {
     const response = await AxiosWrapper({
         method: 'POST',
