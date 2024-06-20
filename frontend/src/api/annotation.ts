@@ -20,7 +20,6 @@ export const getAnnotationsByChange = async ({
     const response = await AxiosWrapper({
         method: 'GET',
         url: `/course/annotations/${changeId}`,
-        withCredentials: true,
     });
 
     return response;
@@ -33,7 +32,6 @@ export const postAnnotation = async ({ annotation }: { annotation: PostAnnotatio
         method: 'POST',
         url: '/annotations',
         data: annotation,
-        withCredentials: true,
     });
 
     return response;
@@ -43,6 +41,5 @@ export const deleteAnnotation = async ({ annotationId }: { annotationId: number 
     await AxiosWrapper({
         method: 'DELETE',
         url: `/annotations/${annotationId}`,
-        withCredentials: true,
     });
 };

@@ -19,7 +19,6 @@ export const getSelf = async (): Promise<Self> => {
     const response = await AxiosWrapper({
         method: 'GET',
         url: '/self',
-        withCredentials: true,
     });
 
     return response;

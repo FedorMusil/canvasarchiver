@@ -34,7 +34,6 @@ export const getChangesByMaterial = async ({ queryKey }: { queryKey: [string, st
     const response = await AxiosWrapper({
         method: 'GET',
         url: `/change/${materialId}`,
-        withCredentials: true,
     });
 
     return response;
@@ -44,7 +43,6 @@ export const getRecentChanges = async (): Promise<Change[]> => {
     const response = await AxiosWrapper({
         method: 'GET',
         url: '/changes/recent',
-        withCredentials: true,
     });
 
     return response;
@@ -57,7 +55,6 @@ export const changeChangeContents = async (changeContents: ChangeChangeContents)
         method: 'PUT',
         url: '/changes',
         data: changeContents,
-        withCredentials: true,
     });
 
     return response;
