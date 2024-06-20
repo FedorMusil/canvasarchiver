@@ -263,9 +263,14 @@ async def handle_redirect(request: Request):
     user_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/lti1p1', {}).get('user_id')
     course_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/custom', {}).get('courseid')
 
+    token_data = {
+        "user_id": user_id,
+        "course_id": course_id
+    }
+    jwt_token = create_jwt_token(token_data)
+
     response = RedirectResponse(url='/')
-    response.set_cookie('user_id', user_id, httponly=True, secure=True)
-    response.set_cookie('course_id', course_id, httponly=True, secure=True)
+    response.set_cookie('token', jwt_token, httponly=True, secure=True)
 
     return response
 
