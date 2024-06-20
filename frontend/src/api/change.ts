@@ -50,7 +50,8 @@ export const getRecentChanges = async (): Promise<Change[]> => {
     return response.data;
 };
 
-export type ChangeChangeContents = { id: number; oldContent: string; newContent: string };
+export type ChangeChangeContents = {course_id: number; item_id: number; change_type: ChangeType;
+                                    item_type: ItemTypes; older_diff: string; diff: string};
 export const changeChangeContents = async (changeContents: ChangeChangeContents): Promise<Change> => {
     const response = await AxiosWrapper({
         method: 'PUT',
