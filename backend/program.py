@@ -179,7 +179,7 @@ def clean_expired_state_nonce():
 
 def create_jwt_token(data: dict, expires_delta: timedelta = timedelta(hours=1)):
     to_encode = data.copy()
-    expire = datetime.now(datetime.UTC) + expires_delta
+    expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
     return encoded_jwt
