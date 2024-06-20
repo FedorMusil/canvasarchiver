@@ -23,7 +23,7 @@ export const getAnnotationsByChange = async ({
         withCredentials: true,
     });
 
-    return response.data;
+    return response;
 };
 
 

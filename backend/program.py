@@ -21,13 +21,14 @@ from dotenv import load_dotenv
 load_dotenv()
 app = FastAPI()
 
-origins = [
-    "https://localhost:3000",
-    "https://localhost:5000",
-    "https://uvadlo-dev.test.instructure.com",
-    "http://canvasarchived.musil.nl:5000",
-    "http://canvasarchived.musil.nl:3000"
-]
+if os.getenv('ENV') == 'production':
+    origins = ["https://uvadlo-dev.test.instructure.com"]
+else:
+    origins = [
+        "https://localhost:3000",
+        "https://localhost:5000",
+        "https://uvadlo-dev.test.instructure.com",
+    ]
 
 app.add_middleware(
     CORSMiddleware,
@@ -107,7 +108,6 @@ def get_current_user(request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        # Replace 'your-secret-key' with your actual secret key
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return payload
     except (jwt.PyJWTError, AttributeError):
@@ -196,7 +196,7 @@ def clean_expired_state_nonce():
         del state_nonce_store[key]
 
 
-def create_jwt_token(data: dict, expires_delta: timedelta = timedelta(hours=1)):
+def create_jwt_token(data: dict, expires_delta: timedelta = timedelta(hours=24)):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({"exp": expire})
@@ -294,7 +294,7 @@ async def handle_redirect(request: Request):
         value=jwt_token,
         httponly=True,
         secure=True,
-        samesite='None',  # or 'Strict' or 'None' depending on your requirements
+        samesite='None',
         path='/'
     )
 

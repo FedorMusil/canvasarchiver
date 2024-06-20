@@ -22,5 +22,5 @@ export const getSelf = async (): Promise<Self> => {
         withCredentials: true,
     });
 
-    return response.data;
+    return response;
 };

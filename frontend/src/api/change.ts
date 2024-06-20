@@ -47,7 +47,7 @@ export const getRecentChanges = async (): Promise<Change[]> => {
         withCredentials: true,
     });
 
-    return response.data;
+    return response;
 };
 
 export type ChangeChangeContents = {course_id: number; item_id: number; change_type: ChangeType;
