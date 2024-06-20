@@ -14,16 +14,18 @@ export type Annotation = {
 export const getAnnotationsByChange = async ({
     queryKey,
 }: {
-    queryKey: [string, number, number];
+    queryKey: [string, number];
 }): Promise<Annotation[]> => {
-    const [, courseId, materialId] = queryKey;
+    const [, changeId] = queryKey;
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/annotations/${courseId}/${materialId}`,
+        url: `/course/annotations/${changeId}`,
+        withCredentials: true,
     });
 
-    return response;
+    return response.data;
 };
+
 
 export type PostAnnotation = Omit<Annotation, 'id' | 'user' | 'timestamp'> & { userId: string };
 export const postAnnotation = async ({ annotation }: { annotation: PostAnnotation }): Promise<Annotation> => {
@@ -31,6 +33,7 @@ export const postAnnotation = async ({ annotation }: { annotation: PostAnnotatio
         method: 'POST',
         url: '/annotations',
         data: annotation,
+        withCredentials: true,
     });
 
     return response;
@@ -40,5 +43,6 @@ export const deleteAnnotation = async ({ annotationId }: { annotationId: number 
     await AxiosWrapper({
         method: 'DELETE',
         url: `/annotations/${annotationId}`,
+        withCredentials: true,
     });
 };
