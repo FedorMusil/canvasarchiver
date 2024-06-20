@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from jwt.algorithms import RSAAlgorithm
 from hashlib import sha1
 from db.get_db_conn import get_db_conn
-# from controllers.frontend_api import *
+from controllers.frontend_api import *
 from pydantic import BaseModel
 from typing import Optional
 from db.get_db_conn import create_pool
@@ -31,10 +31,10 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Allow these origins
-    allow_credentials=True,  # Allow cookies and other credentials
-    allow_methods=["*"],  # Allow all methods (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Allow all headers
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -53,16 +53,16 @@ global pool
 
 pool = None  # Declare the pool variable
 
-# async def startup_event():
-#     global pool
-#     pool = await create_pool()  # Create the pool when the application starts
+async def startup_event():
+    global pool
+    pool = await create_pool()  # Create the pool when the application starts
 
-# app.add_event_handler("startup", startup_event)
+app.add_event_handler("startup", startup_event)
 
-# async def shutdown_event():
-    # await pool.close()  # Close the pool when the application shuts down
+async def shutdown_event():
+    await pool.close()  # Close the pool when the application shuts down
 
-# app.add_event_handler("shutdown", shutdown_event)
+app.add_event_handler("shutdown", shutdown_event)
 
 
 class User(BaseModel):
