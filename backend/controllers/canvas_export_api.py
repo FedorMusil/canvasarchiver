@@ -53,7 +53,8 @@ def create_canvas_export(course_id):
 
 def get_canvas_export(course_id, export_id):
     # The URL for the API request
-    url = f'https://{CANVAS_DOMAIN}/api/v1/courses/{course_id}/content_exports/{export_id}'
+    url = f'https://{CANVAS_DOMAIN}/api/v1/courses/{
+        course_id}/content_exports/{export_id}'
 
     # The API request
     response = requests.get(url, headers=headers)

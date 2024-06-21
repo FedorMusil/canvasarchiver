@@ -65,7 +65,9 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                                 onMouseDown={handleMouseDown}
                                 ref={oldContentsRef}
                             /> */}
-                            {ItemTypes.QUIZZES === prevChange.item_type && <QuizLeftContainer changeBefore={prevChange} />}
+                            {ItemTypes.QUIZZES === prevChange.item_type && (
+                                <QuizLeftContainer changeBefore={prevChange} />
+                            )}
                         </ResizablePanel>
                     )}
                     {viewMode !== 'after' && viewMode !== 'before' && <ResizableHandle withHandle />}

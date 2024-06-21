@@ -5,16 +5,20 @@ import json
 
 production = getenv('PRODUCTION', False)
 
+
 def check_required_keys(json_obj, required_keys):
     for key, value in required_keys.items():
         if key not in json_obj:
             return False, f"Missing required key: {key}"
         if not isinstance(json_obj[key], value['type']):
-            return False, f"Invalid type for key: {key}. Expected {value['type'].__name__}, got {type(json_obj[key]).__name__}"
+            return False, f"Invalid type for key: {key}. Expected {
+                value['type'].__name__}, got {type(json_obj[key]).__name__}"
         if 'length' in value and len(str(json_obj[key])) > value['length']:
-            return False, f"Value for key: {key} exceeds maximum length of {value['length']}"
+            return False, f"Value for key: {
+                key} exceeds maximum length of {value['length']}"
         if 'enum' in value and json_obj[key] not in value['enum']:
-            return False, f"Invalid value for key: {key}. Expected one of {value['enum']}, got {json_obj[key]}"
+            return False, f"Invalid value for key: {
+                key}. Expected one of {value['enum']}, got {json_obj[key]}"
     return True, "All checks passed"
 
 
@@ -176,6 +180,7 @@ async def get_changes_recent(pool, course_id):
         changes = await conn.fetch('SELECT * FROM changes WHERE course_id = $1 ORDER BY timestamp DESC LIMIT 10', course_id)
         return changes
 
+
 async def get_change_by_id(pool, course_id, change_id):
     """
     Retrieve a change record by its ID.
@@ -292,10 +297,12 @@ class UserRequest:
         self.name = name
         self.role = role
 
+
 class CourseCreate():
     def __init__(self, name, course_code):
         self.name = name
         self.course_code = course_code
+
 
 async def get_user_by_id(pool, user_id, course_id):
     """
@@ -459,7 +466,14 @@ async def post_annotation(pool, change_id, request):
 
             return True, annotation_id
     except Exception as e:
-        print("request to post_annotation failed, datadump:", "change_id:\n", change_id, "request:\n", request, "error:\n", e)
+        print(
+            "request to post_annotation failed, datadump:",
+            "change_id:\n",
+            change_id,
+            "request:\n",
+            request,
+            "error:\n",
+            e)
         return False, "Error: Annotation not created"
 
 
@@ -492,7 +506,14 @@ async def post_change(pool, course_id, request):
 
             return True, change_id
     except Exception as e:
-        print("request to post_change failed, datadump:", "course_id:\n", course_id, "request:\n", request, "error:\n", e)
+        print(
+            "request to post_change failed, datadump:",
+            "course_id:\n",
+            course_id,
+            "request:\n",
+            request,
+            "error:\n",
+            e)
         return False, "Error: Change not created" + str(e)
 
 
@@ -529,5 +550,12 @@ async def post_user(pool, course_id, request):
 
             return True, user_id
         except Exception as e:
-            print("request to post_user failed, datadump:", "course_id:\n", course_id, "request:\n", request, "error:\n", e)
+            print(
+                "request to post_user failed, datadump:",
+                "course_id:\n",
+                course_id,
+                "request:\n",
+                request,
+                "error:\n",
+                e)
             return False, "Error: User not created"

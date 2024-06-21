@@ -49,7 +49,7 @@ const generateChange = (old_value: number): Change => {
     const randomDate = setDay(addWeeks(startDate, randomWeeks), 1); // Set the day to Monday
 
     return {
-        id: (old_value + 1),
+        id: old_value + 1,
         old_id: old_value,
         change_type: faker.helpers.arrayElement(Object.values(ChangeType)),
         item_type: ItemTypes.ASSIGNMENTS,
@@ -66,38 +66,38 @@ const generateQuizChange = (old_value: number): Change => {
     const quizzes = [
         {
             id: 1,
-            title: "Project preferences",
+            title: 'Project preferences',
             question_count: 4,
             points_possible: 1,
-            due_at: "2024-06-18T12:30:00Z",
-            unlock_at: "2024-06-18T11:30:00Z"
+            due_at: '2024-06-18T12:30:00Z',
+            unlock_at: '2024-06-18T11:30:00Z',
         },
         {
             id: 2,
-            title: "Lesson1",
+            title: 'Lesson1',
             question_count: 20,
             points_possible: 10,
-            due_at: "2024-06-30T12:30:00Z",
-            unlock_at: "2024-06-18T12:30:00Z"
+            due_at: '2024-06-30T12:30:00Z',
+            unlock_at: '2024-06-18T12:30:00Z',
         },
         {
             id: 3,
-            title: "Lesson2",
+            title: 'Lesson2',
             question_count: 20,
             points_possible: 10,
-            due_at: "2024-06-30T12:30:00Z",
-            unlock_at: "2024-06-30T10:30:00Z"
-        }
+            due_at: '2024-06-30T12:30:00Z',
+            unlock_at: '2024-06-30T10:30:00Z',
+        },
     ];
 
     return {
-        id: (old_value + 1),
+        id: old_value + 1,
         old_id: old_value,
         change_type: faker.helpers.arrayElement(Object.values(ChangeType)),
         item_type: ItemTypes.QUIZZES,
         timestamp: randomDate.toString(),
         // diff is of type Quiz
-        diff: JSON.stringify(quizzes)
+        diff: JSON.stringify(quizzes),
     };
 };
 
@@ -109,38 +109,38 @@ const generateQuizzes = (old_value: number): Change => {
     const quizzes = [
         {
             id: 1,
-            title: "Lesson",
+            title: 'Lesson',
             question_count: 4,
             points_possible: 1,
-            due_at: "2024-06-18T12:30:00Z",
-            unlock_at: "2024-06-18T11:30:00Z"
+            due_at: '2024-06-18T12:30:00Z',
+            unlock_at: '2024-06-18T11:30:00Z',
         },
         {
             id: 2,
-            title: "Lesson1",
+            title: 'Lesson1',
             question_count: 10,
             points_possible: 10,
-            due_at: "2024-06-30T12:30:00Z",
-            unlock_at: "2024-06-18T12:30:00Z"
+            due_at: '2024-06-30T12:30:00Z',
+            unlock_at: '2024-06-18T12:30:00Z',
         },
         {
             id: 3,
-            title: "Lesson2",
+            title: 'Lesson2',
             question_count: 20,
             points_possible: 10,
-            due_at: "2024-06-30T12:30:00Z",
-            unlock_at: "2024-06-30T10:30:00Z"
-        }
+            due_at: '2024-06-30T12:30:00Z',
+            unlock_at: '2024-06-30T10:30:00Z',
+        },
     ];
 
     return {
-        id: (old_value + 1),
+        id: old_value + 1,
         old_id: old_value,
         change_type: faker.helpers.arrayElement(Object.values(ChangeType)),
         item_type: ItemTypes.QUIZZES,
         timestamp: randomDate.toString(),
         // diff is of type Quiz
-        diff: JSON.stringify(quizzes)
+        diff: JSON.stringify(quizzes),
     };
 };
 
