@@ -33,23 +33,23 @@ export const getChangesByMaterial = async ({ queryKey }: { queryKey: [string, st
     const [, materialId] = queryKey;
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/changes/material/${materialId}`,
+        url: `/change/${materialId}`,
     });
 
     return response;
 };
 
-export const getRecentChanges = async ({ queryKey }: { queryKey: [string, string] }): Promise<Change[]> => {
-    const [, courseCode] = queryKey;
+export const getRecentChanges = async (): Promise<Change[]> => {
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/changes/recent/${courseCode}`,
+        url: '/changes/recent',
     });
 
     return response;
 };
 
-export type ChangeChangeContents = { id: number; oldContent: string; newContent: string };
+export type ChangeChangeContents = {course_id: number; item_id: number; change_type: ChangeType;
+                                    item_type: ItemTypes; older_diff: string; diff: string};
 export const changeChangeContents = async (changeContents: ChangeChangeContents): Promise<Change> => {
     const response = await AxiosWrapper({
         method: 'PUT',
