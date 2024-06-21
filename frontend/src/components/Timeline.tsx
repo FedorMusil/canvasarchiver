@@ -1,5 +1,3 @@
-import { Button } from './ui/Button';
-import { ChevronLeftCircle, ChevronRightCircle, Eraser, Pencil, Plus } from 'lucide-react';
 import {
     Drawer,
     DrawerClose,
@@ -10,11 +8,13 @@ import {
 } from '@/src/components/ui/drawer';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
-import { useCompareIdContext } from '../stores/CompareIdStore/useCompareIdStore';
-import { useCompareWindowStore } from '../stores/CompareWindowStore';
+import { ChevronLeftCircle, ChevronRightCircle, Eraser, Pencil, Plus } from 'lucide-react';
+import { memo, useCallback, useState, type FC, type ReactElement } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { ChangeType, type Change } from '../api/change';
-import { memo, useCallback, useState, type FC, type ReactElement } from 'react';
+import { useCompareIdContext } from '../stores/CompareIdStore/useCompareIdStore';
+import { useCompareWindowStore } from '../stores/CompareWindowStore';
+import { Button } from './ui/Button';
 
 type TimelineProps = {
     changes: Change[];
@@ -70,7 +70,7 @@ const Timeline: FC<TimelineProps> = memo(({ changes }): ReactElement => {
                                 className='absolute inset-0 flex flex-col justify-center w-fit items-center -translate-y-[10px] gap-1 z-20'
                                 style={{ marginLeft: `${35 + 100 * index}px` }}
                             >
-                                <div className='text-xs'>{format(new Date(change.change_date), 'dd MMM')}</div>
+                                <div className='text-xs'>{format(new Date(change.timestamp), 'dd MMM')}</div>
                                 <Button
                                     aria-disabled={selectedIndex === index}
                                     className={`p-0 m-0 w-5 h-5 border-2 ${

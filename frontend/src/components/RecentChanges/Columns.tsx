@@ -1,7 +1,7 @@
-import { ArrowUpDown } from 'lucide-react';
-import { Button } from '../ui/Button';
 import type { Change } from '@/src/api/change';
 import { ColumnDef } from '@tanstack/react-table';
+import { ArrowUpDown } from 'lucide-react';
+import { Button } from '../ui/Button';
 
 export const columns: ColumnDef<Change>[] = [
     {
@@ -35,7 +35,7 @@ export const columns: ColumnDef<Change>[] = [
             );
         },
         cell: ({ row }) => {
-            const date = new Date(row.original.change_date);
+            const date = new Date(row.original.timestamp);
             return <div className='text-center'>{date.toLocaleDateString()}</div>;
         },
     },

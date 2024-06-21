@@ -16,6 +16,8 @@ import uvicorn, json
 import subprocess, os, hmac, secrets, requests
 from typing import Dict, Any
 from dotenv import load_dotenv
+from enum import Enum
+
 
 load_dotenv()
 app = FastAPI()
@@ -29,21 +31,27 @@ templates = Jinja2Templates(directory=frontend_dist_folder)
 app.mount("/static", StaticFiles(directory=frontend_dist_folder), name="static")
 
 
-global pool
+# Create a pool of connections to the database
+pool = None
 
-pool = None  # Declare the pool variable
+async def startup_event():
+    global pool
+    pool = await create_pool()  # Create the pool when the application starts
 
-# async def startup_event():
-#     global pool
-#     pool = await create_pool()  # Create the pool when the application starts
+app.add_event_handler("startup", startup_event)
 
-# app.add_event_handler("startup", startup_event)
+async def shutdown_event():
+    await pool.close()  # Close the pool when the application shuts down
 
-# async def shutdown_event():
-    # await pool.close()  # Close the pool when the application shuts down
+app.add_event_handler("shutdown", shutdown_event)
 
-# app.add_event_handler("shutdown", shutdown_event)
-
+class Material(Enum):
+    Assignments = "Assignments"
+    Pages = "Pages"
+    Files = "Files"
+    Quizzes = "Quizzes"
+    Modules = "Modules"
+    Sections = "Sections"
 
 class User(BaseModel):
     course_id: str
@@ -59,14 +67,7 @@ class CourseCreate(BaseModel):
     course_code: str
 
 
-class AnnotationCreate(BaseModel):
-    change_id: int
-    user_id: int
-    text: str
-
-
 class ChangeCreate(BaseModel):
-    course_id: int
     item_id: int
     change_type: str
     item_type: str
@@ -80,6 +81,13 @@ class UserCreate(BaseModel):
     role: str
 
 
+class CreateAnnotation(BaseModel):
+    change_id: int
+    annotation: str
+    parent_id: Optional[int]
+    selection_id: Optional[str]
+
+
 def get_current_user(request: Request):
     # Get the token from the cookies
     token = request.cookies.get('token')
@@ -88,28 +96,63 @@ def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         # Replace 'your-secret-key' with your actual secret key
-        payload = jwt.decode(token, os.getenv("JWT-secret"), algorithms=["HS256"])
+        payload = jwt.decode(token, os.getenv("JWT_secret"), algorithms=["HS256"])
         return payload
     except (jwt.PyJWTError, AttributeError):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-@app.get("/userself", dependencies=[Depends(get_current_user)])
+# For a more clear explanation of the API see: https://github.com/FedorMusil/canvasarchiver/wiki/API
+
+
+
+# Get Routes
+@app.get("/change/{material_id}", dependencies=[Depends(get_current_user)])
+async def return_change_materialid(material_id: str, user: dict = Depends(get_current_user)):
+    '''Get a change of a course by the type of material.'''
+    return await get_change_by_materialid(pool, user['course_id'], material_id)
+
+
+@app.get("/changes/recent", dependencies=[Depends(get_current_user)])
+async def return_changes_recent(user: dict = Depends(get_current_user)):
+    '''Get the recent changes of a course (last 10 changes))'''
+    return await get_changes_recent(pool, user['course_id'])
+
+
+@app.get("/change/{change_id}", dependencies=[Depends(get_current_user)])
+async def return_change_by_id(change_id: int, user: dict = Depends(get_current_user)):
+    '''Get a change by its change id'''
+    return await get_change_by_id(pool, user['course_id'], change_id)
+
+
+@app.get("/self", dependencies=[Depends(get_current_user)])
 async def return_user_info(user: dict = Depends(get_current_user)):
     '''Get your own information.'''
-    return await get_user_by_id(pool, user['user_id'])
+    return await get_user_by_id(pool, user['user_id'], user['course_id'])
+
+
+@app.get("/self/courses", dependencies=[Depends(get_current_user)])
+async def return_self_courses(user: dict = Depends(get_current_user)):
+    '''Get all courses of the user.'''
+    return await get_courses_by_user(pool, user['user_id'])
+
+
+@app.get("/annotations/{annotation_id}", dependencies=[Depends(get_current_user)])
+async def return_annotation_by_id(annotation_id: int, user: dict = Depends(get_current_user)):
+    '''Get annotation by id'''
+    return await get_annotation_by_id(pool, user['course_id'], annotation_id)
+
 
 @app.get("/course/getinfo", dependencies=[Depends(get_current_user)])
 async def get_course_info_route(user: dict = Depends(get_current_user)):
     '''Get a course by id.'''
     return await get_course_by_id(pool, user['course_id'])
 
-  
+
 @app.get("/course/users", dependencies=[Depends(get_current_user)])
 async def get_course_users_route(user: dict = Depends(get_current_user)):
     '''Get all users in a course.'''
     return await get_users_by_courseid(pool, user['course_id'])
-
 
 @app.get("/course/annotations/{change_id}", dependencies=[Depends(get_current_user)])
 async def get_annotation(change_id: int, user: dict = Depends(get_current_user)):
@@ -121,7 +164,16 @@ async def get_changes(course_id: int, user: dict = Depends(get_current_user)):
     '''Get all changes for a course.'''
     return await get_changes_by_courseid(pool, user['course_id'])
 
-# Post Routes
+
+
+
+# # Post Routes
+# @app.post("/changes/sync", dependencies=[Depends(get_current_user)])
+# async def sync_changes(user: dict = Depends(get_current_user)):
+#     '''Sync changes from a course.'''
+#     return await ...
+
+
 @app.post("/course/create")
 async def post_course_route(course: CourseCreate):
     passed_test, error_message = await check_course_create(pool, course)
@@ -132,27 +184,34 @@ async def post_course_route(course: CourseCreate):
         return {"course_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
 
-@app.post("/course/create/annotation/{change_id}", dependencies=[Depends(get_current_user)])
-async def post_annotation_route(change_id: int, annotation: AnnotationCreate, user: dict = Depends(get_current_user)):
+@app.post("/annotations", dependencies=[Depends(get_current_user)])
+async def post_annotation_route(annotationObject: CreateAnnotation, user: dict = Depends(get_current_user)):
     '''Create an annotation.'''
-    passed_test, error_message = await check_annotation_create(pool, user['course_id'], change_id, annotation)
+    passed_test, error_message = await check_annotation_create(pool, user['course_id'], annotationObject.change_id, annotationObject.text)
     if not passed_test:
         raise HTTPException(status_code=400, detail=error_message)
-    success, return_message = await post_annotation(pool, change_id, annotation)
+    success, return_message = await post_annotation(pool, annotationObject.change_id, annotationObject.text)
     if success:
         return {"annotation_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
 
-@app.post("/course/{course_id}/change")
-async def post_change_route(course_id: int, change: ChangeCreate):
+@app.put("/changes", dependencies=[Depends(get_current_user)])
+async def put_change_route(change: ChangeCreate, user: dict = Depends(get_current_user)):
     '''Create a change.'''
-    passed_test, error_message = await check_change_create(pool, course_id, change)
+    passed_test, error_message = await check_change_create(pool, user["course_id"], change)
     if not passed_test:
         raise HTTPException(status_code=400, detail=error_message)
-    success, return_message = await post_change(pool, course_id, change)
+    success, return_message = await post_change(pool, user["course_id"], change)
     if success:
         return {"change_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
+
+
+# Delete routes
+@app.delete("annotations/{annotation_id}", dependencies=[Depends(get_current_user)])
+async def delete_annotation(annotation_id: int, user: dict = Depends(get_current_user)):
+    '''Delete an annotation.'''
+    return await delete_annotation_by_id(pool, user['course_id'], annotation_id)
 
 
 @app.post("/course/{course_id}/user")
@@ -303,4 +362,3 @@ if __name__ == "__main__":
         ssl_certfile="../frontend/localhost.pem",
         ssl_keyfile="../frontend/localhost-key.pem"
     )
-

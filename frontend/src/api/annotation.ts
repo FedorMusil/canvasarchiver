@@ -1,31 +1,29 @@
+import type { UserRole } from './self';
 import { AxiosWrapper } from './wrapper';
-import type { Self } from './self';
 
 export type Annotation = {
     id: number;
-    user: Self;
-    annotation: string;
-    parentId: number | null;
     changeId: number;
+    annotation: string;
     timestamp: Date;
+    parentId: number | null;
     selectionId: string | null;
+
+    user_id: string;
+    user_name: string;
+    user_role: UserRole;
 };
 
-export const getAnnotationsByChange = async ({
-    queryKey,
-}: {
-    queryKey: [string, number, number];
-}): Promise<Annotation[]> => {
-    const [, courseId, materialId] = queryKey;
+export const getAnnotationsByChange = async (changeId: number): Promise<Annotation[]> => {
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/annotations/${courseId}/${materialId}`,
+        url: `/course/annotations/${changeId}`,
     });
 
     return response;
 };
 
-export type PostAnnotation = Omit<Annotation, 'id' | 'user' | 'timestamp'> & { userId: string };
+export type PostAnnotation = Omit<Annotation, 'id' | 'timestamp' | 'user_id' | 'user_name' | 'user_role'>;
 export const postAnnotation = async ({ annotation }: { annotation: PostAnnotation }): Promise<Annotation> => {
     const response = await AxiosWrapper({
         method: 'POST',
@@ -36,7 +34,7 @@ export const postAnnotation = async ({ annotation }: { annotation: PostAnnotatio
     return response;
 };
 
-export const deleteAnnotation = async ({ annotationId }: { annotationId: number }): Promise<void> => {
+export const deleteAnnotation = async (annotationId: number): Promise<void> => {
     await AxiosWrapper({
         method: 'DELETE',
         url: `/annotations/${annotationId}`,

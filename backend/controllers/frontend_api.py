@@ -1,19 +1,9 @@
-
 import json
-import traceback
-import asyncio
-
 from os import getenv
 from datetime import datetime
-import sys
-
-# import os
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# from db.get_db_conn import create_pool
-
+import json
 
 production = getenv('PRODUCTION', False)
-
 
 def check_required_keys(json_obj, required_keys):
     for key, value in required_keys.items():
@@ -44,6 +34,7 @@ async def check_course_create(pool, request):
             # check_result, error_message = check_required_keys(request, {'name': {'type': str, 'length': 255}, 'course_code': {'type': str, 'length': 255}})
             # if not check_result:
             #     return False, error_message
+
             course = await conn.fetchrow('SELECT * FROM courses WHERE course_code = $1', request.course_code)
 
             if course:
@@ -52,6 +43,7 @@ async def check_course_create(pool, request):
         except Exception as e:
             print(f"Error: {e}")
             return 400, str(e)
+
 
 async def check_annotation_create(pool, course_id, change_id, request):
     """
@@ -138,6 +130,9 @@ async def check_user_create(pool, course_id, request):
         try:
             # check_result, error_message = check_required_keys(request, {'email': {'type': str, 'length': 255}, 'name': {'type': str, 'length': 255}, 'role': {'type': str, 'enum': ['TA', 'Teacher']}})
 
+            # if not check_result:
+            #     return False, error_message
+
             course = await conn.fetchrow('SELECT * FROM courses WHERE id = $1', int(course_id))
 
             if not course:
@@ -146,6 +141,116 @@ async def check_user_create(pool, course_id, request):
         except Exception as e:
             print(f"Error:\n {e}")
             return 400, "An exception occurred in checking the data"
+
+
+async def get_change_by_materialid(pool, course_id, material_id):
+    """
+    Retrieve a change record from the database based on the material ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        material_id: The ID of the material.
+
+    Returns:
+        The change record if found, otherwise None.
+    """
+    print(material_id, course_id)
+    async with pool.acquire() as conn:
+        change = await conn.fetchrow('SELECT * FROM changes WHERE item_type = $1 AND course_id = $2', material_id, int(course_id))
+        return change
+
+
+async def get_changes_recent(pool, course_id):
+    """
+    Retrieve the most recent changes for a given course.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+
+    Returns:
+        A list of the most recent changes for the given course.
+    """
+    async with pool.acquire() as conn:
+        changes = await conn.fetch('SELECT * FROM changes WHERE course_id = $1 ORDER BY timestamp DESC LIMIT 10', course_id)
+        return changes
+
+async def get_change_by_id(pool, course_id, change_id):
+    """
+    Retrieve a change record by its ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        change_id: The ID of the change.
+
+    Returns:
+        The change record if found, otherwise None.
+    """
+    async with pool.acquire() as conn:
+        change = await conn.fetchrow('SELECT * FROM changes WHERE course_id = $1 AND id = $2', course_id, change_id)
+        return change
+
+
+async def get_annotation_by_id(pool, course_id, annotation_id):
+    """
+    Retrieve an annotation by its ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        annotation_id: The ID of the annotation.
+
+    Returns:
+        The annotation record if found, otherwise None.
+    """
+    async with pool.acquire() as conn:
+        change = await conn.fetchrow('SELECT * FROM changes WHERE course_id = $1', course_id)
+
+        annotation = await conn.fetchrow('SELECT * FROM annotations WHERE change_id = $1 AND id = $2', change[0], annotation_id)
+
+        return annotation
+
+
+async def delete_annotation_by_id(pool, course_id, annotation_id):
+    """
+    Delete an annotation by its ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        annotation_id: The ID of the annotation.
+
+    Returns:
+        A boolean indicating the success of the operation.
+    """
+    async with pool.acquire() as conn:
+        change = await conn.fetchrow('SELECT * FROM changes WHERE course_id = $1', course_id)
+
+        await conn.execute('DELETE FROM annotations WHERE change_id = $1 AND id = $2', change[0], annotation_id)
+
+        return True
+
+
+async def get_courses_by_user(pool, user_id):
+    """
+    Retrieve courses associated with a given user ID.
+
+    Args:
+        pool: The connection pool to the database.
+        user_id: The ID of the user.
+
+    Returns:
+        A list of courses associated with the given user ID.
+    """
+    async with pool.acquire() as conn:
+        course_ids = await conn.fetch('SELECT * FROM teacher_courses WHERE user_id = $1', user_id)
+        if not course_ids:
+            return []
+        course_ids = tuple([course_id[1] for course_id in course_ids])
+        courses = await conn.fetch('SELECT * FROM courses WHERE id=ANY($1)', course_ids)
+        return courses
 
 
 async def get_course_by_id(pool, course_id):
@@ -180,7 +285,19 @@ async def get_users(pool):
         users = await conn.fetch('SELECT * FROM users')
         return users
 
-async def get_user_by_id(pool, user_id):
+
+class UserRequest:
+    def __init__(self, email, name, role):
+        self.email = email
+        self.name = name
+        self.role = role
+
+class CourseCreate():
+    def __init__(self, name, course_code):
+        self.name = name
+        self.course_code = course_code
+
+async def get_user_by_id(pool, user_id, course_id):
     """
     Retrieve a user from the database by their ID.
 
@@ -193,6 +310,20 @@ async def get_user_by_id(pool, user_id):
     """
     async with pool.acquire() as conn:
         user = await conn.fetch('SELECT * FROM users WHERE id = $1', user_id)
+        course = await conn.fetch('SELECT * FROM teacher_courses WHERE user_id = $1', course_id)
+        if not user:
+            # Create user
+            request = UserRequest(email="", name="", role="")
+
+            await post_user(pool, course_id, request)
+
+            user = await conn.fetch('SELECT * FROM users WHERE id = $1', user_id)
+
+        if not course:
+            request = CourseCreate(name="", course_code="")
+
+            await post_course(pool, request)
+
         return user
 
 
@@ -215,6 +346,8 @@ async def get_users_by_courseid(pool, course_id):
         user_ids = tuple([user_id[0] for user_id in user_ids])
         users = await conn.fetch('SELECT * FROM users WHERE id=ANY($1)', user_ids)
 
+        return users
+
 
 async def get_annotations_by_changeid(pool, course_id, change_id):
     """
@@ -230,7 +363,7 @@ async def get_annotations_by_changeid(pool, course_id, change_id):
     """
     async with pool.acquire() as conn:
         annotations = await conn.fetch('''
-        SELECT a.* 
+        SELECT a.*
         FROM annotations a
         JOIN changes c ON a.change_id = c.id
         WHERE c.course_id = $1 AND c.id = $2
@@ -303,6 +436,7 @@ async def post_course(pool, course_data):
     except Exception as e:
         return 500, "An error occurred in the database"
 
+
 async def post_annotation(pool, change_id, request):
     """
     Inserts a new annotation into the database.
@@ -359,7 +493,7 @@ async def post_change(pool, course_id, request):
             return True, change_id
     except Exception as e:
         print("request to post_change failed, datadump:", "course_id:\n", course_id, "request:\n", request, "error:\n", e)
-        return False, "Error: Change not created"
+        return False, "Error: Change not created" + str(e)
 
 
 async def post_user(pool, course_id, request):

@@ -1,17 +1,17 @@
-import AnnotationsFrame from '../Annotations/AnnotationsFrame';
-import resolveConfig from 'tailwindcss/resolveConfig';
-import tailwindConfig from '@/tailwind.config';
+import { Change } from '@/src/api/change';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/src/components/ui/resizable';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
 import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
 import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
-import { useShallow } from 'zustand/react/shallow';
-import { v4 as uuidv4 } from 'uuid';
+import tailwindConfig from '@/tailwind.config';
 import { memo, useCallback, useEffect, useRef, type FC, type ReactElement } from 'react';
-import SectionComponent from '../Section';
-import { renderToStaticMarkup } from 'react-dom/server';
+import resolveConfig from 'tailwindcss/resolveConfig';
+import { v4 as uuidv4 } from 'uuid';
+import { useShallow } from 'zustand/react/shallow';
+import AnnotationsFrame from '../Annotations/AnnotationsFrame';
 
-const ComparePanel: FC = memo((): ReactElement => {
+type ComparePanelProps = { changes: Change[] };
+const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => {
     const { openAnnotations, viewMode } = useCompareWindowStore(
         useShallow((state) => ({
             openAnnotations: state.openAnnotations,
@@ -19,11 +19,15 @@ const ComparePanel: FC = memo((): ReactElement => {
         }))
     );
 
-    const { change } = useCompareIdContext(useShallow((state) => ({ change: state.change })));
+    const { changeId } = useCompareIdContext(
+        useShallow((state) => ({
+            changeId: state.changeId,
+        }))
+    );
 
-    // parse old sections JSON
-    const sectionsJSON = JSON.parse(change.old_contents);
-    const sectionsHTML = renderToStaticMarkup(<SectionComponent data={sectionsJSON}/>);
+    const changeIdIndex = changes.findIndex((change) => change.id === changeId);
+    let prevChange: any = changes[changeIdIndex - 1];
+    if (!prevChange) prevChange = { diff: '<div>No previous change</div>' };
 
     const { handleMouseUp, handleMouseDown } = useHighlight();
 
@@ -54,12 +58,11 @@ const ComparePanel: FC = memo((): ReactElement => {
                         <ResizablePanel defaultSize={50} id='panel11' order={1}>
                             <div
                                 className='h-full'
-                                dangerouslySetInnerHTML={{ __html: sectionsHTML }}
+                                dangerouslySetInnerHTML={{ __html: prevChange.diff }}
                                 onMouseUp={handleMouseUp}
                                 onMouseDown={handleMouseDown}
                                 ref={oldContentsRef}
-                            >
-                            </div>
+                            />
                         </ResizablePanel>
                     )}
                     {viewMode !== 'after' && viewMode !== 'before' && <ResizableHandle withHandle />}
@@ -67,7 +70,7 @@ const ComparePanel: FC = memo((): ReactElement => {
                         <ResizablePanel defaultSize={50} id='panel12' order={2}>
                             <div
                                 className='h-full'
-                                dangerouslySetInnerHTML={{ __html: change.new_contents }}
+                                dangerouslySetInnerHTML={{ __html: changes[changeIdIndex].diff }}
                                 onMouseUp={handleMouseUp}
                                 onMouseDown={handleMouseDown}
                                 ref={newContentsRef}
