@@ -1,5 +1,4 @@
-import resolveConfig from 'tailwindcss/resolveConfig';
-import tailwindConfig from '@/tailwind.config';
+import { deleteAnnotation, getAnnotationsByChange, type Annotation } from '@/src/api/annotation';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -11,16 +10,17 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/src/components/ui/alert-dialog';
-import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/src/components/ui/context-menu';
-import { formatDistanceToNow } from 'date-fns';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
 import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
 import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
+import tailwindConfig from '@/tailwind.config';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useShallow } from 'zustand/react/shallow';
-import { deleteAnnotation, getAnnotationsByChange, type Annotation } from '@/src/api/annotation';
+import { formatDistanceToNow } from 'date-fns';
+import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
+import resolveConfig from 'tailwindcss/resolveConfig';
+import { useShallow } from 'zustand/react/shallow';
 
 const Annotations: FC = memo(() => {
     const { userCode } = useGlobalContext(
@@ -45,7 +45,7 @@ const Annotations: FC = memo(() => {
 
     const { data, isLoading, isError } = useQuery({
         queryKey: ['annotations', materialId, changeId],
-        queryFn: getAnnotationsByChange,
+        queryFn: async () => await getAnnotationsByChange(changeId),
     });
 
     const annotationData = useSortedAnnotations(data);
@@ -69,8 +69,8 @@ const Annotations: FC = memo(() => {
                     <div className='w-full'>
                         <div className='flex justify-between w-full'>
                             <p className='text-base font-bold'>
-                                {annotation.user.name}{' '}
-                                <span className='text-muted-foreground'>({annotation.user.role})</span>
+                                {annotation.user_name}{' '}
+                                <span className='text-muted-foreground'>({annotation.user_role})</span>
                             </p>
                             <p className='text-sm text-muted-foreground'>{timeAgo}</p>
                         </div>
@@ -90,8 +90,8 @@ const Annotations: FC = memo(() => {
                                         else {
                                             setReplyTo({
                                                 annotationId: annotation.id,
-                                                userId: annotation.user.id,
-                                                name: annotation.user.name,
+                                                userId: annotation.user_id,
+                                                name: annotation.user_name,
                                             });
                                         }
                                     }}
@@ -141,8 +141,8 @@ const Annotations: FC = memo(() => {
                                         else {
                                             setReplyTo({
                                                 annotationId: annotation.id,
-                                                userId: annotation.user.id,
-                                                name: annotation.user.name,
+                                                userId: annotation.user_id,
+                                                name: annotation.user_name,
                                             });
                                         }
                                     }}
@@ -155,7 +155,7 @@ const Annotations: FC = memo(() => {
                                     </span>
                                 </ContextMenuItem>
                                 {/* Only show delete option if the user is the author of the annotation */}
-                                {annotation.user.id === userCode && (
+                                {annotation.user_id === userCode && (
                                     <AlertDialogTrigger asChild>
                                         <ContextMenuItem className='grid grid-cols-4'>
                                             <Trash2 className='w-4 h-4 col-span-1' />
@@ -185,15 +185,15 @@ const Annotations: FC = memo(() => {
                                             if (parentAnnotation) {
                                                 setReplyTo({
                                                     annotationId: parentAnnotation.id,
-                                                    userId: parentAnnotation.user.id,
-                                                    name: parentAnnotation.user.name,
+                                                    userId: parentAnnotation.user_id,
+                                                    name: parentAnnotation.user_name,
                                                 });
                                             }
                                         } else {
                                             setReplyTo(null);
                                         }
 
-                                        mutate({ annotationId: annotation.id });
+                                        mutate(annotation.id);
                                     }}
                                 >
                                     Delete
