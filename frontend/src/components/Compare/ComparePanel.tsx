@@ -8,6 +8,8 @@ import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
 import { useShallow } from 'zustand/react/shallow';
 import { v4 as uuidv4 } from 'uuid';
 import { memo, useCallback, useEffect, useRef, type FC, type ReactElement } from 'react';
+import ModuleComponent from '../modules';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 const ComparePanel: FC = memo((): ReactElement => {
     const { openAnnotations, viewMode } = useCompareWindowStore(
@@ -18,6 +20,9 @@ const ComparePanel: FC = memo((): ReactElement => {
     );
 
     const { change } = useCompareIdContext(useShallow((state) => ({ change: state.change })));
+    // parse old sections JSON
+    const sectionsJSON = JSON.parse(change.old_contents);
+    const modulesHTML = renderToStaticMarkup(<ModuleComponent data={sectionsJSON}/>);
 
     const { handleMouseUp, handleMouseDown } = useHighlight();
 
@@ -48,7 +53,7 @@ const ComparePanel: FC = memo((): ReactElement => {
                         <ResizablePanel defaultSize={50} id='panel11' order={1}>
                             <div
                                 className='h-full'
-                                dangerouslySetInnerHTML={{ __html: change.old_contents }}
+                                dangerouslySetInnerHTML={{ __html: modulesHTML }}
                                 onMouseUp={handleMouseUp}
                                 onMouseDown={handleMouseDown}
                                 ref={oldContentsRef}

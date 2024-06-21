@@ -44,3 +44,7 @@ frontend/*.sw?
 
 # coverage
 /frontend/coverage
+
+/lib
+/bin
+/node_modules
