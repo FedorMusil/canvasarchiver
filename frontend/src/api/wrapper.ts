@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 const client = axios.create({
     baseURL: import.meta.env.VITE_BACKEND_URL,
+    withCredentials: true,
 });
 
 export const AxiosWrapper = (config: AxiosRequestConfig) => {

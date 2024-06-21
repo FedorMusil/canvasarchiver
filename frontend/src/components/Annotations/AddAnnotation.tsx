@@ -1,21 +1,21 @@
-import resolveConfig from 'tailwindcss/resolveConfig';
-import tailwindConfig from '@/tailwind.config';
-import TooltipWrapper from '../TooltipWrapper';
-import { Button } from '@/src/components/ui/Button';
-import { changeChangeContents } from '@/src/api/change';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/src/components/ui/form';
-import { Highlighter, MessageSquareReply } from 'lucide-react';
-import { Input } from '@/src/components/ui/input';
 import { postAnnotation } from '@/src/api/annotation';
+// import { changeChangeContents } from '@/src/api/change';
+import { Button } from '@/src/components/ui/Button';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/src/components/ui/form';
+import { Input } from '@/src/components/ui/input';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
 import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
-import { useForm } from 'react-hook-form';
-import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useShallow } from 'zustand/react/shallow';
+// import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
+import tailwindConfig from '@/tailwind.config';
 import { valibotResolver } from '@hookform/resolvers/valibot';
-import { minLength, object, pipe, string, trim, type InferInput } from 'valibot';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Highlighter, MessageSquareReply } from 'lucide-react';
 import { useCallback, useEffect, type FC, type ReactElement } from 'react';
+import { useForm } from 'react-hook-form';
+import resolveConfig from 'tailwindcss/resolveConfig';
+import { minLength, object, pipe, string, trim, type InferInput } from 'valibot';
+import { useShallow } from 'zustand/react/shallow';
+import TooltipWrapper from '../TooltipWrapper';
 
 const annotationSchema = object({
     annotation: pipe(
@@ -34,11 +34,11 @@ const AddAnnotation: FC = (): ReactElement => {
         },
     });
 
-    const { userCode } = useGlobalContext(
-        useShallow((state) => ({
-            userCode: state.userCode,
-        }))
-    );
+    // const { userCode } = useGlobalContext(
+    //     useShallow((state) => ({
+    //         userCode: state.userCode,
+    //     }))
+    // );
 
     const { changeId, materialId } = useCompareIdContext(
         useShallow((state) => ({
@@ -47,7 +47,7 @@ const AddAnnotation: FC = (): ReactElement => {
         }))
     );
 
-    const { replyTo, setReplyTo, selectionId, setSelectionId, oldContentsRef, newContentsRef } = useAnnotationStore(
+    const { replyTo, setReplyTo, selectionId, setSelectionId } = useAnnotationStore(
         useShallow((state) => ({
             replyTo: state.replyTo,
             setReplyTo: state.setReplyTo,
@@ -62,9 +62,9 @@ const AddAnnotation: FC = (): ReactElement => {
         mutationFn: postAnnotation,
     });
 
-    const { mutate: changeMutate } = useMutation({
-        mutationFn: changeChangeContents,
-    });
+    // const { mutate: changeMutate } = useMutation({
+    //     mutationFn: changeChangeContents,
+    // });
 
     const queryClient = useQueryClient();
     useEffect(() => {
@@ -84,11 +84,11 @@ const AddAnnotation: FC = (): ReactElement => {
                 element.style.backgroundColor = fullConfig.theme.colors.highlight.DEFAULT;
             }
 
-            changeMutate({
-                id: changeId,
-                oldContent: oldContentsRef.current?.innerHTML || '',
-                newContent: newContentsRef.current?.innerHTML || '',
-            });
+            // changeMutate({
+            //     id: changeId,
+            //     oldContent: oldContentsRef.current?.innerHTML || '',
+            //     newContent: newContentsRef.current?.innerHTML || '',
+            // });
 
             setSelectionId(null);
         }
@@ -98,7 +98,6 @@ const AddAnnotation: FC = (): ReactElement => {
                 annotation: data.annotation,
                 parentId: replyTo?.annotationId || null,
                 changeId,
-                userId: userCode,
                 selectionId,
             },
         });
@@ -144,7 +143,7 @@ const AddAnnotation: FC = (): ReactElement => {
                                 <FormControl>
                                     <Input
                                         className='!m-0 flex-grow max-w-xs'
-                                        placeholder='Add a new annotation...'
+                                        placeholder={replyTo ? `Reply to ${replyTo.name}` : 'Enter your annotation'}
                                         {...field}
                                     />
                                 </FormControl>

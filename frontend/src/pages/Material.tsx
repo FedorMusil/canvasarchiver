@@ -27,26 +27,31 @@ const Material: FC = (): ReactElement => {
         isError,
     } = useQuery({
         queryKey: ['changes', materialId],
-        queryFn: getChangesByMaterial,
+        queryFn: async () => await getChangesByMaterial(materialId),
     });
 
     const [sortedChanges, setChanges] = useState<Change[]>([]);
     const [selectedChange, setSelectedChange] = useState<number | null>(changeIdParam ? +changeIdParam : null);
     useEffect(() => {
-        if (changesData) {
-            // Each change holds a reference to the previous change
-            // So we need to sort the changes based on the old_value
-            const sortedChanges = changesData.sort(
-                (a, b) => new Date(a.change_date).getTime() - new Date(b.change_date).getTime()
-            );
-            setChanges(sortedChanges);
+        // if (changesData && changesData.length > 0) {
+        //     const sortedChanges = changesData.sort(
+        //         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        //     );
 
+        //     setChanges(sortedChanges);
+        //     console.log('changesData', changesData);
+        //     if (!selectedChange) setSelectedChange(changesData[changesData.length - 1].id);
+        // }
+        setChanges(changesData ?? []);
+        if (changesData && changesData.length > 0) {
             if (!selectedChange) setSelectedChange(changesData[changesData.length - 1].id);
         }
     }, [changesData, selectedChange]);
 
     if (isLoading || selectedChange === null) return <div>Loading...</div>;
     if (isError) return <div>Error</div>;
+
+    if (!sortedChanges.length || !selectedChange) return <div>No changes found</div>;
 
     return (
         <CompareIdStoreProvider
@@ -57,7 +62,7 @@ const Material: FC = (): ReactElement => {
             <div className='w-full h-full flex flex-col'>
                 <CompareHeader />
                 <Separator orientation='horizontal' />
-                <ComparePanel />
+                <ComparePanel changes={sortedChanges} />
                 <TimelineDrawer changes={sortedChanges} />
             </div>
         </CompareIdStoreProvider>
