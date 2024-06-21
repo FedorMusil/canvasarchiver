@@ -27,20 +27,19 @@ const Material: FC = (): ReactElement => {
         isError,
     } = useQuery({
         queryKey: ['changes', materialId],
-        queryFn: getChangesByMaterial,
+        queryFn: async () => await getChangesByMaterial(materialId),
     });
 
     const [sortedChanges, setChanges] = useState<Change[]>([]);
     const [selectedChange, setSelectedChange] = useState<number | null>(changeIdParam ? +changeIdParam : null);
     useEffect(() => {
         if (changesData) {
-            // Each change holds a reference to the previous change
-            // So we need to sort the changes based on the old_value
             const sortedChanges = changesData.sort(
-                (a, b) => new Date(a.change_date).getTime() - new Date(b.change_date).getTime()
+                (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
             );
-            setChanges(sortedChanges);
 
+            setChanges(sortedChanges);
+            console.log('changesData', changesData);
             if (!selectedChange) setSelectedChange(changesData[changesData.length - 1].id);
         }
     }, [changesData, selectedChange]);
@@ -57,7 +56,7 @@ const Material: FC = (): ReactElement => {
             <div className='w-full h-full flex flex-col'>
                 <CompareHeader />
                 <Separator orientation='horizontal' />
-                <ComparePanel />
+                <ComparePanel changes={sortedChanges} />
                 <TimelineDrawer changes={sortedChanges} />
             </div>
         </CompareIdStoreProvider>

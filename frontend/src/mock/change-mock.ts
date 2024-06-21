@@ -1,30 +1,30 @@
 import { faker } from '@faker-js/faker';
 import { addWeeks, setDay, startOfWeek } from 'date-fns';
 import { http, HttpHandler, HttpResponse } from 'msw';
-import { Change, ChangeType, ItemTypes, type ChangeChangeContents } from '../api/change';
+import { Change, ChangeType, ItemTypes } from '../api/change';
 
 export const changeHandlers: HttpHandler[] = [
-    http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/recent/*`, () => {
+    http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/recent`, () => {
         // Get the last change based on the last change date
         const lastChange = exampleChanges.reduce((prev, current) =>
-            new Date(prev.change_date) > new Date(current.change_date) ? prev : current
+            new Date(prev.timestamp) > new Date(current.timestamp) ? prev : current
         );
 
         // Get the last change date
-        const lastChangeDate = new Date(lastChange.change_date);
+        const lastChangeDate = new Date(lastChange.timestamp);
         // Get the start of the week for the last change date
         const startOfLastChangeWeek = startOfWeek(lastChangeDate, { weekStartsOn: 1 });
 
         // Get all changes from the last week
         const thisWeekChanges = exampleChanges.filter((change) => {
-            const changeDate = new Date(change.change_date);
+            const changeDate = new Date(change.timestamp);
             return changeDate >= startOfLastChangeWeek;
         });
 
         return HttpResponse.json<Change[]>(thisWeekChanges);
     }),
 
-    http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/material/:materialId`, ({ params }) => {
+    http.get(`${import.meta.env.VITE_BACKEND_URL}/course/changes/:materialId`, ({ params }) => {
         // Get all changes for the material (item_type)
         const materialId = params.materialId;
         const materialChanges = exampleChanges.filter(
@@ -35,10 +35,9 @@ export const changeHandlers: HttpHandler[] = [
     }),
 
     http.put(`${import.meta.env.VITE_BACKEND_URL}/changes`, async ({ request }) => {
-        const change = (await request.json()) as ChangeChangeContents;
+        const change = (await request.json()) as Change;
         const index = exampleChanges.findIndex((c) => c.id === change.id);
-        exampleChanges[index].old_contents = change.oldContent;
-        exampleChanges[index].new_contents = change.newContent;
+        exampleChanges[index].diff = change.diff;
 
         return HttpResponse.json<Change>(exampleChanges[index]);
     }),
@@ -52,14 +51,10 @@ const generateChange = (old_value: number): Change => {
     return {
         id: faker.number.int(),
         old_id: old_value,
-
         change_type: faker.helpers.arrayElement(Object.values(ChangeType)),
         item_type: faker.helpers.arrayElement(Object.values(ItemTypes)),
-
-        change_date: randomDate.toString(),
-
-        old_contents: `<div class='bg-card text-card-foreground w-full h-full flex justify-center items-center'><p class='text-2xl font-bold'>This is a placeholder for the before view.</p></div>`,
-        new_contents: `<div class='bg-card text-card-foreground w-full h-full flex justify-center items-center'><p class='text-2xl font-bold'>This is a placeholder for the after view.</p></div>`,
+        timestamp: randomDate.toString(),
+        diff: `<div class='bg-card text-card-foreground w-full h-full flex justify-center items-center'><p class='text-2xl font-bold'>This is a placeholder for the change view.</p></div>`,
     };
 };
 
