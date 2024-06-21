@@ -17,6 +17,7 @@ export enum ItemTypes {
 }
 
 export type Change = {
+    old_contents(old_contents: any): unknown;
     id: number;
     old_id: number;
     change_type: ChangeType;

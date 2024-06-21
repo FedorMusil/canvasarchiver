@@ -1,16 +1,34 @@
-import React, { FC } from 'react';
-import { Module } from '../api/module';
+import { Change } from '@/src/api/change';
+import { ModuleItem } from '../api/moduleItem';
 
-interface ModuleComponentProps {
-    data: Module[];
-}
+type ChangeWrapper = {
+    change: Change;
+};
 
-const ModuleComponent: FC<ModuleComponentProps> = ({ data }) => {
-    return (
+export type Module = {
+    id: number;
+    workflow_state: 'active' | 'deleted';
+    position: number;
+    name: string;
+    unlock_at?: string;
+    require_sequential_progress: boolean;
+    prerequisite_module_ids: number[];
+    items_count: number;
+    items_url: string;
+    items: ModuleItem[] | null;
+    state: 'locked' | 'unlocked' | 'started' | 'completed';
+    completed_at?: string | null;
+    publish_final_grade?: boolean | null;
+    published: boolean;
+};
+
+export default function ModuleDiff({ change }: ChangeWrapper) {
+    const moduleJSON = JSON.parse(change.diff);
+        return (
         <main className="p-6">
             <div className="max-h-screen overflow-y-auto">
                 <div className="pb-40">
-            {data.map((module) => (
+            {moduleJSON.map((module: Module) => (
                     <div key={module.id}
                         className="bg-card p-6 flex justify-center items-center">
                         <div className="bg-secondary w-full max-w-full border border-gray-300">
@@ -38,8 +56,7 @@ const ModuleComponent: FC<ModuleComponentProps> = ({ data }) => {
             ))}
             </div>
             </div>
+
         </main>
     );
 };
-
-export default ModuleComponent;
