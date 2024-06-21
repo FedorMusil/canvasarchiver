@@ -22,7 +22,7 @@ export type Change = {
     change_type: ChangeType;
     item_type: ItemTypes;
     timestamp: string;
-    diff: string;
+    diff: unknown;
 };
 
 export const getChangesByMaterial = async (materialId: string): Promise<Change[]> => {

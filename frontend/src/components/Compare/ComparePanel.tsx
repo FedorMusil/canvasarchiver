@@ -1,4 +1,4 @@
-import { Change } from '@/src/api/change';
+import { Change, ItemTypes } from '@/src/api/change';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/src/components/ui/resizable';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
 import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
@@ -9,6 +9,8 @@ import resolveConfig from 'tailwindcss/resolveConfig';
 import { v4 as uuidv4 } from 'uuid';
 import { useShallow } from 'zustand/react/shallow';
 import AnnotationsFrame from '../Annotations/AnnotationsFrame';
+import QuizLeftContainer from '../Quizzes/QuizLeftContainer';
+import QuizRightContainer from '../Quizzes/QuizRightContainer';
 
 type ComparePanelProps = { changes: Change[] };
 const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => {
@@ -56,25 +58,29 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                 >
                     {viewMode !== 'after' && (
                         <ResizablePanel defaultSize={50} id='panel11' order={1}>
-                            <div
+                            {/* <div
                                 className='h-full'
                                 dangerouslySetInnerHTML={{ __html: prevChange.diff }}
                                 onMouseUp={handleMouseUp}
                                 onMouseDown={handleMouseDown}
                                 ref={oldContentsRef}
-                            />
+                            /> */}
+                            {ItemTypes.QUIZZES === prevChange.item_type && <QuizLeftContainer changeBefore={prevChange} />}
                         </ResizablePanel>
                     )}
                     {viewMode !== 'after' && viewMode !== 'before' && <ResizableHandle withHandle />}
                     {viewMode !== 'before' && (
                         <ResizablePanel defaultSize={50} id='panel12' order={2}>
-                            <div
+                            {/* <div
                                 className='h-full'
                                 dangerouslySetInnerHTML={{ __html: changes[changeIdIndex].diff }}
                                 onMouseUp={handleMouseUp}
                                 onMouseDown={handleMouseDown}
                                 ref={newContentsRef}
-                            />
+                            /> */}
+                            {ItemTypes.QUIZZES === changes[changeIdIndex].item_type && (
+                                <QuizRightContainer changeBefore={prevChange} changeAfter={changes[changeIdIndex]} />
+                            )}
                         </ResizablePanel>
                     )}
                 </ResizablePanelGroup>

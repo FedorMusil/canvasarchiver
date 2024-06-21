@@ -49,18 +49,108 @@ const generateChange = (old_value: number): Change => {
     const randomDate = setDay(addWeeks(startDate, randomWeeks), 1); // Set the day to Monday
 
     return {
-        id: faker.number.int(),
+        id: (old_value + 1),
         old_id: old_value,
         change_type: faker.helpers.arrayElement(Object.values(ChangeType)),
-        item_type: faker.helpers.arrayElement(Object.values(ItemTypes)),
+        item_type: ItemTypes.ASSIGNMENTS,
         timestamp: randomDate.toString(),
         diff: `<div class='bg-card text-card-foreground w-full h-full flex justify-center items-center'><p class='text-2xl font-bold'>This is a placeholder for the change view.</p></div>`,
     };
 };
 
-let old_id = faker.number.int();
+const generateQuizChange = (old_value: number): Change => {
+    const startDate = startOfWeek(new Date(), { weekStartsOn: 1 }); // Start of this week, Monday
+    const randomWeeks = faker.number.int({ min: 0, max: 7 }); // Random number of weeks within 8 week period
+    const randomDate = setDay(addWeeks(startDate, randomWeeks), 1); // Set the day to Monday
+
+    const quizzes = [
+        {
+            id: 1,
+            title: "Project preferences",
+            question_count: 4,
+            points_possible: 1,
+            due_at: "2024-06-18T12:30:00Z",
+            unlock_at: "2024-06-18T11:30:00Z"
+        },
+        {
+            id: 2,
+            title: "Lesson1",
+            question_count: 20,
+            points_possible: 10,
+            due_at: "2024-06-30T12:30:00Z",
+            unlock_at: "2024-06-18T12:30:00Z"
+        },
+        {
+            id: 3,
+            title: "Lesson2",
+            question_count: 20,
+            points_possible: 10,
+            due_at: "2024-06-30T12:30:00Z",
+            unlock_at: "2024-06-30T10:30:00Z"
+        }
+    ];
+
+    return {
+        id: (old_value + 1),
+        old_id: old_value,
+        change_type: faker.helpers.arrayElement(Object.values(ChangeType)),
+        item_type: ItemTypes.QUIZZES,
+        timestamp: randomDate.toString(),
+        // diff is of type Quiz
+        diff: JSON.stringify(quizzes)
+    };
+};
+
+const generateQuizzes = (old_value: number): Change => {
+    const startDate = startOfWeek(new Date(), { weekStartsOn: 1 }); // Start of this week, Monday
+    const randomWeeks = faker.number.int({ min: 0, max: 7 }); // Random number of weeks within 8 week period
+    const randomDate = setDay(addWeeks(startDate, randomWeeks), 1); // Set the day to Monday
+
+    const quizzes = [
+        {
+            id: 1,
+            title: "Lesson",
+            question_count: 4,
+            points_possible: 1,
+            due_at: "2024-06-18T12:30:00Z",
+            unlock_at: "2024-06-18T11:30:00Z"
+        },
+        {
+            id: 2,
+            title: "Lesson1",
+            question_count: 10,
+            points_possible: 10,
+            due_at: "2024-06-30T12:30:00Z",
+            unlock_at: "2024-06-18T12:30:00Z"
+        },
+        {
+            id: 3,
+            title: "Lesson2",
+            question_count: 20,
+            points_possible: 10,
+            due_at: "2024-06-30T12:30:00Z",
+            unlock_at: "2024-06-30T10:30:00Z"
+        }
+    ];
+
+    return {
+        id: (old_value + 1),
+        old_id: old_value,
+        change_type: faker.helpers.arrayElement(Object.values(ChangeType)),
+        item_type: ItemTypes.QUIZZES,
+        timestamp: randomDate.toString(),
+        // diff is of type Quiz
+        diff: JSON.stringify(quizzes)
+    };
+};
+
+let old_id = 1;
 export const exampleChanges: Change[] = Array.from({ length: 50 }, () => {
     const change = generateChange(old_id);
     old_id = change.id;
     return change;
 });
+
+exampleChanges.push(generateQuizChange(50));
+exampleChanges.push(generateQuizChange(51));
+exampleChanges.push(generateQuizzes(52));
