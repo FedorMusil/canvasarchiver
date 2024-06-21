@@ -24,17 +24,19 @@ export default function SectionDiff({ change }: ChangeWrapper) {
     const sectionData = Array.isArray(sectionJSON) ? sectionJSON: [sectionJSON];
     
     return (
-        <div className="overflow-y-auto pb-40">
+    <div className="max-h-screen overflow-y-auto">
+        <div className="pb-40">
             <div className="p-16">
-                <ul className="flex flex-wrap gap-4 justify-start">
-                    {sectionData.map((section: Section) => (
-                        <li key={section.id} className="bg-card text-card-foreground w-40 h-40 rounded p-3 hover:bg-secondary border border-gray-300 flex-shrink-0">
-                            <a className="hover:underline font-medium" href="#">{section.name}</a>
-                            <p>id: {section.id}</p>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        </div>    
+                    <ul className="flex flex-wrap gap-4 justify-start">
+                        {sectionData.map((section: Section) => (
+                            <li key={section.id} className="bg-card text-card-foreground w-40 h-40 rounded p-3 hover:bg-secondary border border-gray-300 flex-shrink-0">
+                                <a className="hover:underline font-medium" href="#">{section.name}</a>
+                                <p>id: {section.id}</p>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>    
+        </div>
     );
 };
