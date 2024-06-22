@@ -7,63 +7,61 @@ async def create_tables(destroy_existing_tables=False):
     '''Creates the tables in the database. If destroy_existing_tables is True, it will first drop the existing tables.
        Warning: This will delete all data in the tables. Use with caution.'''
     conn = await get_db_conn()
-
-    if destroy_existing_tables:
-        await conn.execute('''
-            DROP TABLE IF EXISTS users_courses CASCADE;
-            DROP TABLE IF EXISTS users CASCADE;
-            DROP TABLE IF EXISTS courses CASCADE;
-            DROP TABLE IF EXISTS changes CASCADE;
-            DROP TABLE IF EXISTS annotations CASCADE;
-
-
-            DROP TYPE IF EXISTS user_role CASCADE;
-            DROP TYPE IF EXISTS item_types CASCADE;
-            DROP TYPE IF EXISTS change_type CASCADE;
-        ''')
+    await conn.execute('''
+        DROP TABLE IF EXISTS teacher_courses CASCADE;
+        DROP TABLE IF EXISTS users CASCADE;
+        DROP TABLE IF EXISTS courses CASCADE;
+        DROP TABLE IF EXISTS changes CASCADE;
+        DROP TABLE IF EXISTS annotations CASCADE;
+        
+                    
+        DROP TYPE IF EXISTS user_role CASCADE;
+        DROP TYPE IF EXISTS item_types CASCADE;
+        DROP TYPE IF EXISTS change_type CASCADE;
+    ''')
 
     await conn.execute('''
-        CREATE TYPE change_types AS ENUM ('Deletion', 'Addition', 'Modification');
+        CREATE TYPE change_type AS ENUM ('Deletion', 'Addition', 'Modification');
         CREATE TYPE item_types AS ENUM ('Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections');
-        CREATE TYPE user_roles AS ENUM ('TA', 'Teacher');
+        CREATE TYPE user_role AS ENUM ('TA', 'Teacher');
 
-        CREATE TABLE IF NOT EXISTS courses (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            course_code TEXT NOT NULL UNIQUE
-        );
+ CREATE TABLE IF NOT EXISTS courses (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        course_code TEXT NOT NULL UNIQUE
+    );
+                
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL
+    );
+                
+    CREATE TABLE IF NOT EXISTS teacher_courses (
+        user_id INT REFERENCES users(id),
+        course_id INT REFERENCES courses(id),
+        role user_role NOT NULL,
+        PRIMARY KEY (user_id, course_id)
+    );    
 
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL
-        );
+    CREATE TABLE IF NOT EXISTS changes (
+        id SERIAL PRIMARY KEY,
+        item_id INT NOT NULL,
+        course_id INT REFERENCES courses(id),
+        change_type change_type NOT NULL,
+        timestamp TIMESTAMP NOT NULL,
+        item_type item_types NOT NULL,
+        older_diff INT REFERENCES changes(id) NULL,
+        diff JSON
+    );
 
-        CREATE TABLE IF NOT EXISTS users_courses (
-            user_id INT REFERENCES users(id),
-            course_id INT REFERENCES courses(id),
-            role user_role NOT NULL,
-            PRIMARY KEY (user_id, course_id)
-        );
-
-        CREATE TABLE IF NOT EXISTS changes (
-            id SERIAL PRIMARY KEY,
-            old_id INT REFERENCES changes(id) NULL,
-            course_id INT REFERENCES courses(id),
-            change_type change_types NOT NULL,
-            item_type item_types NOT NULL,
-            timestamp TIMESTAMP NOT NULL,
-            diff JSON
-        );
-
-        CREATE TABLE IF NOT EXISTS annotations (
-            id SERIAL PRIMARY KEY,
-            change_id INT REFERENCES changes(id),
-            user_id INT REFERENCES users(id),
-            annotation TEXT NOT NULL,
-            timestamp TIMESTAMP NOT NULL,
-            parent_id INT REFERENCES annotations(id) NULL,
-            selection_id TEXT NULL
-        );
+    CREATE TABLE IF NOT EXISTS annotations (
+        id SERIAL PRIMARY KEY,
+        change_id INT REFERENCES changes(id),
+        user_id INT REFERENCES users(id),
+        text TEXT NOT NULL,
+        timestamp TIMESTAMP NOT NULL
+    );
     ''')
 
     await conn.close()
