@@ -1,8 +1,4 @@
-import ThemeSwitcher from '../ThemeSwitcher';
-import { Button } from '@/src/components/ui/Button';
 import { cn } from '@/src/lib/utils';
-import { Cog, SunMoon } from 'lucide-react';
-import { Label } from '@/src/components/ui/label';
 import {
     NavigationMenu,
     NavigationMenuContent,
@@ -12,14 +8,8 @@ import {
     NavigationMenuTrigger,
     navigationMenuTriggerStyle,
 } from '@/src/components/ui/navigation-menu';
-import {
-    forwardRef,
-    useCallback,
-    type ComponentPropsWithoutRef,
-    type ElementRef,
-    type FC,
-    type ReactElement,
-} from 'react';
+import { forwardRef, type ComponentPropsWithoutRef, type ElementRef, type FC, type ReactElement } from 'react';
+import SettingsMenu from './SettingsMenu';
 
 const materials: { title: string; href: string; description: string }[] = [
     {
@@ -78,11 +68,6 @@ const NavListItem = forwardRef<ElementRef<'a'>, ComponentPropsWithoutRef<'a'>>(
 NavListItem.displayName = 'NavListItem';
 
 const Navigation: FC = (): ReactElement => {
-    const refreshApp = useCallback((): void => {
-        // TODO: Create a function to refresh the application.
-        return;
-    }, []);
-
     return (
         <NavigationMenu>
             <NavigationMenuList>
@@ -104,35 +89,9 @@ const Navigation: FC = (): ReactElement => {
                     </NavigationMenuContent>
                 </NavigationMenuItem>
                 <NavigationMenuItem>
-                    <NavigationMenuTrigger>User Settings</NavigationMenuTrigger>
+                    <NavigationMenuTrigger>Settings</NavigationMenuTrigger>
                     <NavigationMenuContent>
-                        <ul className='w-56 p-4'>
-                            <li className='h-10'>
-                                <Button
-                                    className='grid grid-cols-4 p-0 m-0 w-full h-full'
-                                    onClick={refreshApp}
-                                    variant='ghost'
-                                >
-                                    <div className='col-span-1 w-full h-10 grid place-content-center'>
-                                        <Cog className='h-6 w-6 col-span-1' />
-                                    </div>
-                                    <div className='col-span-3 flex items-center justify-start'>
-                                        <span>Refresh application</span>
-                                    </div>
-                                </Button>
-                            </li>
-                            <li className='h-10 grid grid-cols-4 place-content-center'>
-                                <div className='col-span-1 w-full h-10 grid place-content-center'>
-                                    <SunMoon className='h-6 w-6' />
-                                </div>
-                                <div className='col-span-2 flex items-center justify-start'>
-                                    <Label htmlFor='set-theme'>Set theme</Label>
-                                </div>
-                                <div className='col-span-1 w-full h-full grid place-content-center'>
-                                    <ThemeSwitcher id='set-theme' />
-                                </div>
-                            </li>
-                        </ul>
+                        <SettingsMenu />
                     </NavigationMenuContent>
                 </NavigationMenuItem>
             </NavigationMenuList>
