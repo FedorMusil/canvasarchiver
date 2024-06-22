@@ -1,7 +1,9 @@
 from get_db_conn import get_db_conn
 
 # Warning Do not run this script unless you want to destroy the existing tables and recreate them.
-# This script is used to create the tables in the database. It will first drop the existing tables if destroy_existing_tables is True.
+# This script is used to create the tables in the database. It will first
+# drop the existing tables if destroy_existing_tables is True.
+
 
 async def create_tables(destroy_existing_tables=False):
     '''Creates the tables in the database. If destroy_existing_tables is True, it will first drop the existing tables.
@@ -13,8 +15,8 @@ async def create_tables(destroy_existing_tables=False):
         DROP TABLE IF EXISTS courses CASCADE;
         DROP TABLE IF EXISTS changes CASCADE;
         DROP TABLE IF EXISTS annotations CASCADE;
-        
-                    
+
+
         DROP TYPE IF EXISTS user_role CASCADE;
         DROP TYPE IF EXISTS item_types CASCADE;
         DROP TYPE IF EXISTS change_type CASCADE;
@@ -30,19 +32,19 @@ async def create_tables(destroy_existing_tables=False):
         name TEXT NOT NULL,
         course_code TEXT NOT NULL UNIQUE
     );
-                
+
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL
     );
-                
+
     CREATE TABLE IF NOT EXISTS teacher_courses (
         user_id INT REFERENCES users(id),
         course_id INT REFERENCES courses(id),
         role user_role NOT NULL,
         PRIMARY KEY (user_id, course_id)
-    );    
+    );
 
     CREATE TABLE IF NOT EXISTS changes (
         id SERIAL PRIMARY KEY,
@@ -69,4 +71,4 @@ async def create_tables(destroy_existing_tables=False):
 if __name__ == '__main__':
     import asyncio
     asyncio.run(create_tables(True))
-    print ('Tables created successfully.')
+    print('Tables created successfully.')

@@ -25,7 +25,7 @@ async def get_db_conn():
         # Connect to the default database to create the new database
         conn = await asyncpg.connect(**db_params)
         await conn.execute(f"CREATE DATABASE {getenv('DB_NAME')}")
- 
+
     return conn
 
 
