@@ -28,6 +28,9 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
     const currentContentsRef = useRef<HTMLDivElement>(null);
     const { highlight, removeHighlight } = useHighlight();
 
+    const prevChange = changes.find((change) => change.id === selectedChangeId)!;
+    const curChange = changes[changes.length - 1];
+
     return (
         <ResizablePanelGroup
             autoSaveId='compare-annotation'
@@ -44,38 +47,61 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                     {viewMode !== 'after' && (
                         <ResizablePanel defaultSize={50} id='panel11' order={1}>
                             <MaterialLayout
-                                change={changes.find((change) => change.id === selectedChangeId)!}
+                                change={prevChange}
+                                status={
+                                    prevChange.id === curChange.id ? 'no_changes'
+                                    : curChange.id === -1 ?
+                                        'no_selection'
+                                    :   'ok'
+                                }
                                 version='prev'
                             >
-                                <div
-                                    className='h-full'
-                                    onMouseUp={() => highlight(oldContentsRef, currentContentsRef)}
-                                    onMouseDown={removeHighlight}
-                                    ref={oldContentsRef}
-                                    id='old-contents'
-                                >
-                                    <RenderMaterial
-                                        change={changes.find((change) => change.id === selectedChangeId)!}
-                                        materialId={materialId}
+                                {prevChange.html_string ?
+                                    <div
+                                        className='h-full'
+                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef)}
+                                        onMouseDown={removeHighlight}
+                                        ref={oldContentsRef}
+                                        id='old-contents'
+                                        dangerouslySetInnerHTML={{ __html: prevChange.html_string }}
                                     />
-                                </div>
+                                :   <div
+                                        className='h-full'
+                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef)}
+                                        onMouseDown={removeHighlight}
+                                        ref={oldContentsRef}
+                                        id='old-contents'
+                                    >
+                                        <RenderMaterial change={prevChange} materialId={materialId} />
+                                    </div>
+                                }
                             </MaterialLayout>
                         </ResizablePanel>
                     )}
                     {viewMode !== 'after' && viewMode !== 'before' && <ResizableHandle withHandle />}
                     {viewMode !== 'before' && (
                         <ResizablePanel defaultSize={50} id='panel12' order={2}>
-                            <div
-                                className='h-full'
-                                onMouseUp={() => highlight(oldContentsRef, currentContentsRef)}
-                                onMouseDown={removeHighlight}
-                                ref={currentContentsRef}
-                                id='current-contents'
-                            >
-                                <MaterialLayout version='current'>
-                                    <RenderMaterial change={changes[changes.length - 1]} materialId={materialId} />
-                                </MaterialLayout>
-                            </div>
+                            <MaterialLayout status='ok' version='current'>
+                                {curChange.html_string ?
+                                    <div
+                                        className='h-full'
+                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef)}
+                                        onMouseDown={removeHighlight}
+                                        ref={currentContentsRef}
+                                        id='current-contents'
+                                        dangerouslySetInnerHTML={{ __html: curChange.html_string }}
+                                    />
+                                :   <div
+                                        className='h-full'
+                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef)}
+                                        onMouseDown={removeHighlight}
+                                        ref={currentContentsRef}
+                                        id='current-contents'
+                                    >
+                                        <RenderMaterial change={curChange} materialId={materialId} />
+                                    </div>
+                                }
+                            </MaterialLayout>
                         </ResizablePanel>
                     )}
                 </ResizablePanelGroup>

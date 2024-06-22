@@ -12,7 +12,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useShallow } from 'zustand/react/shallow';
 import { valibotResolver } from '@hookform/resolvers/valibot';
 import { minLength, object, pipe, string, trim, type InferInput } from 'valibot';
-import { useCallback, useEffect, type FC, type ReactElement } from 'react';
+import { useCallback, type FC, type ReactElement } from 'react';
 import { useHighlight } from '@/src/hooks/useHighlighter';
 
 const annotationSchema = object({
@@ -50,22 +50,22 @@ const AddAnnotation: FC = (): ReactElement => {
         }))
     );
 
-    const { mutate: annotationMutate, status } = useMutation({
+    const queryClient = useQueryClient();
+
+    const { mutate: annotationMutate } = useMutation({
         mutationFn: postAnnotation,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['annotations', materialId, selectedChangeId] });
+            form.reset();
+        },
     });
 
     const { mutate: changeMutate } = useMutation({
         mutationFn: setHtmlString,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['changes', materialId.toString()] });
+        },
     });
-
-    const queryClient = useQueryClient();
-    useEffect(() => {
-        if (status === 'success') {
-            queryClient.invalidateQueries({ queryKey: ['annotations', materialId, selectedChangeId] });
-            queryClient.invalidateQueries({ queryKey: ['changes', materialId] });
-            form.reset();
-        }
-    }, [status, queryClient, materialId, selectedChangeId, form]);
 
     const { highlightSwitchSelection } = useHighlight();
 

@@ -39,7 +39,12 @@ const Material: FC = (): ReactElement => {
             );
 
             setChanges(sortedChanges);
-            if (!selectedChange) setSelectedChange(changesData[changesData.length - 1].id);
+
+            // If there is no more than once change, no changes have been made to the material.
+            // In this case, the user cannot select a previous change.
+            if (changesData.length <= 1) setSelectedChange(changesData[changesData.length - 1].id);
+            else if (selectedChange && selectedChange === changesData[changesData.length - 1].id) setSelectedChange(-1);
+            else if (!selectedChange) setSelectedChange(changesData[changesData.length - 2].id);
         }
     }, [changesData, selectedChange]);
 

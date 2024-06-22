@@ -36,9 +36,9 @@ export const changeHandlers: HttpHandler[] = [
 
     http.put(`${import.meta.env.VITE_BACKEND_URL}/changes/:id`, async ({ params, request }) => {
         const id = parseInt(params.id as string);
-        const htmlString = (await request.json()) as string;
+        const htmlString = (await request.json()) as { htmlString: string };
         const index = exampleChanges.findIndex((c) => c.id === id);
-        exampleChanges[index].html_string = htmlString;
+        exampleChanges[index].html_string = htmlString.htmlString;
 
         return HttpResponse.json<Change>(exampleChanges[index]);
     }),
