@@ -14,24 +14,19 @@ import {
 import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/src/components/ui/context-menu';
 import { formatDistanceToNow } from 'date-fns';
+import { getSelf } from '@/src/api/self';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
-import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
-import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
+import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useShallow } from 'zustand/react/shallow';
 import { deleteAnnotation, getAnnotationsByChange, type Annotation } from '@/src/api/annotation';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
+import { useHighlight } from '@/src/hooks/useHighlighter';
 
 const Annotations: FC = memo(() => {
-    const { userCode } = useGlobalContext(
+    const { selectedChangeId, materialId } = useChangeContext(
         useShallow((state) => ({
-            userCode: state.userCode,
-        }))
-    );
-
-    const { changeId, materialId } = useCompareIdContext(
-        useShallow((state) => ({
-            changeId: state.changeId,
+            selectedChangeId: state.selectedChangeId,
             materialId: state.materialId,
         }))
     );
@@ -43,9 +38,18 @@ const Annotations: FC = memo(() => {
         }))
     );
 
+    const {
+        data: self,
+        isLoading: selfLoading,
+        isError: selfError,
+    } = useQuery({
+        queryKey: ['self'],
+        queryFn: async () => await getSelf(),
+    });
+
     const { data, isLoading, isError } = useQuery({
-        queryKey: ['annotations', materialId, changeId],
-        queryFn: getAnnotationsByChange,
+        queryKey: ['annotations', materialId, selectedChangeId],
+        queryFn: async () => await getAnnotationsByChange(selectedChangeId),
     });
 
     const annotationData = useSortedAnnotations(data);
@@ -54,11 +58,14 @@ const Annotations: FC = memo(() => {
     const queryClient = useQueryClient();
     const { mutate, status } = useMutation({ mutationFn: deleteAnnotation });
     useEffect(() => {
-        if (status === 'success') queryClient.invalidateQueries({ queryKey: ['annotations', materialId, changeId] });
-    }, [status, queryClient, materialId, changeId]);
+        if (status === 'success')
+            queryClient.invalidateQueries({ queryKey: ['annotations', materialId, selectedChangeId] });
+    }, [status, queryClient, materialId, selectedChangeId]);
 
-    if (isLoading) return <p>Loading...</p>;
-    if (isError) return <p>Error...</p>;
+    const { highlightSwitchSelection } = useHighlight();
+
+    if (isLoading || selfLoading) return <p>Loading...</p>;
+    if (isError || selfError || !self) return <p>Error...</p>;
 
     return (
         <div className='w-full h-full overflow-y-auto space-y-2'>
@@ -78,7 +85,6 @@ const Annotations: FC = memo(() => {
                     </div>
                 );
 
-                const fullConfig = resolveConfig(tailwindConfig);
                 return (
                     <AlertDialog key={annotation.id}>
                         <ContextMenu>
@@ -96,27 +102,11 @@ const Annotations: FC = memo(() => {
                                         }
                                     }}
                                     onMouseEnter={() => {
-                                        if (annotation.selectionId) {
-                                            const element = document.getElementById(annotation.selectionId);
-                                            if (element) {
-                                                // prettier-ignore
-                                                {
-                                                    // @ts-expect-error This is a custom color that is defined in the tailwind config.
-                                                    element.style.backgroundColor = fullConfig.theme.colors.highlight.selected;
-                                                }
-                                            }
-                                        }
+                                        if (annotation.selectionId) highlightSwitchSelection(annotation.selectionId);
                                     }}
                                     onMouseLeave={() => {
                                         if (annotation.selectionId && replyTo?.annotationId !== annotation.id) {
-                                            const element = document.getElementById(annotation.selectionId);
-                                            if (element) {
-                                                // prettier-ignore
-                                                {
-                                                    // @ts-expect-error This is a custom color that is defined in the tailwind config.
-                                                    element.style.backgroundColor = fullConfig.theme.colors.highlight.DEFAULT;
-                                                }
-                                            }
+                                            highlightSwitchSelection(annotation.selectionId);
                                         }
                                     }}
                                 >
@@ -155,7 +145,7 @@ const Annotations: FC = memo(() => {
                                     </span>
                                 </ContextMenuItem>
                                 {/* Only show delete option if the user is the author of the annotation */}
-                                {annotation.user.id === userCode && (
+                                {annotation.user.id === self.id && (
                                     <AlertDialogTrigger asChild>
                                         <ContextMenuItem className='grid grid-cols-4'>
                                             <Trash2 className='w-4 h-4 col-span-1' />
@@ -193,7 +183,7 @@ const Annotations: FC = memo(() => {
                                             setReplyTo(null);
                                         }
 
-                                        mutate({ annotationId: annotation.id });
+                                        mutate(annotation.id);
                                     }}
                                 >
                                     Delete

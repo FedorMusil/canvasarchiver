@@ -1,21 +1,19 @@
-import resolveConfig from 'tailwindcss/resolveConfig';
-import tailwindConfig from '@/tailwind.config';
 import TooltipWrapper from '../TooltipWrapper';
 import { Button } from '@/src/components/ui/Button';
-import { changeChangeContents } from '@/src/api/change';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/src/components/ui/form';
 import { Highlighter, MessageSquareReply } from 'lucide-react';
 import { Input } from '@/src/components/ui/input';
 import { postAnnotation } from '@/src/api/annotation';
+import { setHtmlString } from '@/src/api/change';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
-import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
+import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
 import { useForm } from 'react-hook-form';
-import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useShallow } from 'zustand/react/shallow';
 import { valibotResolver } from '@hookform/resolvers/valibot';
 import { minLength, object, pipe, string, trim, type InferInput } from 'valibot';
 import { useCallback, useEffect, type FC, type ReactElement } from 'react';
+import { useHighlight } from '@/src/hooks/useHighlighter';
 
 const annotationSchema = object({
     annotation: pipe(
@@ -34,27 +32,21 @@ const AddAnnotation: FC = (): ReactElement => {
         },
     });
 
-    const { userCode } = useGlobalContext(
+    const { selectedChangeId, materialId } = useChangeContext(
         useShallow((state) => ({
-            userCode: state.userCode,
-        }))
-    );
-
-    const { changeId, materialId } = useCompareIdContext(
-        useShallow((state) => ({
-            changeId: state.changeId,
+            selectedChangeId: state.selectedChangeId,
             materialId: state.materialId,
         }))
     );
 
-    const { replyTo, setReplyTo, selectionId, setSelectionId, oldContentsRef, newContentsRef } = useAnnotationStore(
+    const { replyTo, setReplyTo, selectionId, setSelectionId, oldContentsRef, currentContentsRef } = useAnnotationStore(
         useShallow((state) => ({
             replyTo: state.replyTo,
             setReplyTo: state.setReplyTo,
             selectionId: state.selectionId,
             setSelectionId: state.setSelectionId,
             oldContentsRef: state.oldContentsRef,
-            newContentsRef: state.newContentsRef,
+            currentContentsRef: state.currentContentsRef,
         }))
     );
 
@@ -63,31 +55,28 @@ const AddAnnotation: FC = (): ReactElement => {
     });
 
     const { mutate: changeMutate } = useMutation({
-        mutationFn: changeChangeContents,
+        mutationFn: setHtmlString,
     });
 
     const queryClient = useQueryClient();
     useEffect(() => {
         if (status === 'success') {
-            queryClient.invalidateQueries({ queryKey: ['annotations', materialId, changeId] });
+            queryClient.invalidateQueries({ queryKey: ['annotations', materialId, selectedChangeId] });
             queryClient.invalidateQueries({ queryKey: ['changes', materialId] });
             form.reset();
         }
-    }, [status, queryClient, materialId, changeId, form]);
+    }, [status, queryClient, materialId, selectedChangeId, form]);
 
-    const fullConfig = resolveConfig(tailwindConfig);
+    const { highlightSwitchSelection } = useHighlight();
+
     const onSubmit = (data: AnnotationInput) => {
         if (selectionId) {
-            const element = document.getElementById(selectionId);
-            if (element) {
-                // @ts-expect-error This is a custom color that is defined in the tailwind config.
-                element.style.backgroundColor = fullConfig.theme.colors.highlight.DEFAULT;
-            }
+            highlightSwitchSelection();
 
             changeMutate({
-                id: changeId,
-                oldContent: oldContentsRef.current?.innerHTML || '',
-                newContent: newContentsRef.current?.innerHTML || '',
+                id: selectedChangeId,
+                htmlString:
+                    oldContentsRef.current ? oldContentsRef.current.innerHTML : currentContentsRef.current!.innerHTML,
             });
 
             setSelectionId(null);
@@ -95,10 +84,9 @@ const AddAnnotation: FC = (): ReactElement => {
 
         annotationMutate({
             annotation: {
+                changeId: selectedChangeId,
                 annotation: data.annotation,
                 parentId: replyTo?.annotationId || null,
-                changeId,
-                userId: userCode,
                 selectionId,
             },
         });

@@ -52,16 +52,6 @@ const materials: { title: string; href: string; description: string }[] = [
         href: '/5',
         description: 'Online tests or assessments.',
     },
-    {
-        title: 'Rubrics',
-        href: '/6',
-        description: 'Guidelines for grading assignments or quizzes.',
-    },
-    {
-        title: 'Under Development',
-        href: '#',
-        description: 'More material types are being added.',
-    },
 ];
 
 const NavListItem = forwardRef<ElementRef<'a'>, ComponentPropsWithoutRef<'a'>>(

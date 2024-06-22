@@ -35,7 +35,7 @@ export const columns: ColumnDef<Change>[] = [
             );
         },
         cell: ({ row }) => {
-            const date = new Date(row.original.change_date);
+            const date = new Date(row.original.timestamp);
             return <div className='text-center'>{date.toLocaleDateString()}</div>;
         },
     },

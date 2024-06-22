@@ -9,10 +9,8 @@ export enum UserRole {
 
 export type Self = {
     id: string;
-    email: string;
     name: string;
     role: UserRole;
-    courseId: number;
 };
 
 export const getSelf = async (): Promise<Self> => {

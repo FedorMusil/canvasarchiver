@@ -1,20 +1,15 @@
 import RecentChanges from '../components/RecentChanges/RecentChanges';
 import { FC, ReactElement } from 'react';
 import { getSelf } from '@/src/api/self';
-import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
 import { useQuery } from '@tanstack/react-query';
 
 const Home: FC = (): ReactElement => {
-    const { userCode } = useGlobalContext((state) => ({
-        userCode: state.userCode,
-    }));
-
     const {
         data: self,
         isLoading: selfLoading,
         isError: selfError,
     } = useQuery({
-        queryKey: ['self', userCode],
+        queryKey: ['self'],
         queryFn: getSelf,
     });
 

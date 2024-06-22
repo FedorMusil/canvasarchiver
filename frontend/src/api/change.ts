@@ -23,14 +23,12 @@ export type Change = {
     change_type: ChangeType;
     item_type: ItemTypes;
 
-    change_date: string;
-
-    old_contents: string;
-    new_contents: string;
+    timestamp: string;
+    data_object: unknown;
+    html_string: string | null;
 };
 
-export const getChangesByMaterial = async ({ queryKey }: { queryKey: [string, string] }): Promise<Change[]> => {
-    const [, materialId] = queryKey;
+export const getChangesByMaterial = async (materialId: string): Promise<Change[]> => {
     const response = await AxiosWrapper({
         method: 'GET',
         url: `/change/${materialId}`,
@@ -48,13 +46,11 @@ export const getRecentChanges = async (): Promise<Change[]> => {
     return response;
 };
 
-export type ChangeChangeContents = {course_id: number; item_id: number; change_type: ChangeType;
-                                    item_type: ItemTypes; older_diff: string; diff: string};
-export const changeChangeContents = async (changeContents: ChangeChangeContents): Promise<Change> => {
+export const setHtmlString = async ({ id, htmlString }: { id: number; htmlString: string }): Promise<Change> => {
     const response = await AxiosWrapper({
         method: 'PUT',
-        url: '/changes',
-        data: changeContents,
+        url: `/changes/${id}`,
+        data: { htmlString },
     });
 
     return response;

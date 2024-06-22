@@ -1,12 +1,12 @@
+import ChangeStoreProvider from '../stores/ChangeStore/ChangeStore';
+import CompareHeader from '../components/Compare/CompareHeader';
 import ComparePanel from '@/src/components/Compare/ComparePanel';
+import TimelineDrawer from '../components/Timeline';
 import { Separator } from '@/src/components/ui/separator';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type FC, type ReactElement } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { getChangesByMaterial, ItemTypes, type Change } from '../api/change';
-import CompareHeader from '../components/Compare/CompareHeader';
-import TimelineDrawer from '../components/Timeline';
-import CompareIdStoreProvider from '../stores/CompareIdStore/CompareIdStore';
 
 const useRequiredParams = <T extends Record<string, unknown>>() => useParams() as T;
 const Material: FC = (): ReactElement => {
@@ -27,20 +27,18 @@ const Material: FC = (): ReactElement => {
         isError,
     } = useQuery({
         queryKey: ['changes', materialId],
-        queryFn: getChangesByMaterial,
+        queryFn: async () => await getChangesByMaterial(materialId),
     });
 
     const [sortedChanges, setChanges] = useState<Change[]>([]);
     const [selectedChange, setSelectedChange] = useState<number | null>(changeIdParam ? +changeIdParam : null);
     useEffect(() => {
         if (changesData) {
-            // Each change holds a reference to the previous change
-            // So we need to sort the changes based on the old_value
             const sortedChanges = changesData.sort(
-                (a, b) => new Date(a.change_date).getTime() - new Date(b.change_date).getTime()
+                (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
             );
-            setChanges(sortedChanges);
 
+            setChanges(sortedChanges);
             if (!selectedChange) setSelectedChange(changesData[changesData.length - 1].id);
         }
     }, [changesData, selectedChange]);
@@ -49,18 +47,14 @@ const Material: FC = (): ReactElement => {
     if (isError) return <div>Error</div>;
 
     return (
-        <CompareIdStoreProvider
-            changeId={selectedChange}
-            materialId={+materialId}
-            change={sortedChanges.filter((change) => change.id === selectedChange)[0]}
-        >
+        <ChangeStoreProvider selectedChangeId={selectedChange} materialId={+materialId}>
             <div className='w-full h-full flex flex-col'>
                 <CompareHeader />
                 <Separator orientation='horizontal' />
-                <ComparePanel />
+                <ComparePanel changes={sortedChanges} />
                 <TimelineDrawer changes={sortedChanges} />
             </div>
-        </CompareIdStoreProvider>
+        </ChangeStoreProvider>
     );
 };
 Material.displayName = 'Material';

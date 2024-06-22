@@ -3,7 +3,7 @@ import { http, HttpHandler, HttpResponse } from 'msw';
 import { Self, UserRole } from '../api/self';
 
 export const selfHandlers: HttpHandler[] = [
-    http.get(`${import.meta.env.VITE_BACKEND_URL}/self/*`, () => {
+    http.get(`${import.meta.env.VITE_BACKEND_URL}/self`, () => {
         return HttpResponse.json<Self>(exampleUsers[Math.floor(Math.random() * exampleUsers.length)]);
     }),
 ];
@@ -11,10 +11,8 @@ export const selfHandlers: HttpHandler[] = [
 function createRandomUser(): Self {
     return {
         id: faker.string.uuid(),
-        email: faker.internet.email(),
-        name: faker.person.firstName(),
+        name: faker.person.fullName(),
         role: faker.helpers.arrayElement(Object.values(UserRole)),
-        courseId: 0,
     };
 }
 
@@ -24,9 +22,7 @@ export const exampleUsers: Self[] = [
     }),
     {
         id: '1234567890',
-        email: faker.internet.email(),
-        name: faker.person.firstName(),
+        name: faker.person.fullName(),
         role: UserRole.TEACHER,
-        courseId: 0,
     },
 ];

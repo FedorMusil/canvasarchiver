@@ -3,17 +3,17 @@ import { Button } from '@/src/components/ui/Button';
 import { ItemTypes } from '@/src/api/change';
 import { PanelBottomClose, PanelBottomOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
-import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
+import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
 import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
 import { useShallow } from 'zustand/react/shallow';
 import { type FC, type ReactElement, type SVGProps } from 'react';
 
 const CompareHeader: FC = (): ReactElement => {
-    const materialId = useCompareIdContext(useShallow((state) => state.materialId));
+    const materialId = useChangeContext(useShallow((state) => state.materialId));
 
     return (
         <div className='w-full p-2 h-16 border-b-2 border-muted flex justify-between'>
-            <h1 className='text-4xl flex-grow basis-0'>{Object.values(ItemTypes)[materialId]}</h1>
+            <h1 className='text-4xl flex-grow basis-0'>{Object.values(ItemTypes)[Number(materialId)]}</h1>
             <ViewModeTabs />
             <OpenWindowActionButtons />
         </div>

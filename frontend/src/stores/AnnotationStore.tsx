@@ -11,8 +11,8 @@ type AnnotationStore = {
 
     oldContentsRef: MutableRefObject<HTMLDivElement | null>;
     setOldContentsRef: (oldContentsRef: MutableRefObject<HTMLDivElement | null>) => void;
-    newContentsRef: MutableRefObject<HTMLDivElement | null>;
-    setNewContentsRef: (newContentsRef: MutableRefObject<HTMLDivElement | null>) => void;
+    currentContentsRef: MutableRefObject<HTMLDivElement | null>;
+    setCurrentContentsRef: (currentContentsRef: MutableRefObject<HTMLDivElement | null>) => void;
 };
 
 export const useAnnotationStore = create<AnnotationStore>()((set) => ({
@@ -24,6 +24,6 @@ export const useAnnotationStore = create<AnnotationStore>()((set) => ({
 
     oldContentsRef: { current: null },
     setOldContentsRef: (oldContentsRef) => set({ oldContentsRef }),
-    newContentsRef: { current: null },
-    setNewContentsRef: (newContentsRef) => set({ newContentsRef }),
+    currentContentsRef: { current: null },
+    setCurrentContentsRef: (currentContentsRef) => set({ currentContentsRef }),
 }));

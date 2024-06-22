@@ -156,3 +156,11 @@ textarea:not([rows]) {
     scroll-margin-block: 5ex;
 }
 /* End of Andy Bell's CSS reset */
+
+.highlight-unselected {
+    background-color: var(--highlight);
+}
+
+.highlight-selected {
+    background-color: var(--highlight-selected);
+}
