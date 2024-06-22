@@ -2,11 +2,13 @@ import { createStore } from 'zustand';
 import { createContext, memo, useRef, type FC, type PropsWithChildren } from 'react';
 
 type ChangeProps = {
+    curChangeId: number;
     selectedChangeId: number;
     materialId: number;
 };
 
 export type ChangeState = {
+    setCurChangeId: (changeId: number) => void;
     setSelectedChangeId: (changeId: number) => void;
     setMaterialId: (materialId: number) => void;
 } & ChangeProps;
@@ -15,6 +17,7 @@ type ChangeStore = ReturnType<typeof createChangeStore>;
 const createChangeStore = (initProps: ChangeProps) => {
     return createStore<ChangeState>((set) => ({
         ...initProps,
+        setCurChangeId: (changeId) => set({ curChangeId: changeId }),
         setSelectedChangeId: (changeId) => set({ selectedChangeId: changeId }),
         setMaterialId: (materialId) => set({ materialId }),
     }));

@@ -1,5 +1,3 @@
-import resolveConfig from 'tailwindcss/resolveConfig';
-import tailwindConfig from '@/tailwind.config';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -22,6 +20,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { deleteAnnotation, getAnnotationsByChange, type Annotation } from '@/src/api/annotation';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
 import { useHighlight } from '@/src/hooks/useHighlighter';
+import { setHtmlString } from '@/src/api/change';
 
 const Annotations: FC = memo(() => {
     const { selectedChangeId, materialId } = useChangeContext(
@@ -53,7 +52,7 @@ const Annotations: FC = memo(() => {
     });
 
     const annotationData = useSortedAnnotations(data);
-    useTextHighlighter(data);
+    // useTextHighlighter(data);
 
     const queryClient = useQueryClient();
     const { mutate, status } = useMutation({ mutationFn: deleteAnnotation });
@@ -63,13 +62,14 @@ const Annotations: FC = memo(() => {
     }, [status, queryClient, materialId, selectedChangeId]);
 
     const { highlightSwitchSelection } = useHighlight();
+    const removeHighlight = useRemoveHighlight();
 
     if (isLoading || selfLoading) return <p>Loading...</p>;
     if (isError || selfError || !self) return <p>Error...</p>;
 
     return (
         <div className='w-full h-full overflow-y-auto space-y-2'>
-            {annotationData.map((annotation) => {
+            {annotationData.map((annotation, index) => {
                 const timeAgo = formatDistanceToNow(new Date(annotation.timestamp), { addSuffix: true });
 
                 const comment = (
@@ -77,7 +77,9 @@ const Annotations: FC = memo(() => {
                         <div className='flex justify-between w-full'>
                             <p className='text-base font-bold'>
                                 {annotation.user.name}{' '}
-                                <span className='text-muted-foreground'>({annotation.user.role})</span>
+                                <span className='text-muted-foreground'>
+                                    ({annotation.user.id === self.id ? 'You' : annotation.user.role})
+                                </span>
                             </p>
                             <p className='text-sm text-muted-foreground'>{timeAgo}</p>
                         </div>
@@ -90,7 +92,7 @@ const Annotations: FC = memo(() => {
                         <ContextMenu>
                             <ContextMenuTrigger asChild className='w-full'>
                                 <button
-                                    className={`text-start hover:bg-muted w-full ${replyTo?.annotationId === annotation.id ? 'bg-muted' : ''}`}
+                                    className={`text-start hover:bg-muted w-full ${replyTo?.annotationId === annotation.id ? 'bg-muted' : ''} ${annotation.parentId || index === 0 ? '' : '!mt-4'}`}
                                     onClick={() => {
                                         if (replyTo?.annotationId === annotation.id) setReplyTo(null);
                                         else {
@@ -183,6 +185,13 @@ const Annotations: FC = memo(() => {
                                             setReplyTo(null);
                                         }
 
+                                        // If the annotation (or it's children) have highlighted text, remove the highlight.
+                                        annotationData.map((a) => {
+                                            if (a.parentId !== annotation.id) return;
+                                            if (annotation.selectionId) removeHighlight(annotation.selectionId);
+                                        });
+                                        if (annotation.selectionId) removeHighlight(annotation.selectionId);
+
                                         mutate(annotation.id);
                                     }}
                                 >
@@ -199,24 +208,59 @@ const Annotations: FC = memo(() => {
 Annotations.displayName = 'Annotations';
 export default Annotations;
 
-function useTextHighlighter(data: Annotation[] | undefined): void {
-    const fullConfig = resolveConfig(tailwindConfig);
+function useRemoveHighlight() {
+    const { curChangeId, selectedChangeId, materialId } = useChangeContext(
+        useShallow((state) => ({
+            curChangeId: state.curChangeId,
+            selectedChangeId: state.selectedChangeId,
+            materialId: state.materialId,
+        }))
+    );
 
-    useEffect(() => {
-        if (!data) return;
+    const { oldContentsRef, currentContentsRef } = useAnnotationStore(
+        useShallow((state) => ({ oldContentsRef: state.oldContentsRef, currentContentsRef: state.currentContentsRef }))
+    );
 
-        data.forEach((annotation) => {
-            const selectionId = annotation.selectionId;
-            if (!selectionId) return;
+    const queryClient = useQueryClient();
+    const { mutate: changeMutate } = useMutation({
+        mutationFn: setHtmlString,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['changes', materialId.toString()] });
+        },
+    });
 
-            const element = document.getElementById(selectionId);
-            if (!element) return;
+    let changeId: number = curChangeId;
+    function removeHighlight(selectionId: string) {
+        const highlightElements = document.querySelectorAll(`[data-group-id="${selectionId}"]`);
+        if (highlightElements) {
+            const parentElements = Array.from(highlightElements).map((el) => el.parentElement);
 
-            // @ts-expect-error This is a custom color that is defined in the tailwind config.
-            element.style.backgroundColor = fullConfig.theme.colors.highlight.DEFAULT;
-        });
-        // @ts-expect-error This is a custom color that is defined in the tailwind config.
-    }, [data, fullConfig.theme.colors.highlight.DEFAULT]);
+            if (oldContentsRef.current && oldContentsRef.current.contains(highlightElements[0]))
+                changeId = selectedChangeId;
+
+            highlightElements.forEach((el) => {
+                // Move all children of the current element to its parent
+                while (el.firstChild) {
+                    el.parentNode!.insertBefore(el.firstChild, el);
+                }
+
+                // Remove the element itself
+                el.remove();
+            });
+
+            parentElements.forEach((el) => el?.normalize());
+
+            changeMutate({
+                id: changeId,
+                htmlString:
+                    changeId === selectedChangeId ?
+                        oldContentsRef.current!.innerHTML
+                    :   currentContentsRef.current!.innerHTML,
+            });
+        }
+    }
+
+    return removeHighlight;
 }
 
 type AnnotationData = Annotation & { depth: number };

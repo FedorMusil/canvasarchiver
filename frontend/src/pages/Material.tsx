@@ -42,9 +42,10 @@ const Material: FC = (): ReactElement => {
 
             // If there is no more than once change, no changes have been made to the material.
             // In this case, the user cannot select a previous change.
-            if (changesData.length <= 1) setSelectedChange(changesData[changesData.length - 1].id);
-            else if (selectedChange && selectedChange === changesData[changesData.length - 1].id) setSelectedChange(-1);
-            else if (!selectedChange) setSelectedChange(changesData[changesData.length - 2].id);
+            if (changesData.length <= 1) setSelectedChange(sortedChanges[sortedChanges.length - 1].id);
+            else if (selectedChange && selectedChange === sortedChanges[sortedChanges.length - 1].id)
+                setSelectedChange(-1);
+            else if (!selectedChange) setSelectedChange(sortedChanges[sortedChanges.length - 2].id);
         }
     }, [changesData, selectedChange]);
 
@@ -52,7 +53,11 @@ const Material: FC = (): ReactElement => {
     if (isError) return <div>Error</div>;
 
     return (
-        <ChangeStoreProvider selectedChangeId={selectedChange} materialId={+materialId}>
+        <ChangeStoreProvider
+            curChangeId={sortedChanges[sortedChanges.length - 1].id}
+            selectedChangeId={selectedChange}
+            materialId={+materialId}
+        >
             <div className='w-full h-full flex flex-col'>
                 <CompareHeader />
                 <Separator orientation='horizontal' />

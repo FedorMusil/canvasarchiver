@@ -12,25 +12,7 @@ import 'rangy/lib/rangy-classapplier.js';
 import 'rangy/lib/rangy-highlighter';
 import 'rangy/lib/rangy-textrange';
 
-export function useHighlight(): {
-    /**
-     * Highlights the selected text within the specified contents.
-     * @param oldContentsRef The ref to the old content container.
-     * @param currentContentsRef The ref to the current content container.
-     */
-    highlight: (oldContentsRef: RefObject<HTMLDivElement>, currentContentsRef: RefObject<HTMLDivElement>) => void;
-
-    /**
-     * Removes the highlight from the current selection.
-     */
-    removeHighlight: () => void;
-
-    /**
-     * Switches the selection of the current highlight.
-     * @param id The id of the highlight to switch. If not provided, the current selection is used.
-     */
-    highlightSwitchSelection: (id?: string) => void;
-} {
+export function useHighlight() {
     const { selectionId, setSelectionId, setOldContentsRef, setCurrentContentsRef } = useAnnotationStore(
         useShallow((state) => ({
             selectionId: state.selectionId,
@@ -55,7 +37,11 @@ export function useHighlight(): {
         });
     }, []);
 
-    function highlight(oldContentsRef: RefObject<HTMLDivElement>, currentContentsRef: RefObject<HTMLDivElement>) {
+    function highlight(
+        oldContentsRef: RefObject<HTMLDivElement>,
+        currentContentsRef: RefObject<HTMLDivElement>,
+        setChanged: (changed: 'old' | 'current' | null) => void
+    ) {
         const selection = window.getSelection();
 
         // If there is a selection and it is not empty, apply the highlight.
@@ -68,9 +54,9 @@ export function useHighlight(): {
 
             // Check if the selection is in the old or current contents and set the corresponding ref.
             if (oldContentsRef.current && oldContentsRef.current.contains(selection.anchorNode)) {
-                setOldContentsRef(oldContentsRef);
+                setChanged('old');
             } else if (currentContentsRef.current && currentContentsRef.current.contains(selection.anchorNode)) {
-                setCurrentContentsRef(currentContentsRef);
+                setChanged('current');
             }
 
             // To increase accessibility, open the annotations panel when a highlight is made.

@@ -4,7 +4,7 @@ import { Self, UserRole } from '../api/self';
 
 export const selfHandlers: HttpHandler[] = [
     http.get(`${import.meta.env.VITE_BACKEND_URL}/self`, () => {
-        return HttpResponse.json<Self>(exampleUsers[Math.floor(Math.random() * exampleUsers.length)]);
+        return HttpResponse.json<Self>(exampleUsers.find((user) => user.id === '1234567890'));
     }),
 ];
 

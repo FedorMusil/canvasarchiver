@@ -39,16 +39,18 @@ const AddAnnotation: FC = (): ReactElement => {
         }))
     );
 
-    const { replyTo, setReplyTo, selectionId, setSelectionId, oldContentsRef, currentContentsRef } = useAnnotationStore(
-        useShallow((state) => ({
-            replyTo: state.replyTo,
-            setReplyTo: state.setReplyTo,
-            selectionId: state.selectionId,
-            setSelectionId: state.setSelectionId,
-            oldContentsRef: state.oldContentsRef,
-            currentContentsRef: state.currentContentsRef,
-        }))
-    );
+    const { replyTo, setReplyTo, selectionId, setSelectionId, oldContentsRef, currentContentsRef, changed } =
+        useAnnotationStore(
+            useShallow((state) => ({
+                replyTo: state.replyTo,
+                setReplyTo: state.setReplyTo,
+                selectionId: state.selectionId,
+                setSelectionId: state.setSelectionId,
+                oldContentsRef: state.oldContentsRef,
+                currentContentsRef: state.currentContentsRef,
+                changed: state.changed,
+            }))
+        );
 
     const queryClient = useQueryClient();
 
@@ -76,7 +78,7 @@ const AddAnnotation: FC = (): ReactElement => {
             changeMutate({
                 id: selectedChangeId,
                 htmlString:
-                    oldContentsRef.current ? oldContentsRef.current.innerHTML : currentContentsRef.current!.innerHTML,
+                    changed === 'old' ? oldContentsRef.current!.innerHTML : currentContentsRef.current!.innerHTML,
             });
 
             setSelectionId(null);
@@ -90,6 +92,8 @@ const AddAnnotation: FC = (): ReactElement => {
                 selectionId,
             },
         });
+
+        setReplyTo(null);
     };
 
     const removeHighlight = useCallback(() => {

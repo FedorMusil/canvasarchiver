@@ -1,5 +1,5 @@
 import { useShallow } from 'zustand/react/shallow';
-import { memo, useRef, type FC, type ReactElement } from 'react';
+import { memo, useEffect, useRef, type FC, type ReactElement } from 'react';
 import AnnotationsFrame from '@/src/components/Annotations/AnnotationsFrame';
 import { Assignment, File, MaterialLayout, Module, Page, Quiz, Section } from '@/src/components/Materials';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/src/components/ui/resizable';
@@ -7,6 +7,7 @@ import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
 import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
 import { ItemTypes, type Change } from '@/src/api/change';
 import { useHighlight } from '@/src/hooks/useHighlighter';
+import { useAnnotationStore } from '@/src/stores/AnnotationStore';
 
 type ComparePanelProps = { changes: Change[] };
 const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => {
@@ -26,6 +27,20 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
 
     const oldContentsRef = useRef<HTMLDivElement>(null);
     const currentContentsRef = useRef<HTMLDivElement>(null);
+
+    const { setOldContentsRef, setCurrentContentsRef, setChanged } = useAnnotationStore(
+        useShallow((state) => ({
+            setOldContentsRef: state.setOldContentsRef,
+            setCurrentContentsRef: state.setCurrentContentsRef,
+            setChanged: state.setChanged,
+        }))
+    );
+
+    useEffect(() => {
+        setOldContentsRef(oldContentsRef);
+        setCurrentContentsRef(currentContentsRef);
+    }, [setOldContentsRef, setCurrentContentsRef]);
+
     const { highlight, removeHighlight } = useHighlight();
 
     const prevChange = changes.find((change) => change.id === selectedChangeId)!;
@@ -59,7 +74,7 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                                 {prevChange.html_string ?
                                     <div
                                         className='h-full'
-                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef)}
+                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef, setChanged)}
                                         onMouseDown={removeHighlight}
                                         ref={oldContentsRef}
                                         id='old-contents'
@@ -67,7 +82,7 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                                     />
                                 :   <div
                                         className='h-full'
-                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef)}
+                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef, setChanged)}
                                         onMouseDown={removeHighlight}
                                         ref={oldContentsRef}
                                         id='old-contents'
@@ -85,7 +100,7 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                                 {curChange.html_string ?
                                     <div
                                         className='h-full'
-                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef)}
+                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef, setChanged)}
                                         onMouseDown={removeHighlight}
                                         ref={currentContentsRef}
                                         id='current-contents'
@@ -93,7 +108,7 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                                     />
                                 :   <div
                                         className='h-full'
-                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef)}
+                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef, setChanged)}
                                         onMouseDown={removeHighlight}
                                         ref={currentContentsRef}
                                         id='current-contents'
