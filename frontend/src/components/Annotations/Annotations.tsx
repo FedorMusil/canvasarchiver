@@ -21,6 +21,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import TooltipWrapper from '../TooltipWrapper';
 
 const Annotations: FC = memo(() => {
     const { selectedChangeId, curChangeId, materialId, highlighter } = useChangeContext(
@@ -75,6 +76,56 @@ const Annotations: FC = memo(() => {
         },
     });
 
+    const deleteAnnotationHandler = useCallback((annotation: Annotation) => {
+        // Check if the annotation is a reply. If it is, set the replyTo state to the parent annotation or null.
+        if (annotation.parentId) {
+            const parentAnnotation = annotationData.find((a) => a.id === annotation.parentId);
+            if (parentAnnotation) {
+                setReplyTo({
+                    annotationId: parentAnnotation.id,
+                    userId: parentAnnotation.user.id,
+                    name: parentAnnotation.user.name,
+                });
+            }
+        } else {
+            setReplyTo(null);
+        }
+
+        let modified: boolean = false;
+
+        // If the annotation (or it's children) have highlighted text, remove the highlight.
+        annotationData.map((a) => {
+            if (a.parentId !== annotation.id) return;
+            if (annotation.selectionId) {
+                removeHighlight(highlighter, annotation.selectionId);
+                modified = true;
+            }
+        });
+        if (annotation.selectionId) {
+            removeHighlight(highlighter, annotation.selectionId);
+            modified = true;
+        }
+
+        if (modified) {
+            const prevHighlights = getAllHighlights(prevRef.current!, highlighter);
+            const curHighlights = getAllHighlights(curRef.current!, highlighter);
+
+            changeMutate({
+                changeId: selectedChangeId,
+                highlights: prevHighlights,
+            });
+
+            changeMutate({
+                changeId: curChangeId,
+                highlights: curHighlights,
+            });
+
+            setSelectionId(null);
+        }
+
+        mutate(annotation.id);
+    }, []);
+
     if (isLoading || selfLoading) return <p>Loading...</p>;
     if (isError || selfError || !self) return <p>Error...</p>;
 
@@ -101,40 +152,45 @@ const Annotations: FC = memo(() => {
                 return (
                     <AlertDialog key={annotation.id}>
                         <ContextMenu>
-                            <ContextMenuTrigger asChild className='w-full'>
-                                <button
-                                    className={`text-start hover:bg-muted w-full ${replyTo?.annotationId === annotation.id ? 'bg-muted' : ''} ${annotation.parentId || index === 0 ? '' : '!mt-4'}`}
-                                    onClick={() => {
-                                        if (replyTo?.annotationId === annotation.id) setReplyTo(null);
-                                        else {
-                                            setReplyTo({
-                                                annotationId: annotation.id,
-                                                userId: annotation.user.id,
-                                                name: annotation.user.name,
-                                            });
-                                        }
-                                    }}
-                                    onMouseEnter={() => {
-                                        if (annotation.selectionId) highlightSwitchSelection(annotation.selectionId);
-                                    }}
-                                    onMouseLeave={() => {
-                                        if (annotation.selectionId && replyTo?.annotationId !== annotation.id) {
-                                            highlightSwitchSelection(annotation.selectionId);
-                                        }
-                                    }}
+                            <ContextMenuTrigger className='w-full'>
+                                <TooltipWrapper
+                                    tooltip={`Click to ${replyTo?.annotationId === annotation.id ? 'cancel the reply status' : 'reply to this comment'}`}
                                 >
-                                    {annotation.parentId ?
-                                        <div className='flex gap-2'>
-                                            <GitCommitVertical
-                                                className='w-6 h-6 flex-shrink-0'
-                                                style={{
-                                                    marginLeft: `${annotation.depth - 1}rem`,
-                                                }}
-                                            />
-                                            {comment}
-                                        </div>
-                                    :   comment}
-                                </button>
+                                    <button
+                                        className={`text-start hover:bg-muted w-full ${replyTo?.annotationId === annotation.id ? 'bg-muted' : ''} ${annotation.parentId || index === 0 ? '' : '!mt-4'}`}
+                                        onClick={() => {
+                                            if (replyTo?.annotationId === annotation.id) setReplyTo(null);
+                                            else {
+                                                setReplyTo({
+                                                    annotationId: annotation.id,
+                                                    userId: annotation.user.id,
+                                                    name: annotation.user.name,
+                                                });
+                                            }
+                                        }}
+                                        onMouseEnter={() => {
+                                            if (annotation.selectionId)
+                                                highlightSwitchSelection(annotation.selectionId);
+                                        }}
+                                        onMouseLeave={() => {
+                                            if (annotation.selectionId && replyTo?.annotationId !== annotation.id) {
+                                                highlightSwitchSelection(annotation.selectionId);
+                                            }
+                                        }}
+                                    >
+                                        {annotation.parentId ?
+                                            <div className='flex gap-2'>
+                                                <GitCommitVertical
+                                                    className='w-6 h-6 flex-shrink-0'
+                                                    style={{
+                                                        marginLeft: `${annotation.depth - 1}rem`,
+                                                    }}
+                                                />
+                                                {comment}
+                                            </div>
+                                        :   comment}
+                                    </button>
+                                </TooltipWrapper>
                             </ContextMenuTrigger>
                             <ContextMenuContent>
                                 <ContextMenuItem
@@ -178,59 +234,7 @@ const Annotations: FC = memo(() => {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() => {
-                                        // Check if the annotation is a reply. If it is, set the replyTo state to the parent annotation or null.
-                                        if (annotation.parentId) {
-                                            const parentAnnotation = annotationData.find(
-                                                (a) => a.id === annotation.parentId
-                                            );
-                                            if (parentAnnotation) {
-                                                setReplyTo({
-                                                    annotationId: parentAnnotation.id,
-                                                    userId: parentAnnotation.user.id,
-                                                    name: parentAnnotation.user.name,
-                                                });
-                                            }
-                                        } else {
-                                            setReplyTo(null);
-                                        }
-
-                                        let modified: boolean = false;
-
-                                        // If the annotation (or it's children) have highlighted text, remove the highlight.
-                                        annotationData.map((a) => {
-                                            if (a.parentId !== annotation.id) return;
-                                            if (annotation.selectionId) {
-                                                removeHighlight(highlighter, annotation.selectionId);
-                                                modified = true;
-                                            }
-                                        });
-                                        if (annotation.selectionId) {
-                                            removeHighlight(highlighter, annotation.selectionId);
-                                            modified = true;
-                                        }
-
-                                        if (modified) {
-                                            const prevHighlights = getAllHighlights(prevRef.current!, highlighter);
-                                            const curHighlights = getAllHighlights(curRef.current!, highlighter);
-
-                                            changeMutate({
-                                                changeId: selectedChangeId,
-                                                highlights: prevHighlights,
-                                            });
-
-                                            changeMutate({
-                                                changeId: curChangeId,
-                                                highlights: curHighlights,
-                                            });
-
-                                            setSelectionId(null);
-                                        }
-
-                                        mutate(annotation.id);
-                                    }}
-                                >
+                                <AlertDialogAction onClick={() => deleteAnnotationHandler(annotation)}>
                                     Delete
                                 </AlertDialogAction>
                             </AlertDialogFooter>

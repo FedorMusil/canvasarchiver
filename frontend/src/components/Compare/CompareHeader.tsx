@@ -1,19 +1,33 @@
-import TooltipWrapper from '../TooltipWrapper';
-import { Button } from '@/src/components/ui/Button';
 import { ItemTypes } from '@/src/api/change';
-import { PanelBottomClose, PanelBottomOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Button } from '@/src/components/ui/Button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuPortal,
+    DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
+    DropdownMenuTrigger,
+} from '@/src/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
 import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
-import { useShallow } from 'zustand/react/shallow';
+import { PanelBottomClose, PanelBottomOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { type FC, type ReactElement, type SVGProps } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import TooltipWrapper from '../TooltipWrapper';
 
 const CompareHeader: FC = (): ReactElement => {
     const materialId = useChangeContext(useShallow((state) => state.materialId));
 
     return (
-        <div className='w-full p-2 h-16 border-b-2 border-muted flex justify-between'>
-            <h1 className='text-4xl flex-grow basis-0'>{Object.values(ItemTypes)[Number(materialId)]}</h1>
+        <div className='w-full p-2 md:h-16 border-b-2 border-muted flex flex-col gap-2 md:gap-0 md:flex-row md:justify-between'>
+            <h1 className='text-4xl w-full text-left md:flex-grow md:basis-0'>
+                {Object.values(ItemTypes)[Number(materialId)]}
+            </h1>
             <ViewModeTabs />
             <OpenWindowActionButtons />
         </div>
@@ -32,21 +46,80 @@ const OpenWindowActionButtons: FC = (): ReactElement => {
         }))
     );
 
+    const { setViewMode } = useCompareWindowStore(
+        useShallow((state) => ({
+            setViewMode: state.setViewMode,
+        }))
+    );
+
     return (
-        <div className='flex justify-end gap-2 flex-grow basis-0'>
-            <Button className='flex w-48' onClick={() => setOpenTimeline(!openTimeline)} variant='secondary'>
-                {openTimeline ?
-                    <PanelBottomClose className='w-5 h-5 mr-2' />
-                :   <PanelBottomOpen className='w-5 h-5 mr-2' />}
-                {openTimeline ? 'Close' : 'Open'} Timeline
-            </Button>
-            <Button className='flex w-48' onClick={() => setOpenAnnotations(!openAnnotations)} variant='secondary'>
-                {openAnnotations ?
-                    <PanelRightClose className='w-5 h-5 mr-2' />
-                :   <PanelRightOpen className='w-5 h-5 mr-2' />}
-                {openAnnotations ? 'Close' : 'Open'} Annotations
-            </Button>
-        </div>
+        <>
+            <div className='lg:hidden w-full flex justify-start md:justify-end md:flex-grow md:basis-0'>
+                <DropdownMenu>
+                    <DropdownMenuTrigger>
+                        <Button className='flex w-48' variant='secondary'>
+                            View Options
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuGroup className='md:hidden'>
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>View mode</DropdownMenuSubTrigger>
+                                <DropdownMenuPortal>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={() => setViewMode('horizontal')}>
+                                            <HorizontalViewIcon className='w-4 h-4 mr-2' />
+                                            <span>Horizontal view</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setViewMode('vertical')}>
+                                            <HorizontalViewIcon className='w-4 h-4 rotate-90 mr-2' />
+                                            <span>Vertical view</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setViewMode('before')}>
+                                            <BeforeViewIcon className='w-4 h-4 mr-2' />
+                                            <span>Before view</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setViewMode('after')}>
+                                            <AfterViewIcon className='w-4 h-4 mr-2' />
+                                            <span>After view</span>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuPortal>
+                            </DropdownMenuSub>
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
+                            <DropdownMenuItem onClick={() => setOpenTimeline(!openTimeline)}>
+                                {openTimeline ?
+                                    <PanelBottomClose className='w-5 h-5 mr-2' />
+                                :   <PanelBottomOpen className='w-5 h-5 mr-2' />}
+                                {openTimeline ? 'Close' : 'Open'} Timeline
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setOpenAnnotations(!openAnnotations)}>
+                                {openAnnotations ?
+                                    <PanelRightClose className='w-5 h-5 mr-2' />
+                                :   <PanelRightOpen className='w-5 h-5 mr-2' />}
+                                {openAnnotations ? 'Close' : 'Open'} Annotations
+                            </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+            <div className='hidden lg:flex justify-end gap-2 flex-grow basis-0'>
+                <Button className='flex w-48' onClick={() => setOpenTimeline(!openTimeline)} variant='secondary'>
+                    {openTimeline ?
+                        <PanelBottomClose className='w-5 h-5 mr-2' />
+                    :   <PanelBottomOpen className='w-5 h-5 mr-2' />}
+                    {openTimeline ? 'Close' : 'Open'} Timeline
+                </Button>
+                <Button className='flex w-48' onClick={() => setOpenAnnotations(!openAnnotations)} variant='secondary'>
+                    {openAnnotations ?
+                        <PanelRightClose className='w-5 h-5 mr-2' />
+                    :   <PanelRightOpen className='w-5 h-5 mr-2' />}
+                    {openAnnotations ? 'Close' : 'Open'} Annotations
+                </Button>
+            </div>
+        </>
     );
 };
 OpenWindowActionButtons.displayName = 'OpenWindowActionButtons';
@@ -61,7 +134,7 @@ const ViewModeTabs: FC = (): ReactElement => {
 
     return (
         <Tabs value={viewMode} onValueChange={(newViewMode) => setViewMode(newViewMode as typeof viewMode)}>
-            <TabsList className='grid grid-cols-4 w-full'>
+            <TabsList className='md:grid grid-cols-4 w-full hidden'>
                 <TooltipWrapper tooltip='Horizontal view'>
                     <TabsTrigger value='horizontal'>
                         <HorizontalViewIcon className='w-5 h-5' />

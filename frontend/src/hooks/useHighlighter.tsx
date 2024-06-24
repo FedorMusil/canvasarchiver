@@ -63,7 +63,6 @@ export function useHighlight() {
 
             setSelectionId(id);
             setOpenAnnotations(true);
-
             highlightSwitchSelection(id);
 
             // Clear the selection after highlighting.

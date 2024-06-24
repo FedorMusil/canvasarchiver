@@ -51,16 +51,16 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
     };
 
     useEffect(() => {
-        if (prevRef.current && curRef.current) {
-            setPrevRef(prevRef);
-            setCurRef(curRef);
+        if (prevRef.current) setPrevRef(prevRef);
+        if (curRef.current) setCurRef(curRef);
 
+        if (prevRef.current && curRef.current) {
             const diffNode: DocumentFragment = visualDomDiff(prevRef.current, curRef.current);
             const tempDiv = document.createElement('div');
             tempDiv.appendChild(diffNode!);
             setDiffNode(tempDiv.innerHTML);
         }
-    }, [setPrevRef, setCurRef]);
+    }, [setPrevRef, setCurRef, viewMode]);
 
     useEffect(() => {
         if (!showDiff) {
@@ -88,6 +88,7 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                         <ResizablePanel defaultSize={50} id='panel11' order={1}>
                             <MaterialLayout
                                 change={prevChange}
+                                onClick={() => {}}
                                 status={
                                     prevChange.id === curChange.id ? 'no_changes'
                                     : curChange.id === -1 ?
@@ -114,7 +115,12 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                     {viewMode !== 'after' && viewMode !== 'before' && <ResizableHandle withHandle />}
                     {viewMode !== 'before' && (
                         <ResizablePanel defaultSize={50} id='panel12' order={2}>
-                            <MaterialLayout onClick={changeCurrentContentsRef} status='ok' version='current'>
+                            <MaterialLayout
+                                hideButton={viewMode === 'after'}
+                                onClick={changeCurrentContentsRef}
+                                status='ok'
+                                version='current'
+                            >
                                 {showDiff ?
                                     <div className='h-full' dangerouslySetInnerHTML={{ __html: diffNode }} />
                                 :   <div

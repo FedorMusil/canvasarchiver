@@ -109,7 +109,10 @@ const AddAnnotation: FC = (): ReactElement => {
                                 <FormControl>
                                     <Input
                                         className='!m-0 flex-grow max-w-xs'
-                                        placeholder='Add a new annotation...'
+                                        placeholder={
+                                            replyTo ? `Replying to ${replyTo.name} ...` : 'Add a new annotation ...'
+                                        }
+                                        id='annotation-input'
                                         {...field}
                                     />
                                 </FormControl>
@@ -119,7 +122,7 @@ const AddAnnotation: FC = (): ReactElement => {
                     )}
                 />
                 <Button className='w-full max-w-40' type='submit'>
-                    Add Annotation
+                    Add annotation
                 </Button>
             </form>
         </Form>

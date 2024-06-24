@@ -10,7 +10,7 @@ const TooltipWrapper: FC<TooltipWrapperProps> = memo(({ children, tooltip }): Re
     return (
         <TooltipProvider>
             <Tooltip>
-                <TooltipTrigger>{children}</TooltipTrigger>
+                <TooltipTrigger className='w-full'>{children}</TooltipTrigger>
                 <TooltipContent side='bottom'>
                     <p>{tooltip}</p>
                 </TooltipContent>
