@@ -7,7 +7,10 @@ const Layout: FC = (): ReactElement => {
     return (
         <Fragment>
             <Header />
-            <main className='h-[100dvh] pt-14 md:pt-20 w-screen px-4' id='main-content'>
+            <main
+                className='min-h-[100dvh] pt-14 md:pt-20 w-screen px-4 overflow-x-hidden lg:overflow-auto'
+                id='main-content'
+            >
                 <Outlet />
             </main>
             <Footer />

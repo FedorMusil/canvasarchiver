@@ -69,7 +69,7 @@ const Material: FC = (): ReactElement => {
             materialId={+materialId}
             highlighter={highlighter}
         >
-            <div className='w-full h-full flex flex-col'>
+            <div className='w-full min-h-[100dvh] flex flex-col'>
                 <CompareHeader />
                 <Separator orientation='horizontal' />
                 <ComparePanel changes={sortedChanges} />
