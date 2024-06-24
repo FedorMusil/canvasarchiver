@@ -1,3 +1,6 @@
+import { deleteAnnotation, getAnnotationsByChange, type Annotation } from '@/src/api/annotation';
+import { setHighlight } from '@/src/api/change';
+import { getSelf } from '@/src/api/self';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -9,31 +12,33 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/src/components/ui/alert-dialog';
-import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/src/components/ui/context-menu';
-import { formatDistanceToNow } from 'date-fns';
-import { getSelf } from '@/src/api/self';
+import { useHighlight } from '@/src/hooks/useHighlighter';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
 import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useShallow } from 'zustand/react/shallow';
-import { deleteAnnotation, getAnnotationsByChange, type Annotation } from '@/src/api/annotation';
+import { formatDistanceToNow } from 'date-fns';
+import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
-import { useHighlight } from '@/src/hooks/useHighlighter';
-import { setHtmlString } from '@/src/api/change';
+import { useShallow } from 'zustand/react/shallow';
 
 const Annotations: FC = memo(() => {
-    const { selectedChangeId, materialId } = useChangeContext(
+    const { selectedChangeId, curChangeId, materialId, highlighter } = useChangeContext(
         useShallow((state) => ({
             selectedChangeId: state.selectedChangeId,
+            curChangeId: state.curChangeId,
             materialId: state.materialId,
+            highlighter: state.highlighter,
         }))
     );
 
-    const { replyTo, setReplyTo } = useAnnotationStore(
+    const { replyTo, setReplyTo, prevRef, curRef, setSelectionId } = useAnnotationStore(
         useShallow((state) => ({
             replyTo: state.replyTo,
             setReplyTo: state.setReplyTo,
+            prevRef: state.prevRef,
+            curRef: state.curRef,
+            setSelectionId: state.setSelectionId,
         }))
     );
 
@@ -52,17 +57,23 @@ const Annotations: FC = memo(() => {
     });
 
     const annotationData = useSortedAnnotations(data);
-    // useTextHighlighter(data);
 
     const queryClient = useQueryClient();
-    const { mutate, status } = useMutation({ mutationFn: deleteAnnotation });
-    useEffect(() => {
-        if (status === 'success')
+    const { mutate } = useMutation({
+        mutationFn: deleteAnnotation,
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['annotations', materialId, selectedChangeId] });
-    }, [status, queryClient, materialId, selectedChangeId]);
+        },
+    });
 
-    const { highlightSwitchSelection } = useHighlight();
-    const removeHighlight = useRemoveHighlight();
+    const { highlightSwitchSelection, removeHighlight, removeAllHighlights, getAllHighlights } = useHighlight();
+    const { mutate: changeMutate } = useMutation({
+        mutationFn: setHighlight,
+        onSuccess: () => {
+            removeAllHighlights(highlighter);
+            queryClient.invalidateQueries({ queryKey: ['changes', materialId.toString()] });
+        },
+    });
 
     if (isLoading || selfLoading) return <p>Loading...</p>;
     if (isError || selfError || !self) return <p>Error...</p>;
@@ -185,12 +196,37 @@ const Annotations: FC = memo(() => {
                                             setReplyTo(null);
                                         }
 
+                                        let modified: boolean = false;
+
                                         // If the annotation (or it's children) have highlighted text, remove the highlight.
                                         annotationData.map((a) => {
                                             if (a.parentId !== annotation.id) return;
-                                            if (annotation.selectionId) removeHighlight(annotation.selectionId);
+                                            if (annotation.selectionId) {
+                                                removeHighlight(highlighter, annotation.selectionId);
+                                                modified = true;
+                                            }
                                         });
-                                        if (annotation.selectionId) removeHighlight(annotation.selectionId);
+                                        if (annotation.selectionId) {
+                                            removeHighlight(highlighter, annotation.selectionId);
+                                            modified = true;
+                                        }
+
+                                        if (modified) {
+                                            const prevHighlights = getAllHighlights(prevRef.current!, highlighter);
+                                            const curHighlights = getAllHighlights(curRef.current!, highlighter);
+
+                                            changeMutate({
+                                                changeId: selectedChangeId,
+                                                highlights: prevHighlights,
+                                            });
+
+                                            changeMutate({
+                                                changeId: curChangeId,
+                                                highlights: curHighlights,
+                                            });
+
+                                            setSelectionId(null);
+                                        }
 
                                         mutate(annotation.id);
                                     }}
@@ -207,61 +243,6 @@ const Annotations: FC = memo(() => {
 });
 Annotations.displayName = 'Annotations';
 export default Annotations;
-
-function useRemoveHighlight() {
-    const { curChangeId, selectedChangeId, materialId } = useChangeContext(
-        useShallow((state) => ({
-            curChangeId: state.curChangeId,
-            selectedChangeId: state.selectedChangeId,
-            materialId: state.materialId,
-        }))
-    );
-
-    const { oldContentsRef, currentContentsRef } = useAnnotationStore(
-        useShallow((state) => ({ oldContentsRef: state.oldContentsRef, currentContentsRef: state.currentContentsRef }))
-    );
-
-    const queryClient = useQueryClient();
-    const { mutate: changeMutate } = useMutation({
-        mutationFn: setHtmlString,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['changes', materialId.toString()] });
-        },
-    });
-
-    let changeId: number = curChangeId;
-    function removeHighlight(selectionId: string) {
-        const highlightElements = document.querySelectorAll(`[data-group-id="${selectionId}"]`);
-        if (highlightElements) {
-            const parentElements = Array.from(highlightElements).map((el) => el.parentElement);
-
-            if (oldContentsRef.current && oldContentsRef.current.contains(highlightElements[0]))
-                changeId = selectedChangeId;
-
-            highlightElements.forEach((el) => {
-                // Move all children of the current element to its parent
-                while (el.firstChild) {
-                    el.parentNode!.insertBefore(el.firstChild, el);
-                }
-
-                // Remove the element itself
-                el.remove();
-            });
-
-            parentElements.forEach((el) => el?.normalize());
-
-            changeMutate({
-                id: changeId,
-                htmlString:
-                    changeId === selectedChangeId ?
-                        oldContentsRef.current!.innerHTML
-                    :   currentContentsRef.current!.innerHTML,
-            });
-        }
-    }
-
-    return removeHighlight;
-}
 
 type AnnotationData = Annotation & { depth: number };
 function useSortedAnnotations(data: Annotation[] | undefined): AnnotationData[] {

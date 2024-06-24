@@ -4,7 +4,7 @@ import { faker } from '@faker-js/faker';
 import { http, HttpHandler, HttpResponse } from 'msw';
 
 export const changeHandlers: HttpHandler[] = [
-    http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/recent`, () => {
+    http.get(`${import.meta.env.VITE_BACKEND_URL}/change/recent`, () => {
         // Get the last change based on the last change date
         const lastChange = exampleChanges.reduce((prev, current) =>
             new Date(prev.timestamp) > new Date(current.timestamp) ? prev : current
@@ -34,11 +34,12 @@ export const changeHandlers: HttpHandler[] = [
         return HttpResponse.json<Change[]>(materialChanges);
     }),
 
-    http.put(`${import.meta.env.VITE_BACKEND_URL}/changes/:id`, async ({ params, request }) => {
-        const id = parseInt(params.id as string);
-        const htmlString = (await request.json()) as { htmlString: string };
-        const index = exampleChanges.findIndex((c) => c.id === id);
-        exampleChanges[index].html_string = htmlString.htmlString;
+    http.put(`${import.meta.env.VITE_BACKEND_URL}/change/:changeId/highlight`, async ({ params, request }) => {
+        const changeId = parseInt(params.changeId as string);
+        const highlights = (await request.json()) as { highlights: string };
+        const index = exampleChanges.findIndex((c) => c.id === changeId);
+
+        exampleChanges[index].highlights = highlights.highlights;
 
         return HttpResponse.json<Change>(exampleChanges[index]);
     }),
@@ -56,7 +57,6 @@ const generateChange = (old_value: number): Change => {
         item_type: faker.helpers.arrayElement(Object.values(ItemTypes)),
         timestamp: randomDate.toString(),
         data_object: faker.lorem.sentence(),
-        html_string: null,
     };
 };
 

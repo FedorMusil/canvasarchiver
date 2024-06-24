@@ -13,7 +13,6 @@ export enum ItemTypes {
     FILES = 'Files',
     ASSIGNMENTS = 'Assignments',
     QUIZZES = 'Quizzes',
-    RUBRICS = 'Rubrics',
 }
 
 export type Change = {
@@ -25,7 +24,8 @@ export type Change = {
 
     timestamp: string;
     data_object: unknown;
-    html_string: string | null;
+
+    highlights?: string;
 };
 
 export const getChangesByMaterial = async (materialId: string): Promise<Change[]> => {
@@ -40,18 +40,22 @@ export const getChangesByMaterial = async (materialId: string): Promise<Change[]
 export const getRecentChanges = async (): Promise<Change[]> => {
     const response = await AxiosWrapper({
         method: 'GET',
-        url: '/changes/recent',
+        url: '/change/recent',
     });
 
     return response;
 };
 
-export const setHtmlString = async ({ id, htmlString }: { id: number; htmlString: string }): Promise<Change> => {
-    const response = await AxiosWrapper({
+export const setHighlight = async ({
+    changeId,
+    highlights,
+}: {
+    changeId: number;
+    highlights: string;
+}): Promise<void> => {
+    await AxiosWrapper({
         method: 'PUT',
-        url: `/changes/${id}`,
-        data: { htmlString },
+        url: `/change/${changeId}/highlight`,
+        data: { highlights },
     });
-
-    return response;
 };

@@ -164,3 +164,11 @@ textarea:not([rows]) {
 .highlight-selected {
     background-color: var(--highlight-selected);
 }
+
+.vdd-removed {
+    background-color: rgba(255, 0, 0, 0.2);
+}
+
+.vdd-added {
+    background-color: rgba(0, 255, 0, 0.2);
+}

@@ -1,13 +1,14 @@
-import { useShallow } from 'zustand/react/shallow';
-import { memo, useEffect, useRef, type FC, type ReactElement } from 'react';
+import { ItemTypes, type Change } from '@/src/api/change';
 import AnnotationsFrame from '@/src/components/Annotations/AnnotationsFrame';
 import { Assignment, File, MaterialLayout, Module, Page, Quiz, Section } from '@/src/components/Materials';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/src/components/ui/resizable';
-import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
-import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
-import { ItemTypes, type Change } from '@/src/api/change';
 import { useHighlight } from '@/src/hooks/useHighlighter';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
+import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
+import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
+import { memo, useEffect, useRef, useState, type FC, type ReactElement } from 'react';
+import { visualDomDiff } from 'visual-dom-diff';
+import { useShallow } from 'zustand/react/shallow';
 
 type ComparePanelProps = { changes: Change[] };
 const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => {
@@ -18,33 +19,57 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
         }))
     );
 
-    const { selectedChangeId, materialId } = useChangeContext(
+    const { selectedChangeId, materialId, highlighter, setModifiedPanel } = useChangeContext(
         useShallow((state) => ({
             selectedChangeId: state.selectedChangeId,
             materialId: state.materialId,
+            highlighter: state.highlighter,
+            setModifiedPanel: state.setModifiedPanel,
         }))
     );
-
-    const oldContentsRef = useRef<HTMLDivElement>(null);
-    const currentContentsRef = useRef<HTMLDivElement>(null);
-
-    const { setOldContentsRef, setCurrentContentsRef, setChanged } = useAnnotationStore(
-        useShallow((state) => ({
-            setOldContentsRef: state.setOldContentsRef,
-            setCurrentContentsRef: state.setCurrentContentsRef,
-            setChanged: state.setChanged,
-        }))
-    );
-
-    useEffect(() => {
-        setOldContentsRef(oldContentsRef);
-        setCurrentContentsRef(currentContentsRef);
-    }, [setOldContentsRef, setCurrentContentsRef]);
-
-    const { highlight, removeHighlight } = useHighlight();
 
     const prevChange = changes.find((change) => change.id === selectedChangeId)!;
     const curChange = changes[changes.length - 1];
+
+    const { setPrevRef, setCurRef } = useAnnotationStore(
+        useShallow((state) => ({
+            setPrevRef: state.setPrevRef,
+            setCurRef: state.setCurRef,
+        }))
+    );
+
+    const prevRef = useRef<HTMLDivElement>(null);
+    const curRef = useRef<HTMLDivElement>(null);
+
+    const [showDiff, setShowDiff] = useState<boolean>(false);
+    const [diffNode, setDiffNode] = useState<string>('');
+
+    const { highlight, removeHighlight, setHighlights, removeAllHighlights } = useHighlight();
+    const changeCurrentContentsRef = () => {
+        removeAllHighlights(highlighter);
+        setShowDiff((prev) => !prev);
+    };
+
+    useEffect(() => {
+        if (prevRef.current && curRef.current) {
+            setPrevRef(prevRef);
+            setCurRef(curRef);
+
+            const diffNode: DocumentFragment = visualDomDiff(prevRef.current, curRef.current);
+            const tempDiv = document.createElement('div');
+            tempDiv.appendChild(diffNode!);
+            setDiffNode(tempDiv.innerHTML);
+        }
+    }, [setPrevRef, setCurRef]);
+
+    useEffect(() => {
+        if (!showDiff) {
+            if (prevChange.highlights) setHighlights(prevChange.highlights, highlighter);
+            if (curChange.highlights) setHighlights(curChange.highlights, highlighter);
+        }
+        // I don't want to run this effect on all dependencies, since then the comments will be removed with any action.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [prevChange, curChange, showDiff]);
 
     return (
         <ResizablePanelGroup
@@ -71,47 +96,36 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                                 }
                                 version='prev'
                             >
-                                {prevChange.html_string ?
-                                    <div
-                                        className='h-full'
-                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef, setChanged)}
-                                        onMouseDown={removeHighlight}
-                                        ref={oldContentsRef}
-                                        id='old-contents'
-                                        dangerouslySetInnerHTML={{ __html: prevChange.html_string }}
-                                    />
-                                :   <div
-                                        className='h-full'
-                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef, setChanged)}
-                                        onMouseDown={removeHighlight}
-                                        ref={oldContentsRef}
-                                        id='old-contents'
-                                    >
-                                        <RenderMaterial change={prevChange} materialId={materialId} />
-                                    </div>
-                                }
+                                <div
+                                    className='h-full'
+                                    onMouseUp={() => highlight(highlighter)}
+                                    onMouseDown={() => {
+                                        setModifiedPanel('prev');
+                                        removeHighlight(highlighter);
+                                    }}
+                                    id='old-contents'
+                                    ref={prevRef}
+                                >
+                                    <RenderMaterial change={prevChange} materialId={materialId} />
+                                </div>
                             </MaterialLayout>
                         </ResizablePanel>
                     )}
                     {viewMode !== 'after' && viewMode !== 'before' && <ResizableHandle withHandle />}
                     {viewMode !== 'before' && (
                         <ResizablePanel defaultSize={50} id='panel12' order={2}>
-                            <MaterialLayout status='ok' version='current'>
-                                {curChange.html_string ?
-                                    <div
-                                        className='h-full'
-                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef, setChanged)}
-                                        onMouseDown={removeHighlight}
-                                        ref={currentContentsRef}
-                                        id='current-contents'
-                                        dangerouslySetInnerHTML={{ __html: curChange.html_string }}
-                                    />
+                            <MaterialLayout onClick={changeCurrentContentsRef} status='ok' version='current'>
+                                {showDiff ?
+                                    <div className='h-full' dangerouslySetInnerHTML={{ __html: diffNode }} />
                                 :   <div
                                         className='h-full'
-                                        onMouseUp={() => highlight(oldContentsRef, currentContentsRef, setChanged)}
-                                        onMouseDown={removeHighlight}
-                                        ref={currentContentsRef}
+                                        onMouseUp={() => highlight(highlighter)}
+                                        onMouseDown={() => {
+                                            setModifiedPanel('cur');
+                                            removeHighlight(highlighter);
+                                        }}
                                         id='current-contents'
+                                        ref={curRef}
                                     >
                                         <RenderMaterial change={curChange} materialId={materialId} />
                                     </div>
@@ -142,6 +156,7 @@ type RenderMaterialProps = {
 
 const RenderMaterial: FC<RenderMaterialProps> = memo(({ change, materialId }): ReactElement => {
     const materialItemType = Object.values(ItemTypes)[materialId] as ItemTypes;
+
     switch (materialItemType) {
         case ItemTypes.SECTIONS:
             return <Section change={change} />;

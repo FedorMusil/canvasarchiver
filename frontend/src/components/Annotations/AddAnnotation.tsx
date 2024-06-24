@@ -1,19 +1,17 @@
-import TooltipWrapper from '../TooltipWrapper';
+import { postAnnotation } from '@/src/api/annotation';
+import { setHighlight } from '@/src/api/change';
 import { Button } from '@/src/components/ui/Button';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/src/components/ui/form';
-import { Highlighter, MessageSquareReply } from 'lucide-react';
 import { Input } from '@/src/components/ui/input';
-import { postAnnotation } from '@/src/api/annotation';
-import { setHtmlString } from '@/src/api/change';
+import { useHighlight } from '@/src/hooks/useHighlighter';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
 import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
-import { useForm } from 'react-hook-form';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useShallow } from 'zustand/react/shallow';
 import { valibotResolver } from '@hookform/resolvers/valibot';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { type FC, type ReactElement } from 'react';
+import { useForm } from 'react-hook-form';
 import { minLength, object, pipe, string, trim, type InferInput } from 'valibot';
-import { useCallback, type FC, type ReactElement } from 'react';
-import { useHighlight } from '@/src/hooks/useHighlighter';
+import { useShallow } from 'zustand/react/shallow';
 
 const annotationSchema = object({
     annotation: pipe(
@@ -32,25 +30,26 @@ const AddAnnotation: FC = (): ReactElement => {
         },
     });
 
-    const { selectedChangeId, materialId } = useChangeContext(
+    const { selectedChangeId, materialId, curChangeId, highlighter, modifiedPanel } = useChangeContext(
         useShallow((state) => ({
             selectedChangeId: state.selectedChangeId,
             materialId: state.materialId,
+            curChangeId: state.curChangeId,
+            highlighter: state.highlighter,
+            modifiedPanel: state.modifiedPanel,
         }))
     );
 
-    const { replyTo, setReplyTo, selectionId, setSelectionId, oldContentsRef, currentContentsRef, changed } =
-        useAnnotationStore(
-            useShallow((state) => ({
-                replyTo: state.replyTo,
-                setReplyTo: state.setReplyTo,
-                selectionId: state.selectionId,
-                setSelectionId: state.setSelectionId,
-                oldContentsRef: state.oldContentsRef,
-                currentContentsRef: state.currentContentsRef,
-                changed: state.changed,
-            }))
-        );
+    const { replyTo, setReplyTo, selectionId, setSelectionId, prevRef, curRef } = useAnnotationStore(
+        useShallow((state) => ({
+            replyTo: state.replyTo,
+            setReplyTo: state.setReplyTo,
+            selectionId: state.selectionId,
+            setSelectionId: state.setSelectionId,
+            prevRef: state.prevRef,
+            curRef: state.curRef,
+        }))
+    );
 
     const queryClient = useQueryClient();
 
@@ -62,23 +61,25 @@ const AddAnnotation: FC = (): ReactElement => {
         },
     });
 
+    const { getAllHighlights, removeAllHighlights } = useHighlight();
+
     const { mutate: changeMutate } = useMutation({
-        mutationFn: setHtmlString,
+        mutationFn: setHighlight,
         onSuccess: () => {
+            removeAllHighlights(highlighter);
             queryClient.invalidateQueries({ queryKey: ['changes', materialId.toString()] });
         },
     });
 
-    const { highlightSwitchSelection } = useHighlight();
-
     const onSubmit = (data: AnnotationInput) => {
-        if (selectionId) {
-            highlightSwitchSelection();
+        // @ts-expect-error - It works, so I don't care.
+        if (selectionId && highlighter.getHighlightForElement(document.querySelector(`.highlight-${selectionId}`))) {
+            const subtree = modifiedPanel === 'prev' ? prevRef.current! : curRef.current!;
+            const highlights = getAllHighlights(subtree, highlighter);
 
             changeMutate({
-                id: selectedChangeId,
-                htmlString:
-                    changed === 'old' ? oldContentsRef.current!.innerHTML : currentContentsRef.current!.innerHTML,
+                changeId: modifiedPanel === 'prev' ? selectedChangeId : curChangeId,
+                highlights,
             });
 
             setSelectionId(null);
@@ -96,14 +97,6 @@ const AddAnnotation: FC = (): ReactElement => {
         setReplyTo(null);
     };
 
-    const removeHighlight = useCallback(() => {
-        if (selectionId) {
-            const element = document.getElementById(selectionId);
-            if (element) element.style.backgroundColor = '';
-            setSelectionId(null);
-        }
-    }, [selectionId, setSelectionId]);
-
     return (
         <Form {...form}>
             <form className='w-full flex flex-col items-end gap-2' onSubmit={form.handleSubmit(onSubmit)}>
@@ -113,26 +106,6 @@ const AddAnnotation: FC = (): ReactElement => {
                     render={({ field }) => (
                         <FormItem className='w-full'>
                             <div className='w-full flex items-center justify-end gap-2'>
-                                {replyTo && (
-                                    <TooltipWrapper
-                                        tooltip={`You are replying to ${replyTo.name}. Click to remove the reply status.`}
-                                    >
-                                        <MessageSquareReply
-                                            className='w-6 h-6 flex-shrink-0 hover:cursor-pointer'
-                                            onClick={() => setReplyTo(null)}
-                                        />
-                                    </TooltipWrapper>
-                                )}
-                                {selectionId && (
-                                    <TooltipWrapper
-                                        tooltip={`You're annotation will be linked to the selected text. Click to remove the link.`}
-                                    >
-                                        <Highlighter
-                                            className='w-6 h-6 !m-0 flex-shrink-0 hover:cursor-pointer'
-                                            onClick={() => removeHighlight()}
-                                        />
-                                    </TooltipWrapper>
-                                )}
                                 <FormControl>
                                     <Input
                                         className='!m-0 flex-grow max-w-xs'

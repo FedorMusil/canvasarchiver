@@ -1,3 +1,4 @@
+// --- Imports ---
 import ChangeStoreProvider from '../stores/ChangeStore/ChangeStore';
 import CompareHeader from '../components/Compare/CompareHeader';
 import ComparePanel from '@/src/components/Compare/ComparePanel';
@@ -7,6 +8,13 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type FC, type ReactElement } from 'react';
 import { getChangesByMaterial, ItemTypes, type Change } from '../api/change';
+
+// --- Rangy imports ---
+// @ts-expect-error - The types for rangy do not seem correct.
+import rangy from 'rangy';
+import 'rangy/lib/rangy-classapplier.js';
+import 'rangy/lib/rangy-highlighter';
+import 'rangy/lib/rangy-textrange';
 
 const useRequiredParams = <T extends Record<string, unknown>>() => useParams() as T;
 const Material: FC = (): ReactElement => {
@@ -32,6 +40,8 @@ const Material: FC = (): ReactElement => {
 
     const [sortedChanges, setChanges] = useState<Change[]>([]);
     const [selectedChange, setSelectedChange] = useState<number | null>(changeIdParam ? +changeIdParam : null);
+    const [highlighter] = useState(rangy.createHighlighter(document, 'TextRange'));
+
     useEffect(() => {
         if (changesData) {
             const sortedChanges = changesData.sort(
@@ -47,7 +57,7 @@ const Material: FC = (): ReactElement => {
                 setSelectedChange(-1);
             else if (!selectedChange) setSelectedChange(sortedChanges[sortedChanges.length - 2].id);
         }
-    }, [changesData, selectedChange]);
+    }, [changesData, selectedChange, highlighter]);
 
     if (isLoading || selectedChange === null) return <div>Loading...</div>;
     if (isError) return <div>Error</div>;
@@ -57,6 +67,7 @@ const Material: FC = (): ReactElement => {
             curChangeId={sortedChanges[sortedChanges.length - 1].id}
             selectedChangeId={selectedChange}
             materialId={+materialId}
+            highlighter={highlighter}
         >
             <div className='w-full h-full flex flex-col'>
                 <CompareHeader />

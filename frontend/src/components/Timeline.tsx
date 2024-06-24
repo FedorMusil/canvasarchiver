@@ -29,7 +29,7 @@ const Timeline: FC<TimelineProps> = memo(({ changes }): ReactElement => {
     );
 
     const index = changes.findIndex((change) => change.id === selectedChangeId);
-    const pagesNeeded = Math.ceil(changes.length / 3);
+    const pagesNeeded = Math.ceil((changes.length - 1) / 3);
 
     const [currentPage, setCurrentPage] = useState<number>(Math.floor(index / 3));
     const [selectedIndex, setSelectedIndex] = useState<number>(index);
@@ -67,6 +67,7 @@ const Timeline: FC<TimelineProps> = memo(({ changes }): ReactElement => {
                     style={{ width: `${300 * pagesNeeded}px` }}
                 >
                     {changes.map((change, index) => {
+                        if (index === changes.length - 1) return null;
                         return (
                             <div
                                 key={change.id}

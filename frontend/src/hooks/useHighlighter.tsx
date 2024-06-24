@@ -1,25 +1,37 @@
-// --- Imports ---
-import { useShallow } from 'zustand/react/shallow';
-import { useCallback, useState, type RefObject } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
+import { v4 as uuidv4 } from 'uuid';
+import { useShallow } from 'zustand/react/shallow';
 import { useCompareWindowStore } from '../stores/CompareWindowStore';
 
 // --- Rangy imports ---
 // @ts-expect-error - The types for rangy do not seem correct.
 import rangy from 'rangy';
 import 'rangy/lib/rangy-classapplier.js';
-import 'rangy/lib/rangy-highlighter';
-import 'rangy/lib/rangy-textrange';
+
+export type Highlighter = {
+    /** Highlights the current selection with the given class name. */
+    highlightSelection: (className: string, options?: object) => void;
+    /** Unhighlights the current selection. */
+    unhighlightSelection: (selection?: Selection) => void;
+    /** Removes all highlights. */
+    removeAllHighlights: () => void;
+    /** Serializes the highlights. Can later be deserialized by deserialize. */
+    serialize: (selection?: Selection) => string;
+    /** Deserializes serialized highlights. */
+    deserialize: (serializedSelection: string) => void;
+    /** Gets the highlight for the given element. */
+    getHighlightForElement: (element: Element) => object;
+    /** Adds a class applier to the highlighter. */
+    addClassApplier: (className: string, options?: object) => void;
+    /** Removes a singular highlight. */
+    removeHighlights: (highlights: object[]) => void;
+};
 
 export function useHighlight() {
-    const { selectionId, setSelectionId, setOldContentsRef, setCurrentContentsRef } = useAnnotationStore(
+    const { selectionId, setSelectionId } = useAnnotationStore(
         useShallow((state) => ({
             selectionId: state.selectionId,
             setSelectionId: state.setSelectionId,
-
-            setOldContentsRef: state.setOldContentsRef,
-            setCurrentContentsRef: state.setCurrentContentsRef,
         }))
     );
 
@@ -27,68 +39,129 @@ export function useHighlight() {
         useShallow((state) => ({ setOpenAnnotations: state.setOpenAnnotations }))
     );
 
-    const container = document.getElementById('compare-panel');
-    const [highlighter] = useState(rangy.createHighlighter(container, 'TextRange'));
-    const classApplier = useCallback((id: string) => {
-        return rangy.createClassApplier('highlight-selected', {
-            elementAttributes: { 'data-group-id': id },
-            normalize: false,
-            useExistingElements: false,
-        });
-    }, []);
-
-    function highlight(
-        oldContentsRef: RefObject<HTMLDivElement>,
-        currentContentsRef: RefObject<HTMLDivElement>,
-        setChanged: (changed: 'old' | 'current' | null) => void
-    ) {
+    /**
+     * This function highlights the current selection.
+     * @param highlighter - The rangy highlighter object to use.
+     */
+    function highlight(highlighter: Highlighter) {
         const selection = window.getSelection();
 
         // If there is a selection and it is not empty, apply the highlight.
         if (selection && selection.toString().length > 0) {
             const id = uuidv4();
-            highlighter.addClassApplier(classApplier(id));
-            highlighter.highlightSelection('highlight-selected');
+
+            const classApplier = rangy.createClassApplier(`highlight-${id}`, {
+                normalize: false,
+                useExistingElements: false,
+                onElementCreate: (el: HTMLElement) => {
+                    el.classList.add('highlight-unselected');
+                },
+            });
+
+            highlighter.addClassApplier(classApplier);
+            highlighter.highlightSelection(`highlight-${id}`);
 
             setSelectionId(id);
-
-            // Check if the selection is in the old or current contents and set the corresponding ref.
-            if (oldContentsRef.current && oldContentsRef.current.contains(selection.anchorNode)) {
-                setChanged('old');
-            } else if (currentContentsRef.current && currentContentsRef.current.contains(selection.anchorNode)) {
-                setChanged('current');
-            }
-
-            // To increase accessibility, open the annotations panel when a highlight is made.
             setOpenAnnotations(true);
+
+            highlightSwitchSelection(id);
 
             // Clear the selection after highlighting.
             selection.removeAllRanges();
         }
     }
 
-    function removeHighlight() {
-        if (!selectionId) return;
+    /**
+     * This function removes a singular highlight.
+     * @param highlighter The rangy highlighter object to use.
+     * @param id The id of the highlight to remove. If not provided, the current selection id will be used.
+     */
+    function removeHighlight(highlighter: Highlighter, id?: string) {
+        const effectiveId = id ?? selectionId;
+        if (!effectiveId) return;
 
-        const highlightElements = document.querySelectorAll(`[data-group-id="${selectionId}"]`);
-        if (highlightElements) {
+        const highlightElements = document.querySelectorAll(`.highlight-${effectiveId}`);
+        if (highlightElements.length > 0) {
             const parentElements = Array.from(highlightElements).map((el) => el.parentElement);
-
             const highlight = highlighter.getHighlightForElement(highlightElements[0]);
+
             if (highlight) {
                 highlighter.removeHighlights([highlight]);
 
-                parentElements.forEach((el) => el?.normalize());
+                highlightElements.forEach((el) => {
+                    // Move children of the highlight element to its parent before removing the highlight element
+                    while (el.firstChild) {
+                        el.parentElement?.insertBefore(el.firstChild, el);
+                    }
+                    el.remove();
+                });
+
+                parentElements.forEach((el) => {
+                    if (el && el.firstChild) {
+                        el.normalize();
+                    }
+                });
+
+                setSelectionId(null);
+            }
+        }
+    }
+
+    /**
+     * This function removes all highlights.
+     * @param highlighter The rangy highlighter object to use.
+     */
+    function removeAllHighlights(highlighter: Highlighter) {
+        highlighter.removeAllHighlights();
+    }
+
+    /**
+     * This function gets all highlights (serialized) in a subtree.
+     * @param subtree The subtree to get highlights from.
+     * @param highlighter The rangy highlighter object to use.
+     */
+    function getAllHighlights(subtree: Node, highlighter: Highlighter): string {
+        const documentHighlights = highlighter.serialize();
+
+        // Figure out which highlights are in the subtree
+        const highlightsIds = documentHighlights.match(/highlight-[0-9a-fA-F-]+/g) || [];
+
+        const subtreeHighlights = highlightsIds.reduce<string[]>((acc, highlight) => {
+            const highlightElement = document.querySelector(`.${highlight}`);
+            if (highlightElement && subtree.contains(highlightElement)) acc.push(highlight);
+            return acc;
+        }, []);
+
+        const highlightArray = documentHighlights.split('|');
+        for (let i = 1; i < highlightArray.length; i++) {
+            const elementContainsHighlight = subtreeHighlights.some((subtreeHighlight) =>
+                highlightArray[i].includes(subtreeHighlight)
+            );
+            if (!elementContainsHighlight) {
+                highlightArray.splice(i, 1);
+                i--;
             }
         }
 
-        setSelectionId(null);
-        setOldContentsRef({ current: null });
-        setCurrentContentsRef({ current: null });
+        return highlightArray.join('|');
     }
 
+    /**
+     * This function deserializes serialized highlights.
+     * @param highlights The serialized highlights to set.
+     * @param highlighter The rangy highlighter object to use.
+     */
+    function setHighlights(highlights: string, highlighter: Highlighter) {
+        highlighter.deserialize(highlights);
+    }
+
+    /**
+     * This function highlights or unhighlights the current selection.
+     * @param id The id of the selection to switch. If not provided, the current selection id will be used.
+     */
     function highlightSwitchSelection(id?: string) {
-        const highlightElements = document.querySelectorAll(`[data-group-id="${id ?? selectionId}"]`);
+        const highlightElements = document.querySelectorAll(`.highlight-${id ?? selectionId}`);
+
         highlightElements.forEach((el) => {
             if (el.classList.contains('highlight-selected')) {
                 el.classList.remove('highlight-selected');
@@ -102,7 +175,10 @@ export function useHighlight() {
 
     return {
         highlight,
+        removeAllHighlights,
         removeHighlight,
+        getAllHighlights,
+        setHighlights,
         highlightSwitchSelection,
     };
 }
