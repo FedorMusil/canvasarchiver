@@ -10,7 +10,7 @@ import {
 } from '@/src/components/ui/drawer';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
-import { useCompareIdContext } from '../stores/CompareIdStore/useCompareIdStore';
+import { useChangeContext } from '../stores/ChangeStore/useCompareIdStore';
 import { useCompareWindowStore } from '../stores/CompareWindowStore';
 import { useShallow } from 'zustand/react/shallow';
 import { ChangeType, type Change } from '../api/change';
@@ -21,12 +21,15 @@ type TimelineProps = {
 };
 
 const Timeline: FC<TimelineProps> = memo(({ changes }): ReactElement => {
-    const { changeId, changeChangeId } = useCompareIdContext(
-        useShallow((state) => ({ changeId: state.changeId, changeChangeId: state.changeChangeId }))
+    const { selectedChangeId, setSelectedChangeId } = useChangeContext(
+        useShallow((state) => ({
+            selectedChangeId: state.selectedChangeId,
+            setSelectedChangeId: state.setSelectedChangeId,
+        }))
     );
 
-    const index = changes.findIndex((change) => change.id === changeId);
-    const pagesNeeded = Math.ceil(changes.length / 3);
+    const index = changes.findIndex((change) => change.id === selectedChangeId);
+    const pagesNeeded = Math.ceil((changes.length - 1) / 3);
 
     const [currentPage, setCurrentPage] = useState<number>(Math.floor(index / 3));
     const [selectedIndex, setSelectedIndex] = useState<number>(index);
@@ -64,13 +67,14 @@ const Timeline: FC<TimelineProps> = memo(({ changes }): ReactElement => {
                     style={{ width: `${300 * pagesNeeded}px` }}
                 >
                     {changes.map((change, index) => {
+                        if (index === changes.length - 1) return null;
                         return (
                             <div
                                 key={change.id}
                                 className='absolute inset-0 flex flex-col justify-center w-fit items-center -translate-y-[10px] gap-1 z-20'
                                 style={{ marginLeft: `${35 + 100 * index}px` }}
                             >
-                                <div className='text-xs'>{format(new Date(change.change_date), 'dd MMM')}</div>
+                                <div className='text-xs'>{format(new Date(change.timestamp), 'dd MMM')}</div>
                                 <Button
                                     aria-disabled={selectedIndex === index}
                                     className={`p-0 m-0 w-5 h-5 border-2 ${
@@ -79,7 +83,7 @@ const Timeline: FC<TimelineProps> = memo(({ changes }): ReactElement => {
                                     disabled={selectedIndex === index}
                                     onClick={() => {
                                         setSelectedIndex(index);
-                                        changeChangeId(change.id);
+                                        setSelectedChangeId(change.id);
                                     }}
                                     variant='ghost'
                                     tabIndex={Math.floor(index / 3) === currentPage ? 0 : -1}

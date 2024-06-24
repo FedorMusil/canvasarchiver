@@ -1,7 +1,8 @@
-import Logo from './Logo';
-import Navigation from './Navigation';
-import { Link } from 'react-router-dom';
 import { type FC, type ReactElement } from 'react';
+import { Link } from 'react-router-dom';
+import Logo from './Logo';
+import MobileNavigationMenu from './MobileNavigationMenu';
+import Navigation from './Navigation';
 
 const SkipToMainContent: FC = (): ReactElement => {
     return (
@@ -22,7 +23,12 @@ const Header: FC = (): ReactElement => {
             <Link to='/'>
                 <Logo />
             </Link>
-            <Navigation />
+            <div className='hidden md:block'>
+                <Navigation />
+            </div>
+            <div className='md:hidden'>
+                <MobileNavigationMenu />
+            </div>
         </header>
     );
 };

@@ -13,7 +13,6 @@ export enum ItemTypes {
     FILES = 'Files',
     ASSIGNMENTS = 'Assignments',
     QUIZZES = 'Quizzes',
-    RUBRICS = 'Rubrics',
 }
 
 export type Change = {
@@ -23,39 +22,40 @@ export type Change = {
     change_type: ChangeType;
     item_type: ItemTypes;
 
-    change_date: string;
+    timestamp: string;
+    data_object: unknown;
 
-    old_contents: string;
-    new_contents: string;
+    highlights?: string;
 };
 
-export const getChangesByMaterial = async ({ queryKey }: { queryKey: [string, string] }): Promise<Change[]> => {
-    const [, materialId] = queryKey;
+export const getChangesByMaterial = async (materialId: string): Promise<Change[]> => {
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/changes/material/${materialId}`,
+        url: `/change/${materialId}`,
     });
 
     return response;
 };
 
-export const getRecentChanges = async ({ queryKey }: { queryKey: [string, string] }): Promise<Change[]> => {
-    const [, courseCode] = queryKey;
+export const getRecentChanges = async (): Promise<Change[]> => {
     const response = await AxiosWrapper({
         method: 'GET',
-        url: `/changes/recent/${courseCode}`,
+        url: '/change/recent',
     });
 
     return response;
 };
 
-export type ChangeChangeContents = { id: number; oldContent: string; newContent: string };
-export const changeChangeContents = async (changeContents: ChangeChangeContents): Promise<Change> => {
-    const response = await AxiosWrapper({
+export const setHighlight = async ({
+    changeId,
+    highlights,
+}: {
+    changeId: number;
+    highlights: string;
+}): Promise<void> => {
+    await AxiosWrapper({
         method: 'PUT',
-        url: '/changes',
-        data: changeContents,
+        url: `/change/${changeId}/highlight`,
+        data: { highlights },
     });
-
-    return response;
 };

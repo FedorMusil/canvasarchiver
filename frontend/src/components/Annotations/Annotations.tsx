@@ -1,5 +1,6 @@
-import resolveConfig from 'tailwindcss/resolveConfig';
-import tailwindConfig from '@/tailwind.config';
+import { deleteAnnotation, getAnnotationsByChange, type Annotation } from '@/src/api/annotation';
+import { setHighlight } from '@/src/api/change';
+import { getSelf } from '@/src/api/self';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -11,58 +12,126 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/src/components/ui/alert-dialog';
-import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/src/components/ui/context-menu';
-import { formatDistanceToNow } from 'date-fns';
+import { useHighlight } from '@/src/hooks/useHighlighter';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
-import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
-import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
+import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useShallow } from 'zustand/react/shallow';
-import { deleteAnnotation, getAnnotationsByChange, type Annotation } from '@/src/api/annotation';
+import { formatDistanceToNow } from 'date-fns';
+import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import TooltipWrapper from '../TooltipWrapper';
 
 const Annotations: FC = memo(() => {
-    const { userCode } = useGlobalContext(
+    const { selectedChangeId, curChangeId, materialId, highlighter } = useChangeContext(
         useShallow((state) => ({
-            userCode: state.userCode,
-        }))
-    );
-
-    const { changeId, materialId } = useCompareIdContext(
-        useShallow((state) => ({
-            changeId: state.changeId,
+            selectedChangeId: state.selectedChangeId,
+            curChangeId: state.curChangeId,
             materialId: state.materialId,
+            highlighter: state.highlighter,
         }))
     );
 
-    const { replyTo, setReplyTo } = useAnnotationStore(
+    const { replyTo, setReplyTo, prevRef, curRef, setSelectionId } = useAnnotationStore(
         useShallow((state) => ({
             replyTo: state.replyTo,
             setReplyTo: state.setReplyTo,
+            prevRef: state.prevRef,
+            curRef: state.curRef,
+            setSelectionId: state.setSelectionId,
         }))
     );
 
+    const {
+        data: self,
+        isLoading: selfLoading,
+        isError: selfError,
+    } = useQuery({
+        queryKey: ['self'],
+        queryFn: async () => await getSelf(),
+    });
+
     const { data, isLoading, isError } = useQuery({
-        queryKey: ['annotations', materialId, changeId],
-        queryFn: getAnnotationsByChange,
+        queryKey: ['annotations', materialId, selectedChangeId],
+        queryFn: async () => await getAnnotationsByChange(selectedChangeId),
     });
 
     const annotationData = useSortedAnnotations(data);
-    useTextHighlighter(data);
 
     const queryClient = useQueryClient();
-    const { mutate, status } = useMutation({ mutationFn: deleteAnnotation });
-    useEffect(() => {
-        if (status === 'success') queryClient.invalidateQueries({ queryKey: ['annotations', materialId, changeId] });
-    }, [status, queryClient, materialId, changeId]);
+    const { mutate } = useMutation({
+        mutationFn: deleteAnnotation,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['annotations', materialId, selectedChangeId] });
+        },
+    });
 
-    if (isLoading) return <p>Loading...</p>;
-    if (isError) return <p>Error...</p>;
+    const { highlightSwitchSelection, removeHighlight, removeAllHighlights, getAllHighlights } = useHighlight();
+    const { mutate: changeMutate } = useMutation({
+        mutationFn: setHighlight,
+        onSuccess: () => {
+            removeAllHighlights(highlighter);
+            queryClient.invalidateQueries({ queryKey: ['changes', materialId.toString()] });
+        },
+    });
+
+    const deleteAnnotationHandler = useCallback((annotation: Annotation) => {
+        // Check if the annotation is a reply. If it is, set the replyTo state to the parent annotation or null.
+        if (annotation.parentId) {
+            const parentAnnotation = annotationData.find((a) => a.id === annotation.parentId);
+            if (parentAnnotation) {
+                setReplyTo({
+                    annotationId: parentAnnotation.id,
+                    userId: parentAnnotation.user.id,
+                    name: parentAnnotation.user.name,
+                });
+            }
+        } else {
+            setReplyTo(null);
+        }
+
+        let modified: boolean = false;
+
+        // If the annotation (or it's children) have highlighted text, remove the highlight.
+        annotationData.map((a) => {
+            if (a.parentId !== annotation.id) return;
+            if (annotation.selectionId) {
+                removeHighlight(highlighter, annotation.selectionId);
+                modified = true;
+            }
+        });
+        if (annotation.selectionId) {
+            removeHighlight(highlighter, annotation.selectionId);
+            modified = true;
+        }
+
+        if (modified) {
+            const prevHighlights = getAllHighlights(prevRef.current!, highlighter);
+            const curHighlights = getAllHighlights(curRef.current!, highlighter);
+
+            changeMutate({
+                changeId: selectedChangeId,
+                highlights: prevHighlights,
+            });
+
+            changeMutate({
+                changeId: curChangeId,
+                highlights: curHighlights,
+            });
+
+            setSelectionId(null);
+        }
+
+        mutate(annotation.id);
+    }, []);
+
+    if (isLoading || selfLoading) return <p>Loading...</p>;
+    if (isError || selfError || !self) return <p>Error...</p>;
 
     return (
         <div className='w-full h-full overflow-y-auto space-y-2'>
-            {annotationData.map((annotation) => {
+            {annotationData.map((annotation, index) => {
                 const timeAgo = formatDistanceToNow(new Date(annotation.timestamp), { addSuffix: true });
 
                 const comment = (
@@ -70,7 +139,9 @@ const Annotations: FC = memo(() => {
                         <div className='flex justify-between w-full'>
                             <p className='text-base font-bold'>
                                 {annotation.user.name}{' '}
-                                <span className='text-muted-foreground'>({annotation.user.role})</span>
+                                <span className='text-muted-foreground'>
+                                    ({annotation.user.id === self.id ? 'You' : annotation.user.role})
+                                </span>
                             </p>
                             <p className='text-sm text-muted-foreground'>{timeAgo}</p>
                         </div>
@@ -78,60 +149,48 @@ const Annotations: FC = memo(() => {
                     </div>
                 );
 
-                const fullConfig = resolveConfig(tailwindConfig);
                 return (
                     <AlertDialog key={annotation.id}>
                         <ContextMenu>
-                            <ContextMenuTrigger asChild className='w-full'>
-                                <button
-                                    className={`text-start hover:bg-muted w-full ${replyTo?.annotationId === annotation.id ? 'bg-muted' : ''}`}
-                                    onClick={() => {
-                                        if (replyTo?.annotationId === annotation.id) setReplyTo(null);
-                                        else {
-                                            setReplyTo({
-                                                annotationId: annotation.id,
-                                                userId: annotation.user.id,
-                                                name: annotation.user.name,
-                                            });
-                                        }
-                                    }}
-                                    onMouseEnter={() => {
-                                        if (annotation.selectionId) {
-                                            const element = document.getElementById(annotation.selectionId);
-                                            if (element) {
-                                                // prettier-ignore
-                                                {
-                                                    // @ts-expect-error This is a custom color that is defined in the tailwind config.
-                                                    element.style.backgroundColor = fullConfig.theme.colors.highlight.selected;
-                                                }
-                                            }
-                                        }
-                                    }}
-                                    onMouseLeave={() => {
-                                        if (annotation.selectionId && replyTo?.annotationId !== annotation.id) {
-                                            const element = document.getElementById(annotation.selectionId);
-                                            if (element) {
-                                                // prettier-ignore
-                                                {
-                                                    // @ts-expect-error This is a custom color that is defined in the tailwind config.
-                                                    element.style.backgroundColor = fullConfig.theme.colors.highlight.DEFAULT;
-                                                }
-                                            }
-                                        }
-                                    }}
+                            <ContextMenuTrigger className='w-full'>
+                                <TooltipWrapper
+                                    tooltip={`Click to ${replyTo?.annotationId === annotation.id ? 'cancel the reply status' : 'reply to this comment'}`}
                                 >
-                                    {annotation.parentId ?
-                                        <div className='flex gap-2'>
-                                            <GitCommitVertical
-                                                className='w-6 h-6 flex-shrink-0'
-                                                style={{
-                                                    marginLeft: `${annotation.depth - 1}rem`,
-                                                }}
-                                            />
-                                            {comment}
-                                        </div>
-                                    :   comment}
-                                </button>
+                                    <button
+                                        className={`text-start hover:bg-muted w-full ${replyTo?.annotationId === annotation.id ? 'bg-muted' : ''} ${annotation.parentId || index === 0 ? '' : '!mt-4'}`}
+                                        onClick={() => {
+                                            if (replyTo?.annotationId === annotation.id) setReplyTo(null);
+                                            else {
+                                                setReplyTo({
+                                                    annotationId: annotation.id,
+                                                    userId: annotation.user.id,
+                                                    name: annotation.user.name,
+                                                });
+                                            }
+                                        }}
+                                        onMouseEnter={() => {
+                                            if (annotation.selectionId)
+                                                highlightSwitchSelection(annotation.selectionId);
+                                        }}
+                                        onMouseLeave={() => {
+                                            if (annotation.selectionId && replyTo?.annotationId !== annotation.id) {
+                                                highlightSwitchSelection(annotation.selectionId);
+                                            }
+                                        }}
+                                    >
+                                        {annotation.parentId ?
+                                            <div className='flex gap-2'>
+                                                <GitCommitVertical
+                                                    className='w-6 h-6 flex-shrink-0'
+                                                    style={{
+                                                        marginLeft: `${annotation.depth - 1}rem`,
+                                                    }}
+                                                />
+                                                {comment}
+                                            </div>
+                                        :   comment}
+                                    </button>
+                                </TooltipWrapper>
                             </ContextMenuTrigger>
                             <ContextMenuContent>
                                 <ContextMenuItem
@@ -155,7 +214,7 @@ const Annotations: FC = memo(() => {
                                     </span>
                                 </ContextMenuItem>
                                 {/* Only show delete option if the user is the author of the annotation */}
-                                {annotation.user.id === userCode && (
+                                {annotation.user.id === self.id && (
                                     <AlertDialogTrigger asChild>
                                         <ContextMenuItem className='grid grid-cols-4'>
                                             <Trash2 className='w-4 h-4 col-span-1' />
@@ -175,27 +234,7 @@ const Annotations: FC = memo(() => {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() => {
-                                        // Check if the annotation is a reply. If it is, set the replyTo state to the parent annotation or null.
-                                        if (annotation.parentId) {
-                                            const parentAnnotation = annotationData.find(
-                                                (a) => a.id === annotation.parentId
-                                            );
-                                            if (parentAnnotation) {
-                                                setReplyTo({
-                                                    annotationId: parentAnnotation.id,
-                                                    userId: parentAnnotation.user.id,
-                                                    name: parentAnnotation.user.name,
-                                                });
-                                            }
-                                        } else {
-                                            setReplyTo(null);
-                                        }
-
-                                        mutate({ annotationId: annotation.id });
-                                    }}
-                                >
+                                <AlertDialogAction onClick={() => deleteAnnotationHandler(annotation)}>
                                     Delete
                                 </AlertDialogAction>
                             </AlertDialogFooter>
@@ -208,26 +247,6 @@ const Annotations: FC = memo(() => {
 });
 Annotations.displayName = 'Annotations';
 export default Annotations;
-
-function useTextHighlighter(data: Annotation[] | undefined): void {
-    const fullConfig = resolveConfig(tailwindConfig);
-
-    useEffect(() => {
-        if (!data) return;
-
-        data.forEach((annotation) => {
-            const selectionId = annotation.selectionId;
-            if (!selectionId) return;
-
-            const element = document.getElementById(selectionId);
-            if (!element) return;
-
-            // @ts-expect-error This is a custom color that is defined in the tailwind config.
-            element.style.backgroundColor = fullConfig.theme.colors.highlight.DEFAULT;
-        });
-        // @ts-expect-error This is a custom color that is defined in the tailwind config.
-    }, [data, fullConfig.theme.colors.highlight.DEFAULT]);
-}
 
 type AnnotationData = Annotation & { depth: number };
 function useSortedAnnotations(data: Annotation[] | undefined): AnnotationData[] {

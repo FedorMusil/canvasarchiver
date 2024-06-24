@@ -1,35 +1,25 @@
 import RecentChanges from '../components/RecentChanges/RecentChanges';
 import { FC, ReactElement } from 'react';
 import { getSelf } from '@/src/api/self';
-import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
 import { useQuery } from '@tanstack/react-query';
 
 const Home: FC = (): ReactElement => {
-    const { userCode } = useGlobalContext((state) => ({
-        userCode: state.userCode,
-    }));
-
     const {
         data: self,
         isLoading: selfLoading,
         isError: selfError,
     } = useQuery({
-        queryKey: ['self', userCode],
+        queryKey: ['self'],
         queryFn: getSelf,
     });
 
-    if (selfLoading) {
-        return <div>Loading...</div>;
-    }
-
-    if (selfError || !self) {
-        return <div>Error...</div>;
-    }
+    if (selfLoading) return <div>Loading...</div>;
+    if (selfError || !self) return <div>Error...</div>;
 
     return (
-        <div className='w-full h-[calc(100dvh-56px)] md:h-[calc(100dvh-80px)] flex justify-center items-center'>
-            <div className='flex gap-12 flex-nowrap lg:flex-row flex-col'>
-                <div className='text-justify max-w-[500px]'>
+        <div className='w-full md:h-[calc(100dvh-80px)] flex justify-center items-center'>
+            <div className='flex gap-6 lg:gap-12 lg:flex-row flex-col'>
+                <div className='text-justify'>
                     <h1 className='text-4xl tracking-tight mb-4'>Home</h1>
                     <h2 className='text-2xl mb-2'>Welcome back, {self.name}!</h2>
                     <p className='text-base'>
@@ -41,7 +31,7 @@ const Home: FC = (): ReactElement => {
                         changes made to the course in the table.
                     </p>
                 </div>
-                <div className='w-[500px] shrink lg:shrink-0'>
+                <div className='lg:w-[500px] lg:shrink-0'>
                     <RecentChanges />
                 </div>
             </div>
