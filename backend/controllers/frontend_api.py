@@ -182,7 +182,13 @@ async def get_changes_recent(pool, course_id):
         A list of the most recent changes for the given course.
     """
     async with pool.acquire() as conn:
-        changes = await conn.fetch('SELECT * FROM changes WHERE course_id = $1 ORDER BY timestamp DESC LIMIT 10', int(course_id))
+        internal_course_id = await convert_course_id_to_id(pool, int(course_id))
+
+        changes = await conn.fetch('SELECT * FROM changes WHERE course_id = $1 ORDER BY timestamp DESC LIMIT 10', int(internal_course_id))
+        print(changes)
+        # change_dictr = []
+        # for change in changes:
+        #     change_dictr.append(dict(change))
         return changes
 
 async def get_change_by_id(pool, course_id, change_id):
@@ -295,7 +301,26 @@ async def get_users(pool):
         return users
 
 
-async def get_user_by_id(pool, user_id):
+async def convert_course_id_to_id(pool, course_id):
+    """
+    Convert a course ID to the course code.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course to convert.
+
+    Returns:
+        The internal identifier of the course.
+    """
+    async with pool.acquire() as conn:
+        course = await conn.fetchrow('SELECT * FROM courses WHERE $1 = ANY(course_ids)', int(course_id))
+        print("TEST" , course, "TEST")
+        return course['id']
+
+
+
+
+async def get_user_by_id(pool, user_id, course_id):
     """
     Retrieve a user from the database by their ID.
 
@@ -308,7 +333,19 @@ async def get_user_by_id(pool, user_id):
     """
     async with pool.acquire() as conn:
         user = await conn.fetch('SELECT * FROM users WHERE id = $1', user_id)     
-        return user
+
+        internal_course_id = await convert_course_id_to_id(pool, int(course_id))
+
+        additional_info = await conn.fetch('SELECT * FROM teacher_courses WHERE user_id = $1 AND course_id = $2', user_id, internal_course_id)
+        record_dicr = {
+            "id": user[0]['id'],
+            "email": user[0]['email'],
+            "name": user[0]['name'],
+            "role": additional_info[0]['role'],
+            "courseId": int(course_id)
+        }
+
+        return record_dicr
 
 
 async def get_users_by_courseid(pool, course_id):

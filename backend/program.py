@@ -134,7 +134,10 @@ async def return_change_materialid(material_id: str, user: dict = Depends(get_cu
 @app.get("/changes/recent", dependencies=[Depends(get_current_user)])
 async def return_changes_recent(user: dict = Depends(get_current_user)):
     '''Get the recent changes of a course (last 10 changes))'''
-    return await get_changes_recent(pool, user['course_id'])
+
+    test = await get_changes_recent(pool, user['course_id'])
+    print(test)
+    return test
 
 
 @app.get("/change/{change_id}", dependencies=[Depends(get_current_user)])
@@ -146,7 +149,10 @@ async def return_change_by_id(change_id: int, user: dict = Depends(get_current_u
 @app.get("/self", dependencies=[Depends(get_current_user)])
 async def return_user_info(user: dict = Depends(get_current_user)):
     '''Get your own information.'''
-    return await get_user_by_id(pool, user['user_id'])
+    data = await get_user_by_id(pool, user['user_id'], user['course_id'])
+    print(data)
+
+    return data
 
 
 @app.get("/self/courses", dependencies=[Depends(get_current_user)])
@@ -357,8 +363,10 @@ async def handle_redirect(request: Request):
     print(email, name, role, course_code, course_name, user_id, course_id)
 
     succes, message = await post_course(pool, course_id, course_name, course_code)
+    print(succes, message)
     if succes == 200 or succes == 405:
-        await post_user(pool, message, user_id, email, name, role)
+        succes, message = await post_user(pool, message, user_id, email, name, role)
+        print(succes, message)
     else:
         raise HTTPException(status_code=400, detail=message)
 
