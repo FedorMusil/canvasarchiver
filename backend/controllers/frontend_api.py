@@ -1,9 +1,6 @@
 
 import json
 import traceback
-from flask import jsonify
-from db.get_db_conn import get_db_conn
-from controllers.canvas_api import get_current_time
 import asyncio
 
 from os import getenv
@@ -48,21 +45,14 @@ async def check_course_create(pool, request):
             # if not check_result:
             #     return False, error_message
 
-        cur.execute('SELECT * FROM courses WHERE course_code = %s',
-                    (request['course_code'], ))
-        course = cur.fetchone()
-        cur.close()
-          course = await conn.fetchrow('SELECT * FROM courses WHERE course_code = $1', request.course_code)
+            course = await conn.fetchrow('SELECT * FROM courses WHERE course_code = $1', request.course_code)
 
-           if course:
+            if course:
                 return 400, "Error: Course exists already"
             return 200, "All checks passed"
         except Exception as e:
             print(f"Error: {e}")
             return 400, str(e)
-    except Exception as e:
-        tb = traceback.format_exc()
-        return False, f"Invalid JSON format. Error: {str(e)}, Traceback: {tb}"
 
 
 async def check_annotation_create(pool, course_id, change_id, request):
