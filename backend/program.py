@@ -15,8 +15,13 @@ from pydantic import BaseModel
 from typing import Optional
 from db.get_db_conn import create_pool
 import jwt
-import uvicorn, json
-import subprocess, os, hmac, secrets, requests
+import uvicorn
+import json
+import subprocess
+import os
+import hmac
+import secrets
+import requests
 from typing import Dict, Any
 from dotenv import load_dotenv
 from enum import Enum
@@ -44,21 +49,28 @@ app.add_middleware(
 
 
 CLIENT_ID = os.getenv('CLIENT_ID')
-frontend_dist_folder = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
+frontend_dist_folder = os.path.join(
+    os.path.dirname(__file__), '..', 'frontend', 'dist')
 templates = Jinja2Templates(directory=frontend_dist_folder)
 
 # Mount the dist folder as static files directory
-app.mount("/static", StaticFiles(directory=frontend_dist_folder), name="static")
+app.mount(
+    "/static",
+    StaticFiles(
+        directory=frontend_dist_folder),
+    name="static")
 
 
 # Create a pool of connections to the database
 pool = None
+
 
 async def startup_event():
     global pool
     pool = await create_pool()  # Create the pool when the application starts
 
 app.add_event_handler("startup", startup_event)
+
 
 async def shutdown_event():
     await pool.close()  # Close the pool when the application shuts down
@@ -89,6 +101,7 @@ class Material(Enum):
     Modules = "Modules"
     Sections = "Sections"
 
+
 class User(BaseModel):
     course_id: str
 
@@ -111,6 +124,7 @@ class ChangeCreate(BaseModel):
     item_type: str
     older_diff: int
     diff: Dict[str, Any]
+
 
 class Change(BaseModel):
     id: int
@@ -140,19 +154,25 @@ def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         # Replace 'your-secret-key' with your actual secret key
-        payload = jwt.decode(token, "f3104b82021b97756ba5016a19f03d57722f75bd05e79bb596eacaba1e012558", algorithms=["HS256"])
+        payload = jwt.decode(
+            token,
+            "f3104b82021b97756ba5016a19f03d57722f75bd05e79bb596eacaba1e012558",
+            algorithms=["HS256"])
         return payload
     except (jwt.PyJWTError, AttributeError):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-# For a more clear explanation of the API see: https://github.com/FedorMusil/canvasarchiver/wiki/API
-
+# For a more clear explanation of the API see:
+# https://github.com/FedorMusil/canvasarchiver/wiki/API
 
 
 # Get Routes
-@app.get("/course/changes/{material_id}", dependencies=[Depends(get_current_user)])
-async def return_change_materialid(material_id: int, user: dict = Depends(get_current_user)):
+@app.get("/course/changes/{material_id}",
+         dependencies=[Depends(get_current_user)])
+async def return_change_materialid(
+        material_id: int,
+        user: dict = Depends(get_current_user)):
     '''Get a change of a course by the type of material.'''
     return await get_change_by_materialid(pool, user['course_id'], ItemTypeNumberToString[material_id])
 
@@ -167,7 +187,8 @@ async def return_changes_recent(user: dict = Depends(get_current_user)):
 
 
 @app.get("/change/{change_id}", dependencies=[Depends(get_current_user)])
-async def return_change_by_id(change_id: int, user: dict = Depends(get_current_user)):
+async def return_change_by_id(change_id: int,
+                              user: dict = Depends(get_current_user)):
     '''Get a change by its change id'''
     return await get_change_by_id(pool, user['course_id'], change_id)
 
@@ -187,8 +208,11 @@ async def return_self_courses(user: dict = Depends(get_current_user)):
     return await get_courses_by_user(pool, user['user_id'])
 
 
-@app.get("/annotations/{annotation_id}", dependencies=[Depends(get_current_user)])
-async def return_annotation_by_id(annotation_id: int, user: dict = Depends(get_current_user)):
+@app.get("/annotations/{annotation_id}",
+         dependencies=[Depends(get_current_user)])
+async def return_annotation_by_id(
+        annotation_id: int,
+        user: dict = Depends(get_current_user)):
     '''Get annotation by id'''
     return await get_annotation_by_id(pool, user['course_id'], annotation_id)
 
@@ -204,17 +228,20 @@ async def get_course_users_route(user: dict = Depends(get_current_user)):
     '''Get all users in a course.'''
     return await get_users_by_courseid(pool, user['course_id'])
 
-@app.get("/course/annotations/{change_id}", dependencies=[Depends(get_current_user)])
-async def get_annotation(change_id: int, user: dict = Depends(get_current_user)):
+
+@app.get("/course/annotations/{change_id}",
+         dependencies=[Depends(get_current_user)])
+async def get_annotation(
+        change_id: int,
+        user: dict = Depends(get_current_user)):
     '''Get all annotations for a change.'''
     return await get_annotations_by_changeid(pool, user['course_id'], change_id)
+
 
 @app.get("/course/changes", dependencies=[Depends(get_current_user)])
 async def get_changes(course_id: int, user: dict = Depends(get_current_user)):
     '''Get all changes for a course.'''
     return await get_changes_by_courseid(pool, user['course_id'])
-
-
 
 
 # # Post Routes
@@ -234,8 +261,11 @@ async def post_course_route(course: CourseCreate):
         return {"course_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
 
+
 @app.post("/annotations", dependencies=[Depends(get_current_user)])
-async def post_annotation_route(annotationObject: CreateAnnotation, user: dict = Depends(get_current_user)):
+async def post_annotation_route(
+        annotationObject: CreateAnnotation,
+        user: dict = Depends(get_current_user)):
     '''Create an annotation.'''
     passed_test, error_message = await check_annotation_create(pool, user['course_id'], annotationObject.change_id, annotationObject.text)
     if not passed_test:
@@ -245,8 +275,11 @@ async def post_annotation_route(annotationObject: CreateAnnotation, user: dict =
         return {"annotation_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
 
+
 @app.put("/changes", dependencies=[Depends(get_current_user)])
-async def put_change_route(change: ChangeCreate, user: dict = Depends(get_current_user)):
+async def put_change_route(
+        change: ChangeCreate,
+        user: dict = Depends(get_current_user)):
     '''Create a change.'''
     passed_test, error_message = await check_change_create(pool, user["course_id"], change)
     if not passed_test:
@@ -258,8 +291,11 @@ async def put_change_route(change: ChangeCreate, user: dict = Depends(get_curren
 
 
 # Delete routes
-@app.delete("annotations/{annotation_id}", dependencies=[Depends(get_current_user)])
-async def delete_annotation(annotation_id: int, user: dict = Depends(get_current_user)):
+@app.delete("annotations/{annotation_id}",
+            dependencies=[Depends(get_current_user)])
+async def delete_annotation(
+        annotation_id: int,
+        user: dict = Depends(get_current_user)):
     '''Delete an annotation.'''
     return await delete_annotation_by_id(pool, user['course_id'], annotation_id)
 
@@ -275,8 +311,10 @@ async def post_user_route(course_id: int, user: UserCreate):
         return {"user_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
 
+
 @app.post("/revert", dependencies=[Depends(get_current_user)])
-async def post_revert_changes(change: Change, user: dict = Depends(get_current_user)):
+async def post_revert_changes(change: Change,
+                              user: dict = Depends(get_current_user)):
     change_data = json.loads(change.data_object)
 
     object_map = {
@@ -292,28 +330,37 @@ async def post_revert_changes(change: Change, user: dict = Depends(get_current_u
     canvas_object_type = object_map.get(change.item_type)
 
     if not canvas_object_type:
-        raise HTTPException(status_code=400, detail="Invalid item type provided.")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid item type provided.")
 
     async with canvasconn.ManualCanvasConnection.make_from_environment() as conn:
         api = Canvas(conn)
 
         try:
-            canvas_object = canvas_object_type(api).json_init(change_data).set_related(Course(api).set_id(user["course_id"]))
+            canvas_object = canvas_object_type(api).json_init(
+                change_data).set_related(Course(api).set_id(user["course_id"]))
             await canvas_object.resolve()
         except ResponseError as e:
             if e.get_response().status_code == 404:
                 try:
                     canvas_object = await canvas_object.create(**change_data)
                 except ResponseError as create_error:
-                    raise HTTPException(status_code=create_error.get_response().status_code, detail=str(create_error))
+                    raise HTTPException(
+                        status_code=create_error.get_response().status_code,
+                        detail=str(create_error))
             else:
-                raise HTTPException(status_code=e.get_response().status_code, detail=str(e))
+                raise HTTPException(
+                    status_code=e.get_response().status_code,
+                    detail=str(e))
 
         if canvas_object.has_id():
             try:
                 await canvas_object.edit(**change_data)
             except ResponseError as edit_error:
-                raise HTTPException(status_code=edit_error.get_response().status_code, detail=str(edit_error))
+                raise HTTPException(
+                    status_code=edit_error.get_response().status_code,
+                    detail=str(edit_error))
 
         return {"status": "success", "data": canvas_object.get_data()}
 
@@ -323,18 +370,25 @@ state_nonce_store = {}
 
 def clean_expired_state_nonce():
     current_time = datetime.now(timezone.utc)
-    expired_keys = [state for state, details in state_nonce_store.items() if details['expiry'] < current_time]
+    expired_keys = [
+        state for state,
+        details in state_nonce_store.items() if details['expiry'] < current_time]
     for key in expired_keys:
         del state_nonce_store[key]
 
-def create_jwt_token(data: dict, expires_delta: timedelta = timedelta(hours=24)):
+
+def create_jwt_token(
+    data: dict,
+    expires_delta: timedelta = timedelta(
+        hours=24)):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, 'f3104b82021b97756ba5016a19f03d57722f75bd05e79bb596eacaba1e012558', algorithm="HS256")
+    encoded_jwt = jwt.encode(
+        to_encode,
+        'f3104b82021b97756ba5016a19f03d57722f75bd05e79bb596eacaba1e012558',
+        algorithm="HS256")
     return encoded_jwt
-
-
 
 
 @app.post("/initiation")
@@ -345,8 +399,9 @@ async def handle_initiation_post(request: Request):
         form = await request.form()
         data = {key: value for key, value in form.items()}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid form data: {str(e)}")
-
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid form data: {str(e)}")
 
     iss = data.get('iss')
     login_hint = data.get('login_hint')
@@ -356,10 +411,18 @@ async def handle_initiation_post(request: Request):
     state = secrets.token_urlsafe(16)
     nonce = secrets.token_urlsafe(16)
 
-    state_nonce_store[state] = {'nonce': nonce, 'expiry': datetime.now(timezone.utc) + timedelta(minutes=10)}
+    state_nonce_store[state] = {
+        'nonce': nonce,
+        'expiry': datetime.now(
+            timezone.utc) +
+        timedelta(
+            minutes=10)}
 
     if not all([iss, login_hint, client_id, redirect_uri]):
-        return JSONResponse(content={'error': 'Missing required LTI parameters'}, status_code=400)
+        return JSONResponse(
+            content={
+                'error': 'Missing required LTI parameters'},
+            status_code=400)
 
     oidc_auth_endpoint = "https://sso.test.canvaslms.com/api/lti/authorize_redirect"
     auth_request_params = {
@@ -380,7 +443,6 @@ async def handle_initiation_post(request: Request):
     return RedirectResponse(url=auth_request_url)
 
 
-
 @app.post("/redirect")
 async def handle_redirect(request: Request):
     clean_expired_state_nonce()
@@ -391,10 +453,16 @@ async def handle_redirect(request: Request):
     client_id = CLIENT_ID
 
     if not id_token or not state:
-        return JSONResponse(content={'error': 'Missing id_token or state'}, status_code=400)
+        return JSONResponse(
+            content={
+                'error': 'Missing id_token or state'},
+            status_code=400)
 
     if state not in state_nonce_store:
-        return JSONResponse(content={'error': 'Invalid state parameter'}, status_code=400)
+        return JSONResponse(
+            content={
+                'error': 'Invalid state parameter'},
+            status_code=400)
     nonce = state_nonce_store.pop(state)['nonce']
 
     jwks_url = "https://sso.test.canvaslms.com/api/lti/security/jwks"
@@ -404,30 +472,44 @@ async def handle_redirect(request: Request):
         header = jwt.get_unverified_header(id_token)
         key = next(key for key in jwks['keys'] if key['kid'] == header['kid'])
         rsa_key = RSAAlgorithm.from_jwk(key)
-        payload = jwt.decode(id_token, rsa_key, algorithms=['RS256'], audience=client_id, nonce=nonce)
+        payload = jwt.decode(
+            id_token,
+            rsa_key,
+            algorithms=['RS256'],
+            audience=client_id,
+            nonce=nonce)
     except jwt.ExpiredSignatureError:
-        return JSONResponse(content={'error': 'Expired JWT token'}, status_code=400)
+        return JSONResponse(
+            content={
+                'error': 'Expired JWT token'},
+            status_code=400)
     except Exception as e:
         print(f"JWT validation error: {e}")
         return JSONResponse(content={'error': 'Invalid JWT'}, status_code=400)
 
-    user_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/lti1p1', {}).get('user_id')
-    course_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/custom', {}).get('courseid')
-
+    user_id = payload.get(
+        'https://purl.imsglobal.org/spec/lti/claim/lti1p1',
+        {}).get('user_id')
+    course_id = payload.get(
+        'https://purl.imsglobal.org/spec/lti/claim/custom',
+        {}).get('courseid')
 
     email = payload.get('email')
     name = payload.get('name')
     role = payload.get('https://purl.imsglobal.org/spec/lti/claim/roles')[0]
 
-    course_code = payload.get('https://purl.imsglobal.org/spec/lti/claim/context', {}).get('label')
+    course_code = payload.get(
+        'https://purl.imsglobal.org/spec/lti/claim/context',
+        {}).get('label')
 
-    course_name = payload.get('https://purl.imsglobal.org/spec/lti/claim/context', {}).get('title')
+    course_name = payload.get(
+        'https://purl.imsglobal.org/spec/lti/claim/context',
+        {}).get('title')
 
     if "Instructor" in role:
         role = "Teacher"
     else:
         role = "TA"
-    
 
     print(email, name, role, course_code, course_name, user_id, course_id)
 
@@ -438,7 +520,6 @@ async def handle_redirect(request: Request):
         print(succes, message)
     else:
         raise HTTPException(status_code=400, detail=message)
-
 
     token_data = {
         "user_id": user_id,
@@ -459,13 +540,13 @@ async def handle_redirect(request: Request):
     return response
 
 
-
 @app.post("/", include_in_schema=False)
 async def serve_root():
     index_path = os.path.join(frontend_dist_folder, "index.html")
     if not os.path.exists(index_path):
         raise HTTPException(status_code=404, detail="index.html not found")
     return FileResponse(index_path)
+
 
 @app.get("/{path:path}", include_in_schema=False)
 async def catch_all(path: str):
@@ -477,6 +558,7 @@ async def catch_all(path: str):
         if not os.path.exists(index_path):
             raise HTTPException(status_code=404, detail="index.html not found")
         return FileResponse(index_path)
+
 
 @app.post("/deploy")
 async def deploy(request: Request):
