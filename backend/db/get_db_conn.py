@@ -4,10 +4,10 @@ from os import getenv
 
 load_dotenv(dotenv_path='../.env', encoding='utf-8')
 db_params = {
-    'user': 'postgres',
-    'password': 'postgres',
-    'host': '192.168.0.206',
-    'port': '5432',
+    'user': getenv('DB_USER'),
+    'password': getenv('DB_PASSWORD'),
+    'host': getenv('DB_HOST'),
+    'port': getenv('DB_PORT'),
     'database': 'postgres'  # connect to default database to execute CREATE DATABASE command
 }
 print(db_params)

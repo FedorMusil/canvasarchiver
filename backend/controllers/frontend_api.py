@@ -166,8 +166,21 @@ async def get_change_by_materialid(pool, course_id, material_id):
     """
     print(material_id, course_id)
     async with pool.acquire() as conn:
-        change = await conn.fetchrow('SELECT * FROM changes WHERE item_type = $1 AND course_id = $2', material_id, int(course_id))
-        return change
+        changes = await conn.fetchrow('SELECT * FROM changes WHERE item_type = $1 AND course_id = $2', material_id, int(course_id))
+        changes_list = []
+        for change in changes:
+            change_dict = {
+                "id": change['id'],
+                "old_id": change['older_diff'],
+                "change_type": change['change_type'],
+                "item_type": change['item_type'],
+                "timestamp": change['timestamp'],
+                "data_object": change['diff'],
+                "highlights": change['highlights']
+            }
+            changes_list.append(change_dict)
+
+        return changes_list
 
 
 async def get_changes_recent(pool, course_id):
@@ -193,12 +206,12 @@ async def get_changes_recent(pool, course_id):
                 "change_type": change['change_type'],
                 "item_type": change['item_type'],
                 "timestamp": change['timestamp'],
-                "diff": change['diff'],
+                "data_objects": change['diff'],
             }
             change_list.append(change_dict)
         return change_list
 
-async def get_change_by_id(pool, course_id, change_id):
+async def get_change_by_id(pool, course_id, item_type):
     """
     Retrieve a change record by its ID.
 
@@ -211,7 +224,7 @@ async def get_change_by_id(pool, course_id, change_id):
         The change record if found, otherwise None.
     """
     async with pool.acquire() as conn:
-        change = await conn.fetchrow('SELECT * FROM changes WHERE course_id = $1 AND id = $2', course_id, change_id)
+        change = await conn.fetchrow('SELECT * FROM changes WHERE course_id = $1 AND item_type = $2', int(course_id), item_type)
         return change
 
 
@@ -521,6 +534,30 @@ async def post_change(pool, course_id, request):
     except Exception as e:
         print("request to post_change failed, datadump:", "course_id:\n", course_id, "request:\n", request, "error:\n", e)
         return False, "Error: Change not created" + str(e)
+    
+
+async def put_highlight(pool, course_id, change_id, request):
+    """
+    Update the highlights for a change record.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        change_id: The ID of the change to update.
+
+    Returns:
+        A boolean indicating the success of the operation.
+    """
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute('''
+            UPDATE changes
+            SET highlights = $1
+            WHERE id = $2 AND course_id = $3
+            ''', request.highlights, change_id, int(course_id))
+            return True
+        except Exception as e:
+            return False
 
 
 async def post_user(pool, course_id, user_id, email, name, role):

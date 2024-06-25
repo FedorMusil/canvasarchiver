@@ -107,7 +107,7 @@ def get_most_recent_change(changes, item_type, item_id):
                         == item_id and change['item_type'] == item_type]
     sorted_changes = sorted(
         filtered_changes,
-        key=lambda change: change['timestamp'],
+        key=lambda change: change['id'],
         reverse=True
     )
     return sorted_changes[0] if sorted_changes else None

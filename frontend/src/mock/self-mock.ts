@@ -1,4 +1,4 @@
-import { faker } from '@faker-js/faker';
+import { faker } from '@faker-js/faker/locale/en_US';
 import { http, HttpHandler, HttpResponse } from 'msw';
 import { Self, UserRole } from '../api/self';
 

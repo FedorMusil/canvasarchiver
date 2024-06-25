@@ -1,12 +1,12 @@
+import { faker } from '@faker-js/faker/locale/en_US';
 import { addWeeks, setDay, startOfWeek } from 'date-fns';
-import { Change, ChangeType, ItemTypes } from '../api/change';
-import { faker } from '@faker-js/faker';
 import { http, HttpHandler, HttpResponse } from 'msw';
-import type { Quiz } from '../components/Materials/Quiz';
+import { Change, ChangeType, ItemTypes } from '../api/change';
 import type { Assignment } from '../components/Materials/Assignment';
-import type { Section } from '../components/Materials/Section';
 import type { Module, ModuleItem } from '../components/Materials/Module';
 import type { Page } from '../components/Materials/Page';
+import type { Quiz } from '../components/Materials/Quiz';
+import type { Section } from '../components/Materials/Section';
 
 export const changeHandlers: HttpHandler[] = [
     http.get(`${import.meta.env.VITE_BACKEND_URL}/change/recent`, () => {

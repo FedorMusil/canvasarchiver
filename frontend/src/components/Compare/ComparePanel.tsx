@@ -1,15 +1,22 @@
-
 import { ItemTypes, type Change } from '@/src/api/change';
 import AnnotationsFrame from '@/src/components/Annotations/AnnotationsFrame';
-import { Assignment, File, MaterialLayout, Module, Page, Quiz, Section } from '@/src/components/Materials';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/src/components/ui/resizable';
 import { useHighlight } from '@/src/hooks/useHighlighter';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
 import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
 import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
-import { memo, useEffect, useRef, useState, type FC, type ReactElement } from 'react';
+import { lazy, memo, ReactNode, Suspense, useEffect, useRef, useState, type FC, type ReactElement } from 'react';
 import { visualDomDiff } from 'visual-dom-diff';
 import { useShallow } from 'zustand/react/shallow';
+
+// --- Lazy imports ---
+const Assignment = lazy(() => import('@/src/components/Materials/Assignment'));
+const File = lazy(() => import('@/src/components/Materials/File'));
+const MaterialLayout = lazy(() => import('@/src/components/Materials/MaterialLayout'));
+const Module = lazy(() => import('@/src/components/Materials/Module'));
+const Page = lazy(() => import('@/src/components/Materials/Page'));
+const Quiz = lazy(() => import('@/src/components/Materials/Quiz'));
+const Section = lazy(() => import('@/src/components/Materials/Section'));
 
 type ComparePanelProps = { changes: Change[] };
 const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => {
@@ -167,21 +174,31 @@ type RenderMaterialProps = {
 const RenderMaterial: FC<RenderMaterialProps> = memo(({ change, materialId }): ReactElement => {
     const materialItemType = Object.values(ItemTypes)[materialId] as ItemTypes;
 
+    let material: ReactNode;
     switch (materialItemType) {
         case ItemTypes.SECTIONS:
-            return <Section change={change} />;
+            material = <Section change={change} />;
+            break;
         case ItemTypes.MODULES:
-            return <Module change={change} />;
+            material = <Module change={change} />;
+            break;
         case ItemTypes.PAGES:
-            return <Page change={change} />;
+            material = <Page change={change} />;
+            break;
         case ItemTypes.FILES:
-            return <File change={change} />;
+            material = <File change={change} />;
+            break;
         case ItemTypes.ASSIGNMENTS:
-            return <Assignment change={change} />;
+            material = <Assignment change={change} />;
+            break;
         case ItemTypes.QUIZZES:
-            return <Quiz change={change} />;
+            material = <Quiz change={change} />;
+            break;
         default:
-            return <p>Course material type not found.</p>;
+            material = <p>Course material type not found.</p>;
+            break;
     }
+
+    return <Suspense fallback={null}>{material}</Suspense>;
 });
 RenderMaterial.displayName = 'RenderMaterial';

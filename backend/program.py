@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from typing import Optional
 from db.get_db_conn import create_pool
 import jwt
+from os import getenv
 import uvicorn, json
 import subprocess, os, hmac, secrets, requests
 from typing import Dict, Any
@@ -108,7 +109,7 @@ class ChangeCreate(BaseModel):
     change_type: str
     item_type: str
     older_diff: int
-    diff: Dict[str, Any]
+    diff: str
 
 
 class UserCreate(BaseModel):
@@ -122,6 +123,10 @@ class CreateAnnotation(BaseModel):
     text: str
 
 
+class Puthighlight(BaseModel):
+    highlight: str
+
+
 def get_current_user(request: Request):
     # Get the token from the cookies
     token = request.cookies.get('token')
@@ -130,7 +135,7 @@ def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         # Replace 'your-secret-key' with your actual secret key
-        payload = jwt.decode(token, "f3104b82021b97756ba5016a19f03d57722f75bd05e79bb596eacaba1e012558", algorithms=["HS256"])
+        payload = jwt.decode(token, getenv("JWT_secret"), algorithms=["HS256"])
         return payload
     except (jwt.PyJWTError, AttributeError):
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -141,13 +146,13 @@ def get_current_user(request: Request):
 
 
 # Get Routes
-@app.get("/course/changes/{material_id}", dependencies=[Depends(get_current_user)])
+@app.get("change/{material_id}", dependencies=[Depends(get_current_user)])
 async def return_change_materialid(material_id: int, user: dict = Depends(get_current_user)):
     '''Get a change of a course by the type of material.'''
     return await get_change_by_materialid(pool, user['course_id'], ItemTypeNumberToString[material_id])
 
 
-@app.get("/changes/recent", dependencies=[Depends(get_current_user)])
+@app.get("/change/recent", dependencies=[Depends(get_current_user)])
 async def return_changes_recent(user: dict = Depends(get_current_user)):
     '''Get the recent changes of a course (last 10 changes))'''
 
@@ -156,10 +161,10 @@ async def return_changes_recent(user: dict = Depends(get_current_user)):
     return test
 
 
-@app.get("/change/{change_id}", dependencies=[Depends(get_current_user)])
-async def return_change_by_id(change_id: int, user: dict = Depends(get_current_user)):
-    '''Get a change by its change id'''
-    return await get_change_by_id(pool, user['course_id'], change_id)
+# @app.get("/change/{item_type}", dependencies=[Depends(get_current_user)])
+# async def return_change_by_id(item_type: int, user: dict = Depends(get_current_user)):
+#     '''Get a change by its change id'''
+#     return await get_change_by_id(pool, user['course_id'], ItemTypeNumberToString[item_type])
 
 
 @app.get("/self", dependencies=[Depends(get_current_user)])
@@ -235,6 +240,8 @@ async def post_annotation_route(annotationObject: CreateAnnotation, user: dict =
         return {"annotation_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
 
+
+# Put routes
 @app.put("/changes", dependencies=[Depends(get_current_user)])
 async def put_change_route(change: ChangeCreate, user: dict = Depends(get_current_user)):
     '''Create a change.'''
@@ -245,6 +252,13 @@ async def put_change_route(change: ChangeCreate, user: dict = Depends(get_curren
     if success:
         return {"change_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
+
+
+
+@app.put("/change/{changeId}/highlight", dependencies=[Depends(get_current_user)])
+async def put_highlight_route(changeId: int, request : Puthighlight, user: dict = Depends(get_current_user)):
+    '''edit a highlight'''
+    return await put_highlight(pool, user['course_id'], changeId)
 
 
 # Delete routes
