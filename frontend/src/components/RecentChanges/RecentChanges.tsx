@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
-import { useGlobalContext } from '@/src/stores/GlobalStore/useGlobalStore';
+import { columns } from './Columns';
+import { DataTable } from './DataTable';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type FC, type ReactElement } from 'react';
 import { getRecentChanges, type Change } from '../../api/change';
@@ -7,12 +8,8 @@ import { columns } from './Columns';
 import { DataTable } from './DataTable';
 
 const RecentChanges: FC = (): ReactElement => {
-    const { courseCode } = useGlobalContext((state) => ({
-        courseCode: state.courseCode,
-    }));
-
     const { data, isLoading, isError } = useQuery({
-        queryKey: ['changes', courseCode],
+        queryKey: ['changes'],
         queryFn: getRecentChanges,
     });
 

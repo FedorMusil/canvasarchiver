@@ -1,5 +1,6 @@
 import httpx
 
+
 def flatten_dict(indict: dict) -> dict:
     res = dict()
     for key, value in indict.items():

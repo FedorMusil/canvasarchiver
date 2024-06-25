@@ -1,14 +1,15 @@
-import { Change } from '@/src/api/change';
+
+import { ItemTypes, type Change } from '@/src/api/change';
+import AnnotationsFrame from '@/src/components/Annotations/AnnotationsFrame';
+import { Assignment, File, MaterialLayout, Module, Page, Quiz, Section } from '@/src/components/Materials';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/src/components/ui/resizable';
+import { useHighlight } from '@/src/hooks/useHighlighter';
 import { useAnnotationStore } from '@/src/stores/AnnotationStore';
-import { useCompareIdContext } from '@/src/stores/CompareIdStore/useCompareIdStore';
+import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
 import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
-import tailwindConfig from '@/tailwind.config';
-import { memo, useCallback, useEffect, useRef, type FC, type ReactElement } from 'react';
-import resolveConfig from 'tailwindcss/resolveConfig';
-import { v4 as uuidv4 } from 'uuid';
+import { memo, useEffect, useRef, useState, type FC, type ReactElement } from 'react';
+import { visualDomDiff } from 'visual-dom-diff';
 import { useShallow } from 'zustand/react/shallow';
-import AnnotationsFrame from '../Annotations/AnnotationsFrame';
 
 type ComparePanelProps = { changes: Change[] };
 const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => {
@@ -19,35 +20,65 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
         }))
     );
 
-    const { changeId } = useCompareIdContext(
+    const { selectedChangeId, materialId, highlighter, setModifiedPanel } = useChangeContext(
         useShallow((state) => ({
-            changeId: state.changeId,
+            selectedChangeId: state.selectedChangeId,
+            materialId: state.materialId,
+            highlighter: state.highlighter,
+            setModifiedPanel: state.setModifiedPanel,
         }))
     );
 
-    const changeIdIndex = changes.findIndex((change) => change.id === changeId);
-    let prevChange: any = changes[changeIdIndex - 1];
-    if (!prevChange) prevChange = { diff: '<div>No previous change</div>' };
+    const prevChange = changes.find((change) => change.id === selectedChangeId)!;
+    const curChange = changes[changes.length - 1];
 
-    const { handleMouseUp, handleMouseDown } = useHighlight();
-
-    const oldContentsRef = useRef<HTMLDivElement>(null);
-    const newContentsRef = useRef<HTMLDivElement>(null);
-
-    const { setOldContentsRef, setNewContentsRef } = useAnnotationStore(
+    const { setPrevRef, setCurRef } = useAnnotationStore(
         useShallow((state) => ({
-            setOldContentsRef: state.setOldContentsRef,
-            setNewContentsRef: state.setNewContentsRef,
+            setPrevRef: state.setPrevRef,
+            setCurRef: state.setCurRef,
         }))
     );
+
+    const prevRef = useRef<HTMLDivElement>(null);
+    const curRef = useRef<HTMLDivElement>(null);
+
+    const [showDiff, setShowDiff] = useState<boolean>(false);
+    const [diffNode, setDiffNode] = useState<string>('');
+
+    const { highlight, removeHighlight, setHighlights, removeAllHighlights } = useHighlight();
+    const changeCurrentContentsRef = () => {
+        removeAllHighlights(highlighter);
+        setShowDiff((prev) => !prev);
+    };
 
     useEffect(() => {
-        setOldContentsRef(oldContentsRef);
-        setNewContentsRef(newContentsRef);
-    }, [setOldContentsRef, setNewContentsRef]);
+        if (prevRef.current) setPrevRef(prevRef);
+        if (curRef.current) setCurRef(curRef);
+
+        if (prevRef.current && curRef.current) {
+            const diffNode: DocumentFragment = visualDomDiff(prevRef.current, curRef.current);
+            const tempDiv = document.createElement('div');
+            tempDiv.appendChild(diffNode!);
+            setDiffNode(tempDiv.innerHTML);
+        }
+    }, [setPrevRef, setCurRef, viewMode, prevChange]);
+
+    useEffect(() => {
+        if (!showDiff) {
+            if (prevChange.highlights) setHighlights(prevChange.highlights, highlighter);
+            if (curChange.highlights) setHighlights(curChange.highlights, highlighter);
+        }
+        // I don't want to run this effect on all dependencies, since then the comments will be removed with any action.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [prevChange, curChange, showDiff]);
 
     return (
-        <ResizablePanelGroup autoSaveId='compare-annotation' className='w-full flex-grow' direction='horizontal'>
+        <ResizablePanelGroup
+            autoSaveId='compare-annotation'
+            className='w-full flex-grow'
+            direction='horizontal'
+            id='compare-panel'
+        >
             <ResizablePanel defaultSize={60} id='panel1' order={1}>
                 <ResizablePanelGroup
                     autoSaveId='compare-panel'
@@ -56,25 +87,60 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                 >
                     {viewMode !== 'after' && (
                         <ResizablePanel defaultSize={50} id='panel11' order={1}>
-                            <div
-                                className='h-full'
-                                dangerouslySetInnerHTML={{ __html: prevChange.diff }}
-                                onMouseUp={handleMouseUp}
-                                onMouseDown={handleMouseDown}
-                                ref={oldContentsRef}
-                            />
+                            <MaterialLayout
+                                change={prevChange}
+                                onClick={() => {}}
+                                status={
+                                    prevChange.id === curChange.id ? 'no_changes'
+                                    : curChange.id === -1 ?
+                                        'no_selection'
+                                    :   'ok'
+                                }
+                                version='prev'
+                            >
+                                <div
+                                    className='h-full'
+                                    onMouseUp={() => highlight(highlighter)}
+                                    onMouseDown={() => {
+                                        setModifiedPanel('prev');
+                                        removeHighlight(highlighter);
+                                    }}
+                                    id='old-contents'
+                                    ref={prevRef}
+                                >
+                                    <RenderMaterial change={prevChange} materialId={materialId} />
+                                </div>
+                            </MaterialLayout>
                         </ResizablePanel>
                     )}
                     {viewMode !== 'after' && viewMode !== 'before' && <ResizableHandle withHandle />}
                     {viewMode !== 'before' && (
                         <ResizablePanel defaultSize={50} id='panel12' order={2}>
-                            <div
-                                className='h-full'
-                                dangerouslySetInnerHTML={{ __html: changes[changeIdIndex].diff }}
-                                onMouseUp={handleMouseUp}
-                                onMouseDown={handleMouseDown}
-                                ref={newContentsRef}
-                            />
+                            <MaterialLayout
+                                hideButton={viewMode === 'after'}
+                                onClick={changeCurrentContentsRef}
+                                status='ok'
+                                version='current'
+                            >
+                                {showDiff ?
+                                    <div
+                                        className='h-full [&_div]:!bg-card [&_span]:!text-text [&_div]:!text-foreground'
+                                        dangerouslySetInnerHTML={{ __html: diffNode }}
+                                    />
+                                :   <div
+                                        className='h-full'
+                                        onMouseUp={() => highlight(highlighter)}
+                                        onMouseDown={() => {
+                                            setModifiedPanel('cur');
+                                            removeHighlight(highlighter);
+                                        }}
+                                        id='current-contents'
+                                        ref={curRef}
+                                    >
+                                        <RenderMaterial change={curChange} materialId={materialId} />
+                                    </div>
+                                }
+                            </MaterialLayout>
                         </ResizablePanel>
                     )}
                 </ResizablePanelGroup>
@@ -93,110 +159,29 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
 ComparePanel.displayName = 'ComparePanel';
 export default ComparePanel;
 
-/**
- * Custom hook to handle text highlighting on mouse events.
- * @returns - An object containing handlers for mouse up and mouse down events.
- */
-function useHighlight(): {
-    handleMouseUp: () => void;
-    handleMouseDown: () => void;
-} {
-    const { selectionId, setSelectionId } = useAnnotationStore((state) => ({
-        selectionId: state.selectionId,
-        setSelectionId: state.setSelectionId,
-    }));
+type RenderMaterialProps = {
+    change: Change;
+    materialId: number;
+};
 
-    const fullConfig = resolveConfig(tailwindConfig);
+const RenderMaterial: FC<RenderMaterialProps> = memo(({ change, materialId }): ReactElement => {
+    const materialItemType = Object.values(ItemTypes)[materialId] as ItemTypes;
 
-    /**
-     * Callback function to highlight a given range of text.
-     * @param range - The range of text to highlight.
-     */
-    const highLight = useCallback(
-        (range: Range) => {
-            // Extract the start and end nodes from the range
-            const startNode = range.startContainer;
-            const endNode = range.endContainer;
-
-            // If either node is not present, exit the function.
-            if (!startNode || !endNode) return;
-
-            // Create a new range to highlight.
-            const rangeHighlight = document.createRange();
-            rangeHighlight.setStart(startNode, range.startOffset);
-            rangeHighlight.setEnd(endNode, range.endOffset);
-
-            // Create a new span element to apply the highlight.
-            const highlight = document.createElement('span');
-            // @ts-expect-error This is a custom color that is defined in the tailwind config.
-            highlight.style.backgroundColor = fullConfig.theme.colors.highlight.selected;
-
-            // Generate a unique ID for the highlight span
-            const highlightId = uuidv4();
-            highlight.id = highlightId;
-
-            // Extract the contents of the range into the highlight span.
-            highlight.appendChild(rangeHighlight.extractContents());
-
-            // Insert the highlight span into the range.
-            rangeHighlight.insertNode(highlight);
-
-            return highlightId;
-        },
-        // @ts-expect-error This is a custom color that is defined in the tailwind config.
-        [fullConfig.theme.colors.highlight.selected]
-    );
-
-    /**
-     * Callback function to handle the mouse up event.
-     * This function gets the current selection and applies the highlight.
-     */
-    const handleMouseUp = useCallback(() => {
-        const selection = window.getSelection();
-
-        // If there is a selection and it is not empty, apply the highlight.
-        if (selection && selection.toString().length > 0) {
-            const range = selection.getRangeAt(0);
-
-            const highlightId = highLight(range);
-            if (highlightId) setSelectionId(highlightId);
-        }
-    }, [highLight, setSelectionId]);
-
-    /**
-     * Callback function to remove the highlight from all temporal highlighted elements.
-     * A temporal highlight is a highlight that is not saved in the database.
-     */
-    const removeHighlight = useCallback(() => {
-        if (!selectionId) return;
-
-        // Remove all dom elements with the id 'temp-highlight'.
-        const highlight = document.getElementById(selectionId);
-        if (!highlight) return;
-
-        const parent = highlight.parentElement;
-        if (parent) {
-            // Create a DocumentFragment to hold the children of the highlight
-            const fragment = document.createDocumentFragment();
-            while (highlight.firstChild) {
-                // Move each child of highlight to the fragment
-                fragment.appendChild(highlight.firstChild);
-            }
-            // Replace the highlight with its children
-            parent.replaceChild(fragment, highlight);
-            // Normalize the parent to merge adjacent text nodes
-            parent.normalize();
-        }
-        setSelectionId(null);
-    }, [selectionId, setSelectionId]);
-
-    /**
-     * Callback function to handle the mouse down event.
-     * This function removes the highlight and clears the current selection.
-     */
-    const handleMouseDown = useCallback(() => {
-        removeHighlight();
-    }, [removeHighlight]);
-
-    return { handleMouseUp, handleMouseDown };
-}
+    switch (materialItemType) {
+        case ItemTypes.SECTIONS:
+            return <Section change={change} />;
+        case ItemTypes.MODULES:
+            return <Module change={change} />;
+        case ItemTypes.PAGES:
+            return <Page change={change} />;
+        case ItemTypes.FILES:
+            return <File change={change} />;
+        case ItemTypes.ASSIGNMENTS:
+            return <Assignment change={change} />;
+        case ItemTypes.QUIZZES:
+            return <Quiz change={change} />;
+        default:
+            return <p>Course material type not found.</p>;
+    }
+});
+RenderMaterial.displayName = 'RenderMaterial';

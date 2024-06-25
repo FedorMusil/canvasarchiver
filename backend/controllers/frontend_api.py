@@ -384,7 +384,7 @@ async def get_annotations_by_changeid(pool, course_id, change_id):
     """
     async with pool.acquire() as conn:
         annotations = await conn.fetch('''
-        SELECT a.* 
+        SELECT a.*
         FROM annotations a
         JOIN changes c ON a.change_id = c.id
         WHERE c.course_id = $1 AND c.id = $2
@@ -459,6 +459,7 @@ async def post_course(pool, course_id, course_name, course_code):
         return 500, "An error occurred in the database" + str(e)
 
 
+
 async def post_annotation(pool, change_id, request):
     """
     Inserts a new annotation into the database.
@@ -481,7 +482,14 @@ async def post_annotation(pool, change_id, request):
 
             return True, annotation_id
     except Exception as e:
-        print("request to post_annotation failed, datadump:", "change_id:\n", change_id, "request:\n", request, "error:\n", e)
+        print(
+            "request to post_annotation failed, datadump:",
+            "change_id:\n",
+            change_id,
+            "request:\n",
+            request,
+            "error:\n",
+            e)
         return False, "Error: Annotation not created"
 
 

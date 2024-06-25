@@ -1,5 +1,5 @@
+import type { RefObject } from 'react';
 import { create } from 'zustand';
-import type { MutableRefObject } from 'react';
 
 type ReplyTo = { annotationId: number; userId: string; name: string } | null;
 type AnnotationStore = {
@@ -9,10 +9,10 @@ type AnnotationStore = {
     selectionId: string | null;
     setSelectionId: (selectionId: string | null) => void;
 
-    oldContentsRef: MutableRefObject<HTMLDivElement | null>;
-    setOldContentsRef: (oldContentsRef: MutableRefObject<HTMLDivElement | null>) => void;
-    newContentsRef: MutableRefObject<HTMLDivElement | null>;
-    setNewContentsRef: (newContentsRef: MutableRefObject<HTMLDivElement | null>) => void;
+    prevRef: RefObject<HTMLDivElement>;
+    curRef: RefObject<HTMLDivElement>;
+    setPrevRef: (ref: RefObject<HTMLDivElement>) => void;
+    setCurRef: (ref: RefObject<HTMLDivElement>) => void;
 };
 
 export const useAnnotationStore = create<AnnotationStore>()((set) => ({
@@ -22,8 +22,8 @@ export const useAnnotationStore = create<AnnotationStore>()((set) => ({
     selectionId: null,
     setSelectionId: (selectionId) => set({ selectionId }),
 
-    oldContentsRef: { current: null },
-    setOldContentsRef: (oldContentsRef) => set({ oldContentsRef }),
-    newContentsRef: { current: null },
-    setNewContentsRef: (newContentsRef) => set({ newContentsRef }),
+    prevRef: { current: null },
+    curRef: { current: null },
+    setPrevRef: (ref) => set({ prevRef: ref }),
+    setCurRef: (ref) => set({ curRef: ref }),
 }));

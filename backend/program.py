@@ -13,8 +13,13 @@ from pydantic import BaseModel
 from typing import Optional
 from db.get_db_conn import create_pool
 import jwt
-import uvicorn, json
-import subprocess, os, hmac, secrets, requests
+import uvicorn
+import json
+import subprocess
+import os
+import hmac
+import secrets
+import requests
 from typing import Dict, Any
 from dotenv import load_dotenv
 from enum import Enum
@@ -23,7 +28,7 @@ from enum import Enum
 load_dotenv()
 app = FastAPI()
 
-if False:
+if os.getenv('ENV') == 'production':
     origins = ["https://uvadlo-dev.test.instructure.com"]
 else:
     origins = [
@@ -42,11 +47,19 @@ app.add_middleware(
 
 
 CLIENT_ID = os.getenv('CLIENT_ID')
-frontend_dist_folder = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
+SECRET_KEY = os.getenv("JWT-secret")
+
+
+frontend_dist_folder = os.path.join(
+    os.path.dirname(__file__), '..', 'frontend', 'dist')
 templates = Jinja2Templates(directory=frontend_dist_folder)
 
 # Mount the dist folder as static files directory
-app.mount("/static", StaticFiles(directory=frontend_dist_folder), name="static")
+app.mount(
+    "/static",
+    StaticFiles(
+        directory=frontend_dist_folder),
+    name="static")
 
 
 # Create a pool of connections to the database
@@ -113,8 +126,7 @@ def get_current_user(request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        # Replace 'your-secret-key' with your actual secret key
-        payload = jwt.decode(token, "f3104b82021b97756ba5016a19f03d57722f75bd05e79bb596eacaba1e012558", algorithms=["HS256"])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return payload
     except (jwt.PyJWTError, AttributeError):
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -167,6 +179,7 @@ async def return_annotation_by_id(annotation_id: int, user: dict = Depends(get_c
     return await get_annotation_by_id(pool, user['course_id'], annotation_id)
 
 
+
 @app.get("/course/getinfo", dependencies=[Depends(get_current_user)])
 async def get_course_info_route(user: dict = Depends(get_current_user)):
     '''Get a course by id.'''
@@ -178,18 +191,19 @@ async def get_course_users_route(user: dict = Depends(get_current_user)):
     '''Get all users in a course.'''
     return await get_users_by_courseid(pool, user['course_id'])
 
+  
 @app.get("/course/annotations/{change_id}", dependencies=[Depends(get_current_user)])
 async def get_annotation(change_id: int, user: dict = Depends(get_current_user)):
     '''Get all annotations for a change.'''
     return await get_annotations_by_changeid(pool, user['course_id'], change_id)
+
 
 @app.get("/course/changes", dependencies=[Depends(get_current_user)])
 async def get_changes(course_id: int, user: dict = Depends(get_current_user)):
     '''Get all changes for a course.'''
     return await get_changes_by_courseid(pool, user['course_id'])
 
-
-
+# Post Routes
 
 # # Post Routes
 # @app.post("/changes/sync", dependencies=[Depends(get_current_user)])
@@ -208,6 +222,7 @@ async def post_course_route(course: CourseCreate):
         return {"course_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
 
+
 @app.post("/annotations", dependencies=[Depends(get_current_user)])
 async def post_annotation_route(annotationObject: CreateAnnotation, user: dict = Depends(get_current_user)):
     '''Create an annotation.'''
@@ -218,6 +233,8 @@ async def post_annotation_route(annotationObject: CreateAnnotation, user: dict =
     if success:
         return {"annotation_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
+
+
 
 @app.put("/changes", dependencies=[Depends(get_current_user)])
 async def put_change_route(change: ChangeCreate, user: dict = Depends(get_current_user)):
@@ -254,7 +271,9 @@ state_nonce_store = {}
 
 def clean_expired_state_nonce():
     current_time = datetime.now(timezone.utc)
-    expired_keys = [state for state, details in state_nonce_store.items() if details['expiry'] < current_time]
+    expired_keys = [
+        state for state,
+        details in state_nonce_store.items() if details['expiry'] < current_time]
     for key in expired_keys:
         del state_nonce_store[key]
 
@@ -268,6 +287,17 @@ def create_jwt_token(data: dict, expires_delta: timedelta = timedelta(hours=24))
 
 
 
+def create_jwt_token(
+    data: dict,
+    expires_delta: timedelta = timedelta(
+        hours=24)):
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
+    return encoded_jwt
+
+
 @app.post("/initiation")
 async def handle_initiation_post(request: Request):
     clean_expired_state_nonce()
@@ -276,8 +306,9 @@ async def handle_initiation_post(request: Request):
         form = await request.form()
         data = {key: value for key, value in form.items()}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid form data: {str(e)}")
-
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid form data: {str(e)}")
 
     iss = data.get('iss')
     login_hint = data.get('login_hint')
@@ -287,10 +318,18 @@ async def handle_initiation_post(request: Request):
     state = secrets.token_urlsafe(16)
     nonce = secrets.token_urlsafe(16)
 
-    state_nonce_store[state] = {'nonce': nonce, 'expiry': datetime.now(timezone.utc) + timedelta(minutes=10)}
+    state_nonce_store[state] = {
+        'nonce': nonce,
+        'expiry': datetime.now(
+            timezone.utc) +
+        timedelta(
+            minutes=10)}
 
     if not all([iss, login_hint, client_id, redirect_uri]):
-        return JSONResponse(content={'error': 'Missing required LTI parameters'}, status_code=400)
+        return JSONResponse(
+            content={
+                'error': 'Missing required LTI parameters'},
+            status_code=400)
 
     oidc_auth_endpoint = "https://sso.test.canvaslms.com/api/lti/authorize_redirect"
     auth_request_params = {
@@ -322,10 +361,16 @@ async def handle_redirect(request: Request):
     client_id = CLIENT_ID
 
     if not id_token or not state:
-        return JSONResponse(content={'error': 'Missing id_token or state'}, status_code=400)
+        return JSONResponse(
+            content={
+                'error': 'Missing id_token or state'},
+            status_code=400)
 
     if state not in state_nonce_store:
-        return JSONResponse(content={'error': 'Invalid state parameter'}, status_code=400)
+        return JSONResponse(
+            content={
+                'error': 'Invalid state parameter'},
+            status_code=400)
     nonce = state_nonce_store.pop(state)['nonce']
 
     jwks_url = "https://sso.test.canvaslms.com/api/lti/security/jwks"
@@ -335,15 +380,33 @@ async def handle_redirect(request: Request):
         header = jwt.get_unverified_header(id_token)
         key = next(key for key in jwks['keys'] if key['kid'] == header['kid'])
         rsa_key = RSAAlgorithm.from_jwk(key)
-        payload = jwt.decode(id_token, rsa_key, algorithms=['RS256'], audience=client_id, nonce=nonce)
+        payload = jwt.decode(
+            id_token,
+            rsa_key,
+            algorithms=['RS256'],
+            audience=client_id,
+            nonce=nonce)
     except jwt.ExpiredSignatureError:
-        return JSONResponse(content={'error': 'Expired JWT token'}, status_code=400)
+        return JSONResponse(
+            content={
+                'error': 'Expired JWT token'},
+            status_code=400)
     except Exception as e:
         print(f"JWT validation error: {e}")
         return JSONResponse(content={'error': 'Invalid JWT'}, status_code=400)
 
-    user_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/lti1p1', {}).get('user_id')
-    course_id = payload.get('https://purl.imsglobal.org/spec/lti/claim/custom', {}).get('courseid')
+    user_id = payload.get(
+        'https://purl.imsglobal.org/spec/lti/claim/lti1p1',
+        {}).get('user_id')
+    course_id = payload.get(
+        'https://purl.imsglobal.org/spec/lti/claim/custom',
+        {}).get('courseid')
+
+    token_data = {
+        "user_id": user_id,
+        "course_id": course_id
+    }
+    jwt_token = create_jwt_token(token_data)
 
 
     email = payload.get('email')
@@ -398,6 +461,7 @@ async def serve_root():
         raise HTTPException(status_code=404, detail="index.html not found")
     return FileResponse(index_path)
 
+
 @app.get("/{path:path}", include_in_schema=False)
 async def catch_all(path: str):
     file_path = os.path.join(frontend_dist_folder, path)
@@ -408,6 +472,7 @@ async def catch_all(path: str):
         if not os.path.exists(index_path):
             raise HTTPException(status_code=404, detail="index.html not found")
         return FileResponse(index_path)
+
 
 @app.post("/deploy")
 async def deploy(request: Request):
