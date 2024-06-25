@@ -65,6 +65,22 @@ async def shutdown_event():
 
 app.add_event_handler("shutdown", shutdown_event)
 
+ItemTypeNumberToString = {
+    1: "Assignments",
+    2: "Pages",
+    3: "Files",
+    4: "Quizzes",
+    5: "Modules",
+    6: "Sections"
+}
+
+ChangeTypeNumberToString = {
+    1: "Deletion",
+    2: "Addition",
+    3: "Modification"
+}
+
+
 class Material(Enum):
     Assignments = "Assignments"
     Pages = "Pages"
@@ -135,10 +151,10 @@ def get_current_user(request: Request):
 
 
 # Get Routes
-@app.get("/change/{material_id}", dependencies=[Depends(get_current_user)])
-async def return_change_materialid(material_id: str, user: dict = Depends(get_current_user)):
+@app.get("/course/changes/{material_id}", dependencies=[Depends(get_current_user)])
+async def return_change_materialid(material_id: int, user: dict = Depends(get_current_user)):
     '''Get a change of a course by the type of material.'''
-    return await get_change_by_materialid(pool, user['course_id'], material_id)
+    return await get_change_by_materialid(pool, user['course_id'], ItemTypeNumberToString[material_id])
 
 
 @app.get("/changes/recent", dependencies=[Depends(get_current_user)])

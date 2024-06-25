@@ -1,8 +1,8 @@
+import { exampleChanges } from './change-mock';
+import { exampleUsers } from './self-mock';
 import { faker } from '@faker-js/faker';
 import { http, HttpHandler, HttpResponse } from 'msw';
 import { Annotation, type PostAnnotation } from '../api/annotation';
-import { exampleChanges } from './change-mock';
-import { exampleUsers } from './self-mock';
 
 export const annotationHandlers: HttpHandler[] = [
     http.get(`${import.meta.env.VITE_BACKEND_URL}/course/annotations/:changeId`, ({ params }) => {
@@ -14,16 +14,18 @@ export const annotationHandlers: HttpHandler[] = [
     http.post(`${import.meta.env.VITE_BACKEND_URL}/course/create/annotation`, async ({ request }) => {
         const annotation = (await request.json()) as PostAnnotation;
 
+        // In the real implementation, we would get the user from the JWT token.
+        // Since this is a mock, we just pick a predefined user.
+        const user = exampleUsers.filter((exampleUser) => exampleUser.id === '1234567890')[0];
+
         const id = faker.number.int();
         // In the real implementation, we would get the user from the JWT token
         const user = exampleUsers[Math.floor(Math.random() * exampleUsers.length)];
         const newAnnotation: Annotation = {
             ...annotation,
             id,
-            timestamp: new Date(),
-            user_id: user.id,
-            user_name: user.name,
-            user_role: user.role,
+            user: exampleUsers.find((exampleUser) => exampleUser.id === user.id)!,
+            timestamp: new Date().toDateString(),
         };
 
         exampleAnnotations.push(newAnnotation);
@@ -59,7 +61,7 @@ exampleChanges.map((change) => {
             annotation: faker.lorem.sentence(),
             parentId: null,
             changeId: change.id,
-            timestamp: faker.date.recent(),
+            timestamp: faker.date.recent().toDateString(),
             selectionId: null,
             user_id: user.id,
             user_name: user.name,
@@ -77,7 +79,7 @@ exampleChanges.map((change) => {
             annotation: faker.lorem.sentence(),
             parentId,
             changeId: change.id,
-            timestamp: faker.date.recent(),
+            timestamp: faker.date.recent().toDateString(),
             selectionId: null,
             user_id: user.id,
             user_name: user.name,

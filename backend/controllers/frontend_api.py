@@ -185,11 +185,18 @@ async def get_changes_recent(pool, course_id):
         internal_course_id = await convert_course_id_to_id(pool, int(course_id))
 
         changes = await conn.fetch('SELECT * FROM changes WHERE course_id = $1 ORDER BY timestamp DESC LIMIT 10', int(internal_course_id))
-        print(changes)
-        # change_dictr = []
-        # for change in changes:
-        #     change_dictr.append(dict(change))
-        return changes
+        change_list = []
+        for change in changes:
+            change_dict = {
+                "id": change['id'],
+                "old_id": change['older_diff'],
+                "change_type": change['change_type'],
+                "item_type": change['item_type'],
+                "timestamp": change['timestamp'],
+                "diff": change['diff'],
+            }
+            change_list.append(change_dict)
+        return change_list
 
 async def get_change_by_id(pool, course_id, change_id):
     """
@@ -316,8 +323,6 @@ async def convert_course_id_to_id(pool, course_id):
         course = await conn.fetchrow('SELECT * FROM courses WHERE $1 = ANY(course_ids)', int(course_id))
         print("TEST" , course, "TEST")
         return course['id']
-
-
 
 
 async def get_user_by_id(pool, user_id, course_id):
@@ -552,3 +557,4 @@ async def post_user(pool, course_id, user_id, email, name, role):
             return True, user_id
         except Exception as e:
             return False, "Error: User not created" + str(e)
+        

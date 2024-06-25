@@ -3,9 +3,10 @@ import { AxiosWrapper } from './wrapper';
 
 export type Annotation = {
     id: number;
+    user: Self;
     changeId: number;
     annotation: string;
-    timestamp: Date;
+    timestamp: string;
     parentId: number | null;
     selectionId: string | null;
 
@@ -23,7 +24,7 @@ export const getAnnotationsByChange = async (changeId: number): Promise<Annotati
     return response;
 };
 
-export type PostAnnotation = Omit<Annotation, 'id' | 'timestamp' | 'user_id' | 'user_name' | 'user_role'>;
+export type PostAnnotation = Omit<Annotation, 'id' | 'user' | 'timestamp'>;
 export const postAnnotation = async ({ annotation }: { annotation: PostAnnotation }): Promise<Annotation> => {
     const response = await AxiosWrapper({
         method: 'POST',
