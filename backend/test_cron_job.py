@@ -10,7 +10,7 @@ import tempfile
 
 
 def get_patched(json_data, patch):
-    json_diff_path = '.\\json\\json'
+    json_diff_path = './json/json'
     str1 = json.dumps(json_data)
     str2 = json.dumps(patch)
     with tempfile.TemporaryFile() as f:

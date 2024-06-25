@@ -485,7 +485,7 @@ async def get_changes_by_item(pool, item_id, item_type):
 
 
 async def get_patched(json_data, patch):
-    json_diff_path = '.\\json\\json'
+    json_diff_path = './json/json'
     str1 = json.dumps(json_data)
     str2 = json.dumps(patch)
     with tempfile.TemporaryFile() as f:

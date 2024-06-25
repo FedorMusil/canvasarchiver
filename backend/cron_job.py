@@ -115,7 +115,7 @@ def get_most_recent_change(changes, item_type, item_id):
 
 
 async def get_diff(json1, json2):
-    json_diff_path = '.\\json\\json'
+    json_diff_path = './json/json'
     str1 = json.dumps(json1)
     str2 = json.dumps(json2)
     with tempfile.TemporaryFile() as f:
