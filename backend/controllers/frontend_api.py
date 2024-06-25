@@ -641,13 +641,13 @@ async def post_change(pool, course_id, request):
                 INSERT INTO changes (course_id, timestamp, item_id, change_type, item_type, diff)
                 VALUES ($1, $2, $3, $4, $5, $6)
                 RETURNING id
-                ''', int(course_id), datetime.now(), request.item_id, request.change_type, request.item_type, request.diff)
+                ''', int(course_id), request.timestamp, request.item_id, request.change_type, request.item_type, request.diff)
             else:
                 change_id = await conn.fetchval('''
                 INSERT INTO changes (course_id, timestamp, item_id, change_type, item_type, older_diff, diff)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING id
-                ''', int(course_id), datetime.now(), request.item_id, request.change_type, request.item_type, request.older_diff, request.diff)
+                ''', int(course_id), request.timestamp, request.item_id, request.change_type, request.item_type, request.older_diff, request.diff)
 
             return True, change_id
     except Exception as e:

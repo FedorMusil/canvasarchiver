@@ -164,8 +164,8 @@ async def page_diffs(pool, api, course, changes, course_id):
                 request = prog.ChangeCreate(
                     item_id=data['page_id'],
                     course_id=course_id,
-                    change_type='Modification',
-                    timestamp=time.time(),
+                    change_type=most_recent_version['change_type'],
+                    timestamp=most_recent_version['timestamp'],
                     item_type='Pages',
                     older_diff=older_diff,
                     diff=json.dumps(diff)
@@ -209,8 +209,8 @@ async def process_item_diff(pool, item, item_type, course_id, changes):
             request = prog.ChangeCreate(
                 item_id=data['id'],
                 course_id=course_id,
-                change_type='Modification',
-                timestamp=time.time(),
+                change_type=most_recent_version['change_type'],
+                timestamp=most_recent_version['timestamp'],
                 item_type=item_type,
                 older_diff=older_diff,
                 diff=json.dumps(diff)
