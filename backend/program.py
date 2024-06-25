@@ -9,6 +9,8 @@ from jwt.algorithms import RSAAlgorithm
 from hashlib import sha1
 from db.get_db_conn import get_db_conn
 from controllers.frontend_api import *
+from canvas.canvas import *
+import canvas.connection as canvasconn
 from pydantic import BaseModel
 from typing import Optional
 from db.get_db_conn import create_pool
@@ -93,6 +95,14 @@ class ChangeCreate(BaseModel):
     item_type: str
     older_diff: int
     diff: Dict[str, Any]
+
+class Change(BaseModel):
+    id: int
+    old_id: int
+    change_type: str
+    item_type: str
+    timestamp: datetime
+    data_object: object
 
 
 class UserCreate(BaseModel):
@@ -248,6 +258,49 @@ async def post_user_route(course_id: int, user: UserCreate):
     if success:
         return {"user_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
+
+@app.post("/revert", dependencies=[Depends(get_current_user)])
+async def post_revert_changes(change: Change, user: dict = Depends(get_current_user)):
+    change_data = json.loads(change.data_object)
+
+    object_map = {
+        "Sections": Section,
+        "Modules": Module,
+        "Pages": Page,
+        "Files": File,
+        "Assignments": Assignment,
+        "Quizzes": Quiz,
+        "Rubrics": Rubric
+    }
+
+    canvas_object_type = object_map.get(change.item_type)
+
+    if not canvas_object_type:
+        raise HTTPException(status_code=400, detail="Invalid item type provided.")
+
+    async with canvasconn.ManualCanvasConnection.make_from_environment() as conn:
+        api = Canvas(conn)
+
+        try:
+            canvas_object = canvas_object_type(api).json_init(change_data).set_related(Course(api).set_id(user["course_id"]))
+            await canvas_object.resolve()
+        except ResponseError as e:
+            if e.get_response().status_code == 404:
+                try:
+                    canvas_object = await canvas_object.create(**change_data)
+                except ResponseError as create_error:
+                    raise HTTPException(status_code=create_error.get_response().status_code, detail=str(create_error))
+            else:
+                raise HTTPException(status_code=e.get_response().status_code, detail=str(e))
+
+        if canvas_object.has_id():
+            try:
+                await canvas_object.edit(**change_data)
+            except ResponseError as edit_error:
+                raise HTTPException(status_code=edit_error.get_response().status_code, detail=str(edit_error))
+
+        return {"status": "success", "data": canvas_object.get_data()}
+
 
 state_nonce_store = {}
 
