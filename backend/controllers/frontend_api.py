@@ -185,11 +185,18 @@ async def get_changes_recent(pool, course_id):
         internal_course_id = await convert_course_id_to_id(pool, int(course_id))
 
         changes = await conn.fetch('SELECT * FROM changes WHERE course_id = $1 ORDER BY timestamp DESC LIMIT 10', int(internal_course_id))
-        print(changes)
-        # change_dictr = []
-        # for change in changes:
-        #     change_dictr.append(dict(change))
-        return changes
+        change_list = []
+        for change in changes:
+            change_dict = {
+                "id": change['id'],
+                "old_id": change['older_diff'],
+                "change_type": change['change_type'],
+                "item_type": change['item_type'],
+                "timestamp": change['timestamp'],
+                "diff": change['diff'],
+            }
+            change_list.append(change_dict)
+        return change_list
 
 async def get_change_by_id(pool, course_id, change_id):
     """
@@ -318,8 +325,6 @@ async def convert_course_id_to_id(pool, course_id):
         return course['id']
 
 
-
-
 async def get_user_by_id(pool, user_id, course_id):
     """
     Retrieve a user from the database by their ID.
@@ -384,7 +389,7 @@ async def get_annotations_by_changeid(pool, course_id, change_id):
     """
     async with pool.acquire() as conn:
         annotations = await conn.fetch('''
-        SELECT a.*
+        SELECT a.* 
         FROM annotations a
         JOIN changes c ON a.change_id = c.id
         WHERE c.course_id = $1 AND c.id = $2
@@ -459,7 +464,6 @@ async def post_course(pool, course_id, course_name, course_code):
         return 500, "An error occurred in the database" + str(e)
 
 
-
 async def post_annotation(pool, change_id, request):
     """
     Inserts a new annotation into the database.
@@ -482,14 +486,7 @@ async def post_annotation(pool, change_id, request):
 
             return True, annotation_id
     except Exception as e:
-        print(
-            "request to post_annotation failed, datadump:",
-            "change_id:\n",
-            change_id,
-            "request:\n",
-            request,
-            "error:\n",
-            e)
+        print("request to post_annotation failed, datadump:", "change_id:\n", change_id, "request:\n", request, "error:\n", e)
         return False, "Error: Annotation not created"
 
 
@@ -560,3 +557,4 @@ async def post_user(pool, course_id, user_id, email, name, role):
             return True, user_id
         except Exception as e:
             return False, "Error: User not created" + str(e)
+        
