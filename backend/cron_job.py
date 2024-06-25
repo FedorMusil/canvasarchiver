@@ -3,7 +3,7 @@ import canvas.connection as connection
 import program as prog
 import controllers.frontend_api as fapi
 from db.get_db_conn import create_pool
-import time
+import datetime
 import json
 import asyncio
 import tempfile
@@ -45,7 +45,7 @@ async def save_new_course(pool, course, course_id):
         item_id=cdata['id'],
         course_id=course_id,
         change_type='Addition',
-        timestamp=time.time(),
+        timestamp=datetime.now(),
         item_type='Courses',
         older_diff=0,
         diff=json.dumps(cdata)
@@ -63,7 +63,7 @@ async def save_course_pages(pool, api, course, course_id):
             item_id=pdata['page_id'],
             course_id=course_id,
             change_type='Addition',
-            timestamp=time.time(),
+            timestamp=datetime.now(),
             item_type='Pages',
             older_diff=0,
             diff=json.dumps(pdata)
@@ -79,7 +79,7 @@ async def save_new_items(pool, course, course_id, item_type, api_method):
             item_id=data['id'],
             course_id=course_id,
             change_type='Addition',
-            timestamp=time.time(),
+            timestamp=datetime.now(),
             item_type=item_type,
             older_diff=0,
             diff=json.dumps(data)
@@ -149,7 +149,7 @@ async def page_diffs(pool, api, course, changes, course_id):
                 item_id=data['page_id'],
                 course_id=course_id,
                 change_type='Addition',
-                timestamp=time.time(),
+                timestamp=datetime.now(),
                 item_type='Pages',
                 older_diff=0,
                 diff=json.dumps(data)
@@ -178,7 +178,7 @@ async def page_diffs(pool, api, course, changes, course_id):
                     item_id=data['page_id'],
                     course_id=course_id,
                     change_type='Modification',
-                    timestamp=time.time(),
+                    timestamp=datetime.now(),
                     item_type='Pages',
                     older_diff=new_diff_id,
                     diff=json.dumps(data)
@@ -195,7 +195,7 @@ async def process_item_diff(pool, item, item_type, course_id, changes):
             item_id=data['id'],
             course_id=course_id,
             change_type='Addition',
-            timestamp=time.time(),
+            timestamp=datetime.now(),
             item_type=item_type,
             older_diff=0,
             diff=json.dumps(data)
@@ -223,7 +223,7 @@ async def process_item_diff(pool, item, item_type, course_id, changes):
                 item_id=data['id'],
                 course_id=course_id,
                 change_type='Modification',
-                timestamp=time.time(),
+                timestamp=datetime.now(),
                 item_type=item_type,
                 older_diff=new_diff_id,
                 diff=json.dumps(data)

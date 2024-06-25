@@ -1,6 +1,6 @@
 import asynctest
 import json
-import time
+import datetime
 import asyncio
 import program as prog
 import controllers.frontend_api as fapi
@@ -69,7 +69,7 @@ class TestDiffDetection(asynctest.TestCase):
             item_id=course_id,
             course_id=course_id,
             change_type='Addition',
-            timestamp=time.time(),
+            timestamp=datetime.now(),
             item_type='Courses',
             older_diff=0,
             diff=json.dumps(cdata)
