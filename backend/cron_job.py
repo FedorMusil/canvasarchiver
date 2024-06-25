@@ -13,13 +13,14 @@ import subprocess
 async def handle_course(pool, course):
     cdata = course.get_data()
 
+    course_id = cdata['id']
     obj = prog.CourseCreate(
         name=cdata['name'],
         course_code=cdata['course_code']
     )
     err, msg = await fapi.check_course_create(pool, obj)
     if err == 200:
-        err, course_id = await fapi.post_course(pool, obj)
+        err, course_id = await fapi.post_course(pool, course_id, cdata['name'], cdata['course_code'])
         if err != 200:
             raise Exception(f"Error: {err} - {course_id}")
         return course_id, True
@@ -45,7 +46,7 @@ async def save_new_course(pool, course, course_id):
         course_id=course_id,
         change_type='Addition',
         timestamp=time.time(),
-        item_type='Course',
+        item_type='Courses',
         older_diff=0,
         diff=json.dumps(cdata)
     )
@@ -63,7 +64,7 @@ async def save_course_pages(pool, api, course, course_id):
             course_id=course_id,
             change_type='Addition',
             timestamp=time.time(),
-            item_type='Page',
+            item_type='Pages',
             older_diff=0,
             diff=json.dumps(pdata)
         )
@@ -142,7 +143,7 @@ async def page_diffs(pool, api, course, changes, course_id):
     async for item in api.get_pages(course):
         data = item.get_data()
         most_recent_version = get_most_recent_change(
-            changes, 'Page', data['page_id'])
+            changes, 'Pages', data['page_id'])
         if most_recent_version is None:
             print(json.dumps(data))
             request = prog.ChangeCreate(
@@ -150,7 +151,7 @@ async def page_diffs(pool, api, course, changes, course_id):
                 course_id=course_id,
                 change_type='Addition',
                 timestamp=time.time(),
-                item_type='Page',
+                item_type='Pages',
                 older_diff=0,
                 diff=json.dumps(data)
             )
@@ -166,18 +167,18 @@ async def page_diffs(pool, api, course, changes, course_id):
                     course_id=course_id,
                     change_type='Modification',
                     timestamp=time.time(),
-                    item_type='Page',
+                    item_type='Pages',
                     older_diff=older_diff,
                     diff=json.dumps(diff)
                 )
                 await add_change(pool, course_id, request)
-                new_diff_id = await get_most_recent_change(changes, 'Page', data['id'])['id']
+                new_diff_id = await get_most_recent_change(changes, 'Pages', data['id'])['id']
                 request = prog.ChangeCreate(
                     item_id=data['id'],
                     course_id=course_id,
                     change_type='Modification',
                     timestamp=time.time(),
-                    item_type='Page',
+                    item_type='Pages',
                     older_diff=new_diff_id,
                     diff=json.dumps(data)
                 )
@@ -230,19 +231,19 @@ async def process_item_diff(pool, item, item_type, course_id, changes):
 
 
 async def calc_diffs(pool, api, course, changes, course_id):
-    await process_item_diff(pool, course, 'Course', course_id, changes)
+    await process_item_diff(pool, course, 'Courses', course_id, changes)
 
     async for item in api.get_assignments(course):
-        await process_item_diff(pool, item, 'Assignment', course_id, changes)
+        await process_item_diff(pool, item, 'Assignments', course_id, changes)
 
     async for item in api.get_quizes(course):
-        await process_item_diff(pool, item, 'Quiz', course_id, changes)
+        await process_item_diff(pool, item, 'Quizzes', course_id, changes)
 
     async for item in api.get_modules(course):
-        await process_item_diff(pool, item, 'Module', course_id, changes)
+        await process_item_diff(pool, item, 'Modules', course_id, changes)
 
     async for item in api.get_sections(course):
-        await process_item_diff(pool, item, 'Section', course_id, changes)
+        await process_item_diff(pool, item, 'Sections', course_id, changes)
 
 
 async def main():
@@ -260,10 +261,10 @@ async def main():
                 # handle pages separately because they for some reason have
                 # page_id instead of id
                 await save_course_pages(pool, api, course, course_id)
-                await save_new_items(pool, course, course_id, 'Assignment', api.get_assignments)
-                await save_new_items(pool, course, course_id, 'Quiz', api.get_quizes)
-                await save_new_items(pool, course, course_id, 'Module', api.get_modules)
-                await save_new_items(pool, course, course_id, 'Section', api.get_sections)
+                await save_new_items(pool, course, course_id, 'Assignments', api.get_assignments)
+                await save_new_items(pool, course, course_id, 'Quizzes', api.get_quizes)
+                await save_new_items(pool, course, course_id, 'Modules', api.get_modules)
+                await save_new_items(pool, course, course_id, 'Sections', api.get_sections)
                 print("New course added")
             else:
                 changes = await fapi.get_changes_by_courseid(pool, course_id)
