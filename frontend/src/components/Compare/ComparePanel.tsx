@@ -60,7 +60,7 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
             tempDiv.appendChild(diffNode!);
             setDiffNode(tempDiv.innerHTML);
         }
-    }, [setPrevRef, setCurRef, viewMode]);
+    }, [setPrevRef, setCurRef, viewMode, prevChange]);
 
     useEffect(() => {
         if (!showDiff) {
@@ -122,7 +122,10 @@ const ComparePanel: FC<ComparePanelProps> = memo(({ changes }): ReactElement => 
                                 version='current'
                             >
                                 {showDiff ?
-                                    <div className='h-full' dangerouslySetInnerHTML={{ __html: diffNode }} />
+                                    <div
+                                        className='h-full [&_div]:!bg-card [&_span]:!text-text [&_div]:!text-foreground'
+                                        dangerouslySetInnerHTML={{ __html: diffNode }}
+                                    />
                                 :   <div
                                         className='h-full'
                                         onMouseUp={() => highlight(highlighter)}
