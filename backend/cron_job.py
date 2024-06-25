@@ -3,11 +3,10 @@ import canvas.connection as connection
 import program as prog
 import controllers.frontend_api as fapi
 from db.get_db_conn import create_pool
-import datetime
+from datetime import datetime
 import json
 import asyncio
 import tempfile
-import subprocess
 
 
 async def handle_course(pool, course):

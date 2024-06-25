@@ -1,6 +1,6 @@
 import asynctest
 import json
-import datetime
+from datetime import datetime
 import asyncio
 import program as prog
 import controllers.frontend_api as fapi
