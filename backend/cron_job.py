@@ -171,6 +171,7 @@ async def page_diffs(pool, api, course, changes, course_id):
                     diff=json.dumps(diff)
                 )
                 await add_change(pool, course_id, request)
+                changes = await fapi.get_changes_by_courseid(pool, course_id)
                 new_diff_id = get_most_recent_change(
                     changes, 'Pages', data['page_id'])['id']
                 request = prog.ChangeCreate(
