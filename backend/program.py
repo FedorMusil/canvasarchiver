@@ -171,7 +171,9 @@ def get_current_user(request: Request):
 
 # Get Routes
 @app.get("change/{material_id}", dependencies=[Depends(get_current_user)])
-async def return_change_materialid(material_id: int, user: dict = Depends(get_current_user)):
+async def return_change_materialid(
+        material_id: int,
+        user: dict = Depends(get_current_user)):
     '''Get a change of a course by the type of material.'''
     return await get_change_by_materialid(pool, user['course_id'], ItemTypeNumberToString[material_id])
 
@@ -188,7 +190,8 @@ async def return_changes_recent(user: dict = Depends(get_current_user)):
 # @app.get("/change/{item_type}", dependencies=[Depends(get_current_user)])
 # async def return_change_by_id(item_type: int, user: dict = Depends(get_current_user)):
 #     '''Get a change by its change id'''
-#     return await get_change_by_id(pool, user['course_id'], ItemTypeNumberToString[item_type])
+# return await get_change_by_id(pool, user['course_id'],
+# ItemTypeNumberToString[item_type])
 
 
 @app.get("/self", dependencies=[Depends(get_current_user)])
@@ -289,9 +292,12 @@ async def put_change_route(
     raise HTTPException(status_code=400, detail=return_message)
 
 
-
-@app.put("/change/{changeId}/highlight", dependencies=[Depends(get_current_user)])
-async def put_highlight_route(changeId: int, request : Puthighlight, user: dict = Depends(get_current_user)):
+@app.put("/change/{changeId}/highlight",
+         dependencies=[Depends(get_current_user)])
+async def put_highlight_route(
+        changeId: int,
+        request: Puthighlight,
+        user: dict = Depends(get_current_user)):
     '''edit a highlight'''
     return await put_highlight(pool, user['course_id'], changeId)
 

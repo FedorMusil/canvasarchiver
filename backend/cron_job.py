@@ -145,7 +145,6 @@ async def page_diffs(pool, api, course, changes, course_id):
         most_recent_version = get_most_recent_change(
             changes, 'Pages', data['page_id'])
         if most_recent_version is None:
-            print(json.dumps(data))
             request = prog.ChangeCreate(
                 item_id=data['page_id'],
                 course_id=course_id,

@@ -56,7 +56,7 @@ async def create_tables(destroy_existing_tables=False):
         item_type item_types NOT NULL,
         older_diff INT REFERENCES changes(id) NULL,
         diff TEXT NOT NULL,
-        highlights TEXT         
+        highlights TEXT
     );
 
     CREATE TABLE IF NOT EXISTS annotations (

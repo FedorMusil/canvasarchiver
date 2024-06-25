@@ -660,7 +660,7 @@ async def post_change(pool, course_id, request):
             "error:\n",
             e)
         return False, "Error: Change not created" + str(e)
-    
+
 
 async def put_highlight(pool, course_id, change_id, request):
     """
