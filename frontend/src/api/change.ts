@@ -18,7 +18,6 @@ export enum ItemTypes {
 export type Change = {
     id: number;
     old_id: number;
-
     change_type: ChangeType;
     item_type: ItemTypes;
 

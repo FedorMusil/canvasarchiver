@@ -1,19 +1,18 @@
-
-import json
-import traceback
-import asyncio
+import json, traceback, asyncio
 
 from os import getenv
 from datetime import datetime
 import sys
+import json
 
 # import os
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # from db.get_db_conn import create_pool
 
 
-production = getenv('PRODUCTION', False)
 
+
+production = getenv('PRODUCTION', False)
 
 def check_required_keys(json_obj, required_keys):
     for key, value in required_keys.items():
@@ -140,6 +139,9 @@ async def check_user_create(pool, course_id, request):
         try:
             # check_result, error_message = check_required_keys(request, {'email': {'type': str, 'length': 255}, 'name': {'type': str, 'length': 255}, 'role': {'type': str, 'enum': ['TA', 'Teacher']}})
 
+            # if not check_result:
+            #     return False, error_message
+
             course = await conn.fetchrow('SELECT * FROM courses WHERE id = $1', int(course_id))
 
             if not course:
@@ -148,6 +150,122 @@ async def check_user_create(pool, course_id, request):
         except Exception as e:
             print(f"Error:\n {e}")
             return 400, "An exception occurred in checking the data"
+
+
+async def get_change_by_materialid(pool, course_id, material_id):
+    """
+    Retrieve a change record from the database based on the material ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        material_id: The ID of the material.
+
+    Returns:
+        The change record if found, otherwise None.
+    """
+    print(material_id, course_id)
+    async with pool.acquire() as conn:
+        change = await conn.fetchrow('SELECT * FROM changes WHERE item_type = $1 AND course_id = $2', material_id, int(course_id))
+        return change
+
+
+async def get_changes_recent(pool, course_id):
+    """
+    Retrieve the most recent changes for a given course.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+
+    Returns:
+        A list of the most recent changes for the given course.
+    """
+    async with pool.acquire() as conn:
+        internal_course_id = await convert_course_id_to_id(pool, int(course_id))
+
+        changes = await conn.fetch('SELECT * FROM changes WHERE course_id = $1 ORDER BY timestamp DESC LIMIT 10', int(internal_course_id))
+        print(changes)
+        # change_dictr = []
+        # for change in changes:
+        #     change_dictr.append(dict(change))
+        return changes
+
+async def get_change_by_id(pool, course_id, change_id):
+    """
+    Retrieve a change record by its ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        change_id: The ID of the change.
+
+    Returns:
+        The change record if found, otherwise None.
+    """
+    async with pool.acquire() as conn:
+        change = await conn.fetchrow('SELECT * FROM changes WHERE course_id = $1 AND id = $2', course_id, change_id)
+        return change
+
+
+async def get_annotation_by_id(pool, course_id, annotation_id):
+    """
+    Retrieve an annotation by its ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        annotation_id: The ID of the annotation.
+
+    Returns:
+        The annotation record if found, otherwise None.
+    """
+    async with pool.acquire() as conn:
+        change = await conn.fetchrow('SELECT * FROM changes WHERE course_id = $1', course_id)
+        
+        annotation = await conn.fetchrow('SELECT * FROM annotations WHERE change_id = $1 AND id = $2', change[0], annotation_id)
+
+        return annotation
+    
+
+async def delete_annotation_by_id(pool, course_id, annotation_id):
+    """
+    Delete an annotation by its ID.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course.
+        annotation_id: The ID of the annotation.
+
+    Returns:
+        A boolean indicating the success of the operation.
+    """
+    async with pool.acquire() as conn:
+        change = await conn.fetchrow('SELECT * FROM changes WHERE course_id = $1', course_id)
+        
+        await conn.execute('DELETE FROM annotations WHERE change_id = $1 AND id = $2', change[0], annotation_id)
+
+        return True
+
+
+async def get_courses_by_user(pool, user_id):
+    """
+    Retrieve courses associated with a given user ID.
+
+    Args:
+        pool: The connection pool to the database.
+        user_id: The ID of the user.
+
+    Returns:
+        A list of courses associated with the given user ID.
+    """
+    async with pool.acquire() as conn:
+        course_ids = await conn.fetch('SELECT * FROM teacher_courses WHERE user_id = $1', user_id)
+        if not course_ids:
+            return []
+        course_ids = tuple([course_id[1] for course_id in course_ids])
+        courses = await conn.fetch('SELECT * FROM courses WHERE id=ANY($1)', course_ids)
+        return courses
 
 
 async def get_course_by_id(pool, course_id):
@@ -183,7 +301,26 @@ async def get_users(pool):
         return users
 
 
-async def get_user_by_id(pool, user_id):
+async def convert_course_id_to_id(pool, course_id):
+    """
+    Convert a course ID to the course code.
+
+    Args:
+        pool: The connection pool to the database.
+        course_id: The ID of the course to convert.
+
+    Returns:
+        The internal identifier of the course.
+    """
+    async with pool.acquire() as conn:
+        course = await conn.fetchrow('SELECT * FROM courses WHERE $1 = ANY(course_ids)', int(course_id))
+        print("TEST" , course, "TEST")
+        return course['id']
+
+
+
+
+async def get_user_by_id(pool, user_id, course_id):
     """
     Retrieve a user from the database by their ID.
 
@@ -195,8 +332,20 @@ async def get_user_by_id(pool, user_id):
         The user record as a dictionary, or None if the user is not found.
     """
     async with pool.acquire() as conn:
-        user = await conn.fetch('SELECT * FROM users WHERE id = $1', user_id)
-        return user
+        user = await conn.fetch('SELECT * FROM users WHERE id = $1', user_id)     
+
+        internal_course_id = await convert_course_id_to_id(pool, int(course_id))
+
+        additional_info = await conn.fetch('SELECT * FROM teacher_courses WHERE user_id = $1 AND course_id = $2', user_id, internal_course_id)
+        record_dicr = {
+            "id": user[0]['id'],
+            "email": user[0]['email'],
+            "name": user[0]['name'],
+            "role": additional_info[0]['role'],
+            "courseId": int(course_id)
+        }
+
+        return record_dicr
 
 
 async def get_users_by_courseid(pool, course_id):
@@ -217,6 +366,8 @@ async def get_users_by_courseid(pool, course_id):
             return []
         user_ids = tuple([user_id[0] for user_id in user_ids])
         users = await conn.fetch('SELECT * FROM users WHERE id=ANY($1)', user_ids)
+
+        return users
 
 
 async def get_annotations_by_changeid(pool, course_id, change_id):
@@ -274,7 +425,7 @@ async def get_course_id_by_code(pool, course_code):
         return course_id
 
 
-async def post_course(pool, course_data):
+async def post_course(pool, course_id, course_name, course_code):
     """
     Inserts a new course into the database.
 
@@ -290,21 +441,23 @@ async def post_course(pool, course_data):
     """
     try:
         async with pool.acquire() as conn:
+            course = await conn.fetchrow('SELECT * FROM courses WHERE $1 = ANY(course_ids)', int(course_id))
+
+            if course:
+                return 405, course[0]
             try:
                 course_id = await conn.fetchval('''
-                INSERT INTO courses (name, course_code)
-                VALUES ($1, $2)
+                INSERT INTO courses (course_ids, name, course_code)
+                VALUES (ARRAY[$1::integer], $2, $3)
                 RETURNING id
-                ''', course_data.name, course_data.course_code)
+                ''', int(course_id), course_name, course_code)
+                return 200, course_id
             except Exception as e:
-                return 500, "An error happened in the database"
+                return 500, "An error happened in the database" + str(e)
 
-            if not course_id:
-                return 400, "Error: Course not created"
-
-            return 200, course_id
     except Exception as e:
-        return 500, "An error occurred in the database"
+        return 500, "An error occurred in the database" + str(e)
+
 
 
 async def post_annotation(pool, change_id, request):
@@ -369,18 +522,11 @@ async def post_change(pool, course_id, request):
 
             return True, change_id
     except Exception as e:
-        print(
-            "request to post_change failed, datadump:",
-            "course_id:\n",
-            course_id,
-            "request:\n",
-            request,
-            "error:\n",
-            e)
-        return False, "Error: Change not created"
+        print("request to post_change failed, datadump:", "course_id:\n", course_id, "request:\n", request, "error:\n", e)
+        return False, "Error: Change not created" + str(e)
 
 
-async def post_user(pool, course_id, request):
+async def post_user(pool, course_id, user_id, email, name, role):
     """
     Create a new user and associate them with a course.
 
@@ -395,30 +541,22 @@ async def post_user(pool, course_id, request):
     """
     async with pool.acquire() as conn:
         # check if the user already exists
-        user = await conn.fetchrow('SELECT * FROM users WHERE email = $1', request.email)
+        user = await conn.fetchrow('SELECT * FROM users WHERE email = $1', email)
         try:
             if not user:
                 user_id = await conn.fetchval('''
-                INSERT INTO users (email, name)
-                VALUES ($1, $2)
+                INSERT INTO users (id, email, name)
+                VALUES ($1, $2, $3)
                 RETURNING id
-                ''', request.email, request.name)
-                await conn.execute('''INSERT INTO teacher_courses (user_id, course_id, role) VALUES ($1, $2, $3)''', int(user_id), int(course_id), request.role)
+                ''', user_id, email, name)
+                await conn.execute('''INSERT INTO teacher_courses (user_id, course_id, role) VALUES ($1, $2, $3)''', user_id, int(course_id), role)
             else:
                 user_id = user[0]
                 try:
-                    await conn.execute('''INSERT INTO teacher_courses (user_id, course_id, role) VALUES ($1, $2, $3)''', int(user_id), int(course_id), request.role)
+                    await conn.execute('''INSERT INTO teacher_courses (user_id, course_id, role) VALUES ($1, $2, $3)''', user_id, int(course_id), role)
                 except Exception as e:
-                    return False, "Error: User already exists in course"
+                    return False, "Error: User already exists in course" + str(e)
 
             return True, user_id
         except Exception as e:
-            print(
-                "request to post_user failed, datadump:",
-                "course_id:\n",
-                course_id,
-                "request:\n",
-                request,
-                "error:\n",
-                e)
-            return False, "Error: User not created"
+            return False, "Error: User not created" + str(e)

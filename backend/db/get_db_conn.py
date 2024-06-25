@@ -2,15 +2,15 @@ import asyncpg
 from dotenv import load_dotenv
 from os import getenv
 
-load_dotenv(dotenv_path='../../.env', encoding='utf-8')
+load_dotenv(dotenv_path='../.env', encoding='utf-8')
 db_params = {
-    'user': getenv('DB_USER'),
-    'password': getenv('DB_PASSWORD'),
-    'host': getenv('DB_HOST'),
-    'port': getenv('DB_PORT'),
+    'user': 'postgres',
+    'password': 'postgres',
+    'host': '192.168.0.206',
+    'port': '5432',
     'database': 'postgres'  # connect to default database to execute CREATE DATABASE command
 }
-
+print(db_params)
 
 async def get_db_conn():
     # Connect to your postgres DB

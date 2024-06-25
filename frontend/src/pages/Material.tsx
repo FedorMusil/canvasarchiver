@@ -62,6 +62,8 @@ const Material: FC = (): ReactElement => {
     if (isLoading || selectedChange === null) return <div>Loading...</div>;
     if (isError) return <div>Error</div>;
 
+    if (!sortedChanges.length || !selectedChange) return <div>No changes found</div>;
+
     return (
         <ChangeStoreProvider
             curChangeId={sortedChanges[sortedChanges.length - 1].id}

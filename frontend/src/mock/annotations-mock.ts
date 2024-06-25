@@ -11,7 +11,7 @@ export const annotationHandlers: HttpHandler[] = [
         return HttpResponse.json<Annotation[]>(annotations);
     }),
 
-    http.post(`${import.meta.env.VITE_BACKEND_URL}/annotations`, async ({ request }) => {
+    http.post(`${import.meta.env.VITE_BACKEND_URL}/course/create/annotation`, async ({ request }) => {
         const annotation = (await request.json()) as PostAnnotation;
 
         // In the real implementation, we would get the user from the JWT token.
@@ -19,6 +19,8 @@ export const annotationHandlers: HttpHandler[] = [
         const user = exampleUsers.filter((exampleUser) => exampleUser.id === '1234567890')[0];
 
         const id = faker.number.int();
+        // In the real implementation, we would get the user from the JWT token
+        const user = exampleUsers[Math.floor(Math.random() * exampleUsers.length)];
         const newAnnotation: Annotation = {
             ...annotation,
             id,
@@ -53,14 +55,17 @@ exampleChanges.map((change) => {
 
     for (let i = 0; i < numAnnotations; i++) {
         const id = faker.number.int();
+        const user = faker.helpers.arrayElement(exampleUsers);
         const annotation: Annotation = {
             id,
-            user: faker.helpers.arrayElement(exampleUsers),
             annotation: faker.lorem.sentence(),
             parentId: null,
             changeId: change.id,
             timestamp: faker.date.recent().toDateString(),
             selectionId: null,
+            user_id: user.id,
+            user_name: user.name,
+            user_role: user.role,
         };
 
         parentId = id;
@@ -68,14 +73,17 @@ exampleChanges.map((change) => {
     }
 
     for (let j = 0; j < numSubTreeAnnotations; j++) {
+        const user = faker.helpers.arrayElement(exampleUsers);
         const annotation: Annotation = {
             id: faker.number.int(),
-            user: faker.helpers.arrayElement(exampleUsers),
             annotation: faker.lorem.sentence(),
             parentId,
             changeId: change.id,
             timestamp: faker.date.recent().toDateString(),
             selectionId: null,
+            user_id: user.id,
+            user_name: user.name,
+            user_role: user.role,
         };
 
         annotationsForChange.push(annotation);

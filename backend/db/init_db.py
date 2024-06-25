@@ -29,18 +29,19 @@ async def create_tables(destroy_existing_tables=False):
 
  CREATE TABLE IF NOT EXISTS courses (
         id SERIAL PRIMARY KEY,
+        course_ids integer[] NOT NULL,
         name TEXT NOT NULL,
         course_code TEXT NOT NULL UNIQUE
     );
 
     CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
+        id TEXT PRIMARY KEY,
         email TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS teacher_courses (
-        user_id INT REFERENCES users(id),
+        user_id TEXT REFERENCES users(id),
         course_id INT REFERENCES courses(id),
         role user_role NOT NULL,
         PRIMARY KEY (user_id, course_id)
@@ -60,7 +61,7 @@ async def create_tables(destroy_existing_tables=False):
     CREATE TABLE IF NOT EXISTS annotations (
         id SERIAL PRIMARY KEY,
         change_id INT REFERENCES changes(id),
-        user_id INT REFERENCES users(id),
+        user_id TEXT REFERENCES users(id),
         text TEXT NOT NULL,
         timestamp TIMESTAMP NOT NULL
     );

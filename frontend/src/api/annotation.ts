@@ -1,5 +1,5 @@
+import type { UserRole } from './self';
 import { AxiosWrapper } from './wrapper';
-import type { Self } from './self';
 
 export type Annotation = {
     id: number;
@@ -9,6 +9,10 @@ export type Annotation = {
     timestamp: string;
     parentId: number | null;
     selectionId: string | null;
+
+    user_id: string;
+    user_name: string;
+    user_role: UserRole;
 };
 
 export const getAnnotationsByChange = async (changeId: number): Promise<Annotation[]> => {

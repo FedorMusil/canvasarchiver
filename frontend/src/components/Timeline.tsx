@@ -1,5 +1,3 @@
-import { Button } from './ui/Button';
-import { ChevronLeftCircle, ChevronRightCircle, Eraser, Pencil, Plus } from 'lucide-react';
 import {
     Drawer,
     DrawerClose,
@@ -14,7 +12,9 @@ import { useChangeContext } from '../stores/ChangeStore/useCompareIdStore';
 import { useCompareWindowStore } from '../stores/CompareWindowStore';
 import { useShallow } from 'zustand/react/shallow';
 import { ChangeType, type Change } from '../api/change';
-import { memo, useCallback, useState, type FC, type ReactElement } from 'react';
+import { useCompareIdContext } from '../stores/CompareIdStore/useCompareIdStore';
+import { useCompareWindowStore } from '../stores/CompareWindowStore';
+import { Button } from './ui/Button';
 
 type TimelineProps = {
     changes: Change[];

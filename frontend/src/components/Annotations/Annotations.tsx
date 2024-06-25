@@ -1,6 +1,7 @@
 import { deleteAnnotation, getAnnotationsByChange, type Annotation } from '@/src/api/annotation';
 import { setHighlight } from '@/src/api/change';
 import { getSelf } from '@/src/api/self';
+
 import {
     AlertDialog,
     AlertDialogAction,
@@ -200,8 +201,8 @@ const Annotations: FC = memo(() => {
                                         else {
                                             setReplyTo({
                                                 annotationId: annotation.id,
-                                                userId: annotation.user.id,
-                                                name: annotation.user.name,
+                                                userId: annotation.user_id,
+                                                name: annotation.user_name,
                                             });
                                         }
                                     }}
