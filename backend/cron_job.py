@@ -162,7 +162,7 @@ async def page_diffs(pool, api, course, changes, course_id):
                 older_diff = most_recent_version['older_diff'] if most_recent_version['older_diff'] else 0
                 await fapi.remove_change_by_id(pool, most_recent_version['id'])
                 request = prog.ChangeCreate(
-                    item_id=data['id'],
+                    item_id=data['page_id'],
                     course_id=course_id,
                     change_type='Modification',
                     timestamp=time.time(),
@@ -171,9 +171,9 @@ async def page_diffs(pool, api, course, changes, course_id):
                     diff=json.dumps(diff)
                 )
                 await add_change(pool, course_id, request)
-                new_diff_id = await get_most_recent_change(changes, 'Pages', data['id'])['id']
+                new_diff_id = await get_most_recent_change(changes, 'Pages', data['page_id'])['id']
                 request = prog.ChangeCreate(
-                    item_id=data['id'],
+                    item_id=data['page_id'],
                     course_id=course_id,
                     change_type='Modification',
                     timestamp=time.time(),
