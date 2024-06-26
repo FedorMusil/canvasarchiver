@@ -541,14 +541,16 @@ async def get_item_history(pool, item_id, item_type):
     changes = await get_changes_by_item(pool, item_id, item_type)
     history = []
     most_recent = get_most_recent(changes)
-    most_recent['diff'] = json.loads(most_recent['diff'])
+    most_recent['content'] = json.loads(most_recent['diff'])
+    most_recent['diff'] = None
     history.append(most_recent)
 
     prev_version = most_recent['older_diff'] if most_recent else None
     while prev_version:
         change = await get_change_by_id(pool, prev_version)
-        change['diff'] = json.loads(change['diff'])
-        change['diff'] = await get_patched(history[-1]['diff'], change['diff'])
+        most_recent['diff'] = json.loads(change['diff'])
+        change['content'] = await get_patched(most_recent['content'], most_recent['diff'])
+        change['diff'] = None
         history.append(change)
         prev_version = change['older_diff']
 
