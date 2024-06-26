@@ -624,9 +624,6 @@ async def get_history(pool, course_id, item_type):
             step.append(matching_entry[0])
         history.append(step)
 
-    for step in history:
-        print(step)
-
     return json.dumps(history)
 
 
