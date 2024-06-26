@@ -55,6 +55,8 @@ class TestDiffDetection(asynctest.TestCase):
         item = Item()
         cdata = item.get_data()
 
+        timestamp = datetime.now()
+
         course_id = 1
         course = prog.CourseCreate(
             name=cdata['name'],
@@ -69,7 +71,7 @@ class TestDiffDetection(asynctest.TestCase):
             item_id=course_id,
             course_id=course_id,
             change_type='Addition',
-            timestamp=datetime.now(),
+            timestamp=timestamp,
             item_type='Courses',
             older_diff=0,
             diff=json.dumps(cdata)
@@ -93,7 +95,7 @@ class TestDiffDetection(asynctest.TestCase):
 
         original_version = json.loads(changes[0]['diff'])
 
-        await cron_job.process_item_diff(self.pool, item, 'Courses', course_id, changes)
+        await cron_job.process_item_diff(self.pool, item, 'Courses', course_id, changes, timestamp)
 
         changes = await fapi.get_changes_by_courseid(self.pool, course_id)
         self.assertEqual(len(changes), 2)

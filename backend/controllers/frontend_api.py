@@ -462,6 +462,22 @@ async def get_change_by_id(pool, change_id):
         return change
 
 
+async def get_changes_by_course_id_and_item_type(pool, course_id, item_type):
+    """
+    Retrieve changes from the database based on the item type.
+
+    Args:
+        pool: The connection pool to the database.
+        item_type: The type of the item.
+
+    Returns:
+        A list of changes matching the given item type.
+    """
+    async with pool.acquire() as conn:
+        changes = await conn.fetch('SELECT * FROM changes WHERE item_type = $1', item_type)
+        return changes
+
+
 async def get_changes_by_item(pool, item_id, item_type):
     """
     Retrieve changes from the database based on the item ID and item type.
@@ -526,7 +542,7 @@ async def get_most_recent(changes):
     return most_recent
 
 
-async def get_item_history(pool, item_id, item_type):
+async def get_history(pool, course_id, item_type):
     """
     Retrieve the history of an item from the database.
 
@@ -538,21 +554,78 @@ async def get_item_history(pool, item_id, item_type):
     Returns:
         A list of changes associated with the item.
     """
-    changes = await get_changes_by_item(pool, item_id, item_type)
-    history = []
-    most_recent = get_most_recent(changes)
-    most_recent['content'] = json.loads(most_recent['diff'])
-    most_recent['diff'] = None
-    history.append(most_recent)
+    changes = await get_changes_by_course_id_and_item_type(pool, course_id, item_type)
 
-    prev_version = most_recent['older_diff'] if most_recent else None
-    while prev_version:
-        change = await get_change_by_id(pool, prev_version)
-        most_recent['diff'] = json.loads(change['diff'])
-        change['content'] = await get_patched(most_recent['content'], most_recent['diff'])
-        change['diff'] = None
-        history.append(change)
-        prev_version = change['older_diff']
+    item_ids = set([change['item_id'] for change in changes])
+    timestamps = set([change['timestamp'] for change in changes])
+    timestamps = sorted(list(timestamps), reverse=True)
+
+    # collect all relevant information for each item
+    histories = dict()
+    for item_id in item_ids:
+        item_changes = [
+            change for change in changes if change['item_id'] == item_id]
+
+        history = []
+        first_version = await get_most_recent(item_changes)
+        first_version = dict(first_version)
+        for timestamp in timestamps:
+            change_record = [
+                change for change in item_changes if change['timestamp'] == timestamp]
+            if change_record:
+                change = dict(change_record[0])
+                if change == first_version:
+                    change['content'] = json.loads(change['diff'])
+                    change.pop('diff')
+                    history.append(change)
+                else:
+                    change['diff'] = json.loads(change['diff'])
+                    change['content'] = await get_patched(history[-1]['content'], change['diff'])
+                    change.pop('diff')
+                    history.append(change)
+            elif history:
+                copied = history[-1].copy()
+
+                # only add intermediate version if there is an older version
+                if copied['older_diff']:
+                    copied['timestamp'] = timestamp
+                    history.append(copied)
+
+        histories[item_id] = history[::-1]
+
+    timestamps = timestamps[::-1]
+
+    # make sure there is a version for each timestamp since creation
+    for item_id in item_ids:
+        for timestamp in timestamps:
+            version = histories[item_id]
+            matching_entry = [
+                entry for entry in version if entry['timestamp'] == timestamp]
+            if not matching_entry and histories[item_id][-1]['timestamp'] < timestamp:
+                copied = histories[item_id][-1].copy()
+                timestamp_index = len(histories[item_id])
+                copied['timestamp'] = timestamps[timestamp_index]
+                histories[item_id].append(copied)
+
+    # convert to desired format
+    history = []
+    for timestamp in timestamps:
+        step = []
+        for item_id in item_ids:
+            version = histories[item_id]
+            matching_entry = [
+                entry for entry in version if entry['timestamp'] == timestamp]
+
+            # convert datetime to string
+            for key, value in matching_entry[0].items():
+                if isinstance(value, datetime):
+                    matching_entry[0][key] = value.isoformat()
+
+            step.append(matching_entry[0])
+        history.append(step)
+
+    for step in history:
+        print(step)
 
     return json.dumps(history)
 
