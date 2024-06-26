@@ -246,34 +246,50 @@ async def calc_diffs(pool, api, course, changes, course_id):
         await process_item_diff(pool, item, 'Sections', course_id, changes)
 
 
+async def cron_job(api, pool, course):
+    course_id, is_new = await handle_course(pool, course)
+    print(f"Course: {course_id}")
+    print(f"New: {is_new}")
+    if is_new:
+        await save_new_course(pool, course, course_id)
+
+        # handle pages separately because they for some reason have
+        # page_id instead of id
+        await save_course_pages(pool, api, course, course_id)
+        await save_new_items(pool, course, course_id, 'Assignments', api.get_assignments)
+        await save_new_items(pool, course, course_id, 'Quizzes', api.get_quizes)
+        await save_new_items(pool, course, course_id, 'Modules', api.get_modules)
+        await save_new_items(pool, course, course_id, 'Sections', api.get_sections)
+        print("New course added")
+    else:
+        changes = await fapi.get_changes_by_courseid(pool, course_id)
+
+        # handle pages separately because they for some reason have
+        # page_id instead of id
+        await page_diffs(pool, api, course, changes, course_id)
+        await calc_diffs(pool, api, course, changes, course_id)
+        print("Course updated")
+
+
+async def cron_job_by_course_id(course_id):
+    async with connection.ManualCanvasConnection.make_from_environment() as conn:
+        api = canvasapi.Canvas(conn)
+        pool = await create_pool()
+
+        course = await canvasapi.Course(api).set_id(course_id).resolve()
+        await cron_job(api, pool, course)
+
+        await pool.close()
+
+
 async def main():
     async with connection.ManualCanvasConnection.make_from_environment() as conn:
         api = canvasapi.Canvas(conn)
 
         pool = await create_pool()
         async for course in api.get_courses():
-            course_id, is_new = await handle_course(pool, course)
-            print(f"Course: {course_id}")
-            print(f"New: {is_new}")
-            if is_new:
-                await save_new_course(pool, course, course_id)
+            await cron_job(api, pool, course)
 
-                # handle pages separately because they for some reason have
-                # page_id instead of id
-                await save_course_pages(pool, api, course, course_id)
-                await save_new_items(pool, course, course_id, 'Assignments', api.get_assignments)
-                await save_new_items(pool, course, course_id, 'Quizzes', api.get_quizes)
-                await save_new_items(pool, course, course_id, 'Modules', api.get_modules)
-                await save_new_items(pool, course, course_id, 'Sections', api.get_sections)
-                print("New course added")
-            else:
-                changes = await fapi.get_changes_by_courseid(pool, course_id)
-
-                # handle pages separately because they for some reason have
-                # page_id instead of id
-                await page_diffs(pool, api, course, changes, course_id)
-                await calc_diffs(pool, api, course, changes, course_id)
-                print("Course updated")
         await pool.close()
 
 
