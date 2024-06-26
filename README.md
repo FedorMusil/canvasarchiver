@@ -1,4 +1,4 @@
-# Project Computational Science: Canvas Archiver
+# Project Software Engineering: Canvas Archiver
 
 Our project is an innovative extension of the Canvas course management system, designed to enhance online learning and teaching. Primarily intended for course teachers, this tool leverages the Canvas API to construct a detailed timeline of different versions of the courses linked to the application.
 
