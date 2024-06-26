@@ -47,3 +47,6 @@ frontend/*.sw?
 
 # build insights
 /frontend/stats.html
+
+# venv
+/venv/
