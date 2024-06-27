@@ -28,6 +28,31 @@ To get started with the project, you will first need to login to the Canvas envi
 To successfully use the Canvas Archiver, everything from `requirements.txt` and `package.json` is necessary. A bundle of node modules is expected as well. By meeting these requirements, you'll be well-prepared to get started.
 ---
 
+Clone the repo:
+`git clone git@github.com:FedorMusil/canvasarchiver.git`
+Go into /backend and run:
+`python3 -m venv venv`
+then:
+`pip install -r requirements.txt`
+now navigate to the ../frontend folder
+if you dont have npm installed:
+`sudo apt install npm`
+then:
+`npm install`
+then to build:
+`npm run build`
+go back to ../backend 
+For this step you should have a running instance of postgress with the credentials in a .env file.
+
+to build the database run:
+`python3 db/init-db.py`
+
+It should say: "database created succesfully" 
+
+then at last go back to /backend and to launch run
+`python3 program.py`
+
+
 
 ## Authors and acknowledgment
 
