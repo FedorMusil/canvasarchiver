@@ -16,7 +16,10 @@ export type Section = {
 };
 
 const Section: FC<MaterialInputProps> = memo(({ change }): ReactElement => {
-    const sections = change.data_object as Section[];
+    const sections = change.content as Section[];
+
+    console.log('change', change);
+    console.log('sections', sections);
 
     return (
         <ul className='flex flex-wrap gap-4 justify-start'>

@@ -57,7 +57,7 @@ export type Module = {
 };
 
 const Module: FC<MaterialInputProps> = memo(({ change }): ReactElement => {
-    const modules = change.data_object as Module[];
+    const modules = change.content as Module[];
 
     return (
         <div className='max-h-screen overflow-y-auto'>

@@ -14,14 +14,13 @@ import {
 } from '@/src/components/ui/alert-dialog';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/src/components/ui/context-menu';
 import { useHighlight } from '@/src/hooks/useHighlighter';
-import { useAnnotationStore } from '@/src/stores/AnnotationStore';
-import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import TooltipWrapper from '@/src/components/TooltipWrapper';
+import { useAnnotationStore, useChangeContext } from '@/src/stores';
 
 const Annotations: FC = memo(() => {
     const { selectedChangeId, curChangeId, materialId, highlighter } = useChangeContext(

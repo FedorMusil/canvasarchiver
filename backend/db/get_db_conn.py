@@ -14,7 +14,6 @@ db_params = {
     'port': getenv('DB_PORT'),
     'database': 'postgres'  # connect to default database to execute CREATE DATABASE command
 }
-print(db_params)
 
 
 async def get_db_conn():

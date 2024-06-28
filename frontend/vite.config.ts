@@ -4,9 +4,11 @@ import { defineConfig } from 'vitest/config';
 import { visualizer } from 'rollup-plugin-visualizer';
 
 export default defineConfig({
-    plugins: [react(), visualizer({ template: 'sunburst' })],
+    plugins: [react(), visualizer({ template: 'treemap' })],
     build: {
         outDir: 'dist',
+        minify: false,
+        cssMinify: false,
     },
     resolve: {
         alias: {

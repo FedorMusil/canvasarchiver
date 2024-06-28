@@ -31,22 +31,22 @@ from enum import Enum
 load_dotenv()
 app = FastAPI()
 
-if False:
-    origins = ["https://uvadlo-dev.test.instructure.com"]
-else:
-    origins = [
-        "https://localhost:3000",
-        "https://localhost:5000",
-        "https://uvadlo-dev.test.instructure.com",
-    ]
+# if False:
+#     origins = ["https://uvadlo-dev.test.instructure.com"]
+# else:
+#     origins = [
+#         "https://localhost:3000",
+#         "https://localhost:5000",
+#         "https://uvadlo-dev.test.instructure.com",
+#     ]
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["Get", "POST", "PUT", "DELETE"],
-    allow_headers=["*"],
-)
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=origins,
+#     allow_credentials=True,
+#     allow_methods=["Get", "POST", "PUT", "DELETE"],
+#     allow_headers=["*"],
+# )
 
 
 CLIENT_ID = os.getenv('CLIENT_ID')
@@ -79,12 +79,12 @@ async def shutdown_event():
 app.add_event_handler("shutdown", shutdown_event)
 
 ItemTypeNumberToString = {
-    1: "Assignments",
+    4: "Assignments",
     2: "Pages",
     3: "Files",
-    4: "Quizzes",
-    5: "Modules",
-    6: "Sections"
+    5: "Quizzes",
+    1: "Modules",
+    0: "Sections"
 }
 
 ChangeTypeNumberToString = {
@@ -129,11 +129,11 @@ class ChangeCreate(BaseModel):
 
 class Change(BaseModel):
     id: int
-    old_id: int
+    older_diff: int
     change_type: str
     item_type: str
     timestamp: datetime
-    data_object: object
+    content: object
 
 
 class UserCreate(BaseModel):
@@ -169,22 +169,51 @@ def get_current_user(request: Request):
 # https://github.com/FedorMusil/canvasarchiver/wiki/API
 
 
+def fix_json_formatting(json_data):
+    id = 0
+    old_diff = None
+    
+    formatted_data = []
+    for nested_list in json_data:
+        if not nested_list:
+            continue
+
+        first_obj = nested_list[0]
+        first_obj['id'] = id
+        first_obj['content'] = [first_obj['content']]
+        if old_diff is not None:
+            first_obj['older_diff'] = old_diff
+
+        for obj in nested_list[1:]:
+            first_obj['content'].append(obj['content'])
+
+        formatted_data.append(first_obj)
+        
+        id += 1
+        old_diff = first_obj['id']
+
+    formatted_json = json.dumps(formatted_data, indent=4)
+    return formatted_json
+
+
+
 # Get Routes
-@app.get("change/{material_id}", dependencies=[Depends(get_current_user)])
+@app.get("/change/{material_id}", dependencies=[Depends(get_current_user)])
 async def return_change_materialid(
         material_id: int,
         user: dict = Depends(get_current_user)):
     '''Get a change of a course by the type of material.'''
-    return await get_change_by_materialid(pool, user['course_id'], ItemTypeNumberToString[material_id])
+
+    changes = await get_history(pool, user['course_id'], ItemTypeNumberToString[material_id])
+    json_formatterd = fix_json_formatting(json.loads(changes))
+
+    return json.loads(json_formatterd)
 
 
-@app.get("/change/recent", dependencies=[Depends(get_current_user)])
+@app.get("/changes/recent", dependencies=[Depends(get_current_user)])
 async def return_changes_recent(user: dict = Depends(get_current_user)):
     '''Get the recent changes of a course (last 10 changes))'''
-
-    test = await get_changes_recent(pool, user['course_id'])
-    print(test)
-    return test
+    return await get_changes_recent(pool, user['course_id'])
 
 
 # @app.get("/change/{item_type}", dependencies=[Depends(get_current_user)])
@@ -327,7 +356,7 @@ async def post_user_route(course_id: int, user: UserCreate):
 @app.post("/revert", dependencies=[Depends(get_current_user)])
 async def post_revert_changes(change: Change,
                               user: dict = Depends(get_current_user)):
-    change_data = json.loads(change.data_object)
+    change_data = json.loads(change.content)
 
     object_map = {
         "Sections": Section,

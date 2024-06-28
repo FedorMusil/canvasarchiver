@@ -12,7 +12,7 @@ export type Quiz = {
 };
 
 const Quiz: FC<MaterialInputProps> = memo(({ change }): ReactElement => {
-    const quizzes = change.data_object as Quiz[];
+    const quizzes = change.content as Quiz[];
 
     return (
         <div className='px-5 divide-y-2 divide-muted-foreground'>

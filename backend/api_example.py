@@ -70,11 +70,14 @@ async def main():
                 p.print(f"{cdata['id']}, {cdata['display_name']}")
 
         async def rec_print_dir(directory: canvasapi.Directory):
-            with p.indent():
-                for name, subdir in directory.items():
-                    p.print(f"{name}")
-                    await rec_print_dir(subdir)
-                await list_files(directory.get_folder())
+            try:
+                with p.indent():
+                    for name, subdir in directory.items():
+                        p.print(f"{name}")
+                        await rec_print_dir(subdir)
+                    await list_files(directory.get_folder())
+            except:
+                pass
 
         async def list_folders(course):
             directory = await api.get_directory(course=course)
@@ -109,12 +112,18 @@ async def main():
                     except canvasapi.ResponseError:
                         p.print("No front page")
                         front_page = canvasapi.Page(api).set_id(-1)
-                    async for c in api.get_pages(course):
-                        is_front = front_page.get_id() == c.get_id()
-                        p.print(
-                            f"{'[FRONT PAGE] ' if is_front else ''}"
-                            f"{c.get_id()}, {c.get_data()['title']}"
-                        )
+                    try:
+                        async for c in api.get_pages(course):
+                            try:
+                                is_front = front_page.get_id() == c.get_id()
+                                p.print(
+                                    f"{'[FRONT PAGE] ' if is_front else ''}"
+                                    f"{c.get_id()}, {c.get_data()['title']}"
+                                )
+                            except:
+                                pass
+                    except:
+                        pass
 
         async def list_sections(course):
             with p.indent():
@@ -127,10 +136,14 @@ async def main():
         async def list_rubrics(course):
             with p.indent():
                 p.print("Rubrics:")
-                with p.indent():
-                    async for c in api.get_rubrics(course):
-                        cdata = c.get_data()
-                        p.print(f"{cdata['id']}, {cdata['title']}")
+                try:
+                    with p.indent():
+                        async for c in api.get_rubrics(course):
+                            cdata = c.get_data()
+                            p.print(f"{cdata['id']}, {cdata['title']}")
+                except:
+                    p.print("No rubrics")
+                    
 
         async def list_quiz_questions(course, quiz):
             with p.indent():
@@ -143,24 +156,30 @@ async def main():
         async def list_quizzes(course):
             with p.indent():
                 p.print("Quizzes:")
-                with p.indent():
-                    async for c in api.get_quizes(course):
-                        cdata = c.get_data()
-                        p.print(f"{cdata['id']}, {cdata['title']}")
-                        await list_quiz_questions(course, c)
+                try:
+                    with p.indent():
+                        async for c in api.get_quizes(course):
+                            cdata = c.get_data()
+                            p.print(f"{cdata['id']}, {cdata['title']}")
+                            await list_quiz_questions(course, c)
+                except:
+                    p.print("No quizzes")
 
         async def list_courses():
             async for c in api.get_courses():
                 cdata = c.get_data()
-                p.print(f"{cdata['id']} {cdata['name']}")
-                await c.resolve()
-                await list_assignments(c)
-                await list_folders(c)
-                await list_modules(c)
-                await list_pages(c)
-                await list_sections(c)
-                await list_rubrics(c)
-                await list_quizzes(c)
+                try:
+                    p.print(f"{cdata['id']} {cdata['name']}")
+                    await c.resolve()
+                    await list_assignments(c)
+                    await list_folders(c)
+                    await list_modules(c)
+                    await list_pages(c)
+                    await list_sections(c)
+                    await list_rubrics(c)
+                    await list_quizzes(c)
+                except:
+                    pass
 
         async def make_assignment(name):
             course = await anext(api.get_courses())

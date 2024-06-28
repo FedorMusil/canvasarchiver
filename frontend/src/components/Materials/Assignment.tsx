@@ -17,7 +17,7 @@ export type Assignment = {
 };
 
 const Assignment: FC<MaterialInputProps> = memo(({ change }): ReactElement => {
-    const assignments = change.data_object as Assignment[];
+    const assignments = change.content as Assignment[];
 
     return (
         <div className='flex flex-col gap-4'>

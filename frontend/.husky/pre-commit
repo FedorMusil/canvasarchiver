@@ -1,2 +1,0 @@
-#!/bin/sh
-cd ./backend && find -type f -name '*.py' -exec autopep8 --in-place --aggressive --aggressive '{}' \; && cd ../frontend && prettier --write .

@@ -1,8 +1,8 @@
+import { exampleChanges } from './change-mock';
+import { exampleUsers } from './self-mock';
 import { faker } from '@faker-js/faker/locale/en_US';
 import { http, HttpHandler, HttpResponse } from 'msw';
 import { Annotation, type PostAnnotation } from '../api/annotation';
-import { exampleChanges } from './change-mock';
-import { exampleUsers } from './self-mock';
 
 export const annotationHandlers: HttpHandler[] = [
     http.get(`${import.meta.env.VITE_BACKEND_URL}/course/annotations/:changeId`, ({ params }) => {

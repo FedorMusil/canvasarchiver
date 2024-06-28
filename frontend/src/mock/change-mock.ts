@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker/locale/en_US';
 import { addWeeks, setDay, startOfWeek } from 'date-fns';
 import { http, HttpHandler, HttpResponse } from 'msw';
-import { Change, ChangeType, ItemTypes } from '../api/change';
+import { Change, ChangeType, ItemTypes } from '@/src/api/change';
 import type { Assignment } from '../components/Materials/Assignment';
 import type { Module, ModuleItem } from '../components/Materials/Module';
 import type { Page } from '../components/Materials/Page';
@@ -9,7 +9,7 @@ import type { Quiz } from '../components/Materials/Quiz';
 import type { Section } from '../components/Materials/Section';
 
 export const changeHandlers: HttpHandler[] = [
-    http.get(`${import.meta.env.VITE_BACKEND_URL}/change/recent`, () => {
+    http.get(`${import.meta.env.VITE_BACKEND_URL}/changes/recent`, () => {
         // Get the last change based on the last change date
         const lastChange = exampleChanges.reduce((prev, current) =>
             new Date(prev.timestamp) > new Date(current.timestamp) ? prev : current
@@ -155,10 +155,12 @@ const generateModuleObject = (): Module => {
 const generatePageObject = (): Page => {
     return {
         title: faker.lorem.words(),
-        creationDate: faker.date.future().toString(),
-        lastEditDate: faker.date.future().toString(),
-        lastEditedBy: faker.person.fullName(),
-        isFrontPage: faker.datatype.boolean(),
+        created_at: faker.date.future().toString(),
+        updated_at: faker.date.future().toString(),
+        last_edited_by: {
+            display_name: faker.person.fullName(),
+        },
+        front_page: faker.datatype.boolean(),
     };
 };
 
@@ -187,17 +189,20 @@ const generateChange = (old_value: number): Change => {
     const item_type = faker.helpers.arrayElement(Object.values(ItemTypes));
     return {
         id: faker.number.int(),
-        old_id: old_value,
+        item_id: faker.number.int(),
+        course_id: faker.number.int(),
         change_type: faker.helpers.arrayElement(Object.values(ChangeType)),
-        item_type,
         timestamp: randomDate.toString(),
-        data_object: generateObject(item_type),
+        item_type,
+        older_diff: old_value,
+        highlights: null,
+        content: generateObject(item_type),
     };
 };
 
-let old_id = faker.number.int();
+let older_diff = faker.number.int();
 export const exampleChanges: Change[] = Array.from({ length: 50 }, () => {
-    const change = generateChange(old_id);
-    old_id = change.id;
+    const change = generateChange(older_diff);
+    older_diff = change.id;
     return change;
 });

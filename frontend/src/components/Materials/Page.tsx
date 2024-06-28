@@ -8,15 +8,18 @@ import { format } from 'date-fns';
 
 export type Page = {
     title: string;
-    creationDate: string;
-    lastEditDate: string;
-    lastEditedBy: string;
-    isFrontPage?: boolean;
+    created_at: string;
+    updated_at: string;
+    last_edited_by: {
+        display_name: string;
+    };
+    front_page: boolean;
 };
 
 const Page: FC<MaterialInputProps> = memo(({ change }): ReactElement => {
-    const pages = change.data_object as Page[];
-    return <DataTable columns={columns} data={pages} />;
+    const pages = change.content as Page[];
+
+    return <DataTable columns={columns} data={pages} messageOnEmpty='No pages found' />;
 });
 Page.displayName = 'Page';
 export default Page;
@@ -38,7 +41,7 @@ const columns: ColumnDef<Page>[] = [
         },
     },
     {
-        accessorKey: 'creationDate',
+        accessorKey: 'created_at',
         header: ({ column }) => {
             return (
                 <Button
@@ -52,11 +55,11 @@ const columns: ColumnDef<Page>[] = [
             );
         },
         cell: ({ row }) => {
-            return <div>{format(new Date(row.getValue('creationDate')), 'dd/MM/yyyy')}</div>;
+            return <div>{format(new Date(row.getValue('created_at')), 'dd/MM/yyyy')}</div>;
         },
     },
     {
-        accessorKey: 'lastEditDate',
+        accessorKey: 'updated_at',
         header: ({ column }) => {
             return (
                 <Button
@@ -70,15 +73,15 @@ const columns: ColumnDef<Page>[] = [
             );
         },
         cell: ({ row }) => {
-            return <div>{format(new Date(row.getValue('lastEditDate')), 'dd/MM/yyyy')}</div>;
+            return <div>{format(new Date(row.getValue('updated_at')), 'dd/MM/yyyy')}</div>;
         },
     },
     {
         header: 'Edited By',
-        accessorKey: 'lastEditedBy',
+        accessorKey: 'last_edited_by.display_name',
     },
     {
         header: 'Front Page',
-        accessorKey: 'isFrontPage',
+        accessorKey: 'front_page',
     },
 ];

@@ -173,7 +173,7 @@ async def get_change_by_materialid(pool, course_id, material_id):
         for change in changes:
             change_dict = {
                 "id": change['id'],
-                "old_id": change['older_diff'],
+                "older_diff": change['older_diff'],
                 "change_type": change['change_type'],
                 "item_type": change['item_type'],
                 "timestamp": change['timestamp'],
@@ -204,7 +204,7 @@ async def get_changes_recent(pool, course_id):
         for change in changes:
             change_dict = {
                 "id": change['id'],
-                "old_id": change['older_diff'],
+                "older_diff": change['older_diff'],
                 "change_type": change['change_type'],
                 "item_type": change['item_type'],
                 "timestamp": change['timestamp'],
@@ -246,7 +246,7 @@ async def get_annotation_by_id(pool, course_id, annotation_id):
     async with pool.acquire() as conn:
         change = await conn.fetchrow('SELECT * FROM changes WHERE course_id = $1', course_id)
 
-        annotation = await conn.fetchrow('SELECT * FROM annotations WHERE change_id = $1 AND id = $2', change[0], annotation_id)
+        annotation = await conn.fetchrow('SELECT * FROM annotations WHERE change_id = $1 AND id = $2', change[0], int(annotation_id))
 
         return annotation
 
@@ -404,12 +404,15 @@ async def get_annotations_by_changeid(pool, course_id, change_id):
         A list of annotations associated with the specified change ID.
     """
     async with pool.acquire() as conn:
+        internal_course_id = await convert_course_id_to_id(pool, int(course_id))
+        
         annotations = await conn.fetch('''
         SELECT a.*
         FROM annotations a
         JOIN changes c ON a.change_id = c.id
+        JOIN users u ON a.user_id = u.id
         WHERE c.course_id = $1 AND c.id = $2
-        ''', course_id, change_id)
+        ''', internal_course_id, change_id)
 
         return annotations
 
@@ -474,7 +477,8 @@ async def get_changes_by_course_id_and_item_type(pool, course_id, item_type):
         A list of changes matching the given item type.
     """
     async with pool.acquire() as conn:
-        changes = await conn.fetch('SELECT * FROM changes WHERE item_type = $1', item_type)
+        internal_course_id = await convert_course_id_to_id(pool, int(course_id))
+        changes = await conn.fetch('SELECT * FROM changes WHERE item_type = $1 AND course_id = $2', item_type, internal_course_id)
         return changes
 
 
@@ -501,9 +505,12 @@ async def get_changes_by_item(pool, item_id, item_type):
 
 
 async def get_patched(json_data, patch):
+    print('currently in get_patched')
     json_diff_path = './json/json'
     str1 = json.dumps(json_data)
     str2 = json.dumps(patch)
+    print('str1', str1) # works
+    print('str2', str2) # works
     with tempfile.TemporaryFile() as f:
         f.write(b'patch')
         f.write(b'\n')
@@ -514,6 +521,8 @@ async def get_patched(json_data, patch):
 
         file_content = f.read()
 
+    print('after with logic') # works
+
     process = await asyncio.create_subprocess_exec(
         json_diff_path,
         stdin=asyncio.subprocess.PIPE,
@@ -521,8 +530,14 @@ async def get_patched(json_data, patch):
         stderr=asyncio.subprocess.PIPE
     )
 
+    print('process', process) # works
+
     output = (await process.communicate(input=file_content))[0].decode()
-    return json.loads(output.rstrip('\n'))
+    print('output in get_patched', output) # `output` is null/undefined
+    if output:
+        return json.loads(output.rstrip('\n'))
+    else:
+        return None # Vraag aan Bas hoe en wat
 
 
 async def get_most_recent(changes):
@@ -616,12 +631,17 @@ async def get_history(pool, course_id, item_type):
             matching_entry = [
                 entry for entry in version if entry['timestamp'] == timestamp]
 
-            # convert datetime to string
-            for key, value in matching_entry[0].items():
-                if isinstance(value, datetime):
-                    matching_entry[0][key] = value.isoformat()
+            if matching_entry:  # Check if matching_entry is not empty
+                # convert datetime to string
+                for key, value in matching_entry[0].items():
+                    if isinstance(value, datetime):
+                        matching_entry[0][key] = value.isoformat()
 
-            step.append(matching_entry[0])
+                step.append(matching_entry[0])
+            else:
+                # Handle the case where there is no matching entry
+                # You might want to append a default value or continue to the next iteration
+                continue  # or handle appropriately
         history.append(step)
 
     return json.dumps(history)

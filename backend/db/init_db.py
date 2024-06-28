@@ -61,11 +61,11 @@ async def create_tables(destroy_existing_tables=False):
 
     CREATE TABLE IF NOT EXISTS annotations (
         id SERIAL PRIMARY KEY,
-        change_id INT REFERENCES changes(id),
         user_id TEXT REFERENCES users(id),
-        text TEXT NOT NULL,
+        change_id INT REFERENCES changes(id),
+        annotation TEXT NOT NULL,
         timestamp TIMESTAMP NOT NULL,
-        parentID INT REFERENCES annotations(id) NULL,
+        parentId INT REFERENCES annotations(id) NULL,
         selectionId TEXT
     );
     ''')

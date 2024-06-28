@@ -1,12 +1,11 @@
-import { useAnnotationStore } from '@/src/stores/AnnotationStore';
 import { v4 as uuidv4 } from 'uuid';
 import { useShallow } from 'zustand/react/shallow';
-import { useCompareWindowStore } from '../stores/CompareWindowStore';
 
 // --- Rangy imports ---
 // @ts-expect-error - The types for rangy do not seem correct.
 import rangy from 'rangy';
 import 'rangy/lib/rangy-classapplier.js';
+import { useAnnotationStore, useCompareWindowStore } from '../stores';
 
 export type Highlighter = {
     /** Highlights the current selection with the given class name. */
