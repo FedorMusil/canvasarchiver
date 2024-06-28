@@ -5,8 +5,8 @@ import { memo, useEffect, useState, type FC, type ReactElement } from 'react';
 import { Button } from '../ui/Button';
 
 type MaterialLayoutProps = {
-    change?: Change;
-    children?: ReactElement;
+    change: Change;
+    children: ReactElement;
     hideButton?: boolean;
     onClick: () => void;
     status: 'no_changes' | 'no_selection' | 'ok';
@@ -25,39 +25,37 @@ const MaterialLayout: FC<MaterialLayoutProps> = memo(
 
         return (
             <Card className='h-full flex flex-col overflow-auto'>
-                {change && (
-                    <CardHeader className='flex-row flex-shrink-0 justify-between gap-4'>
-                        <div className='flex flex-col gap-2'>
-                            <CardTitle>
-                                {version === 'prev' ?
-                                    `Previous Version ${status === 'ok' && `(ID: ${change.id})`}`
-                                :   'Current Version'}
-                            </CardTitle>
-                            <CardDescription className='max-w-[600px] text-justify'>
-                                {version === 'prev' ?
-                                    `This is an older version of the course material. It was last in use on ${format(new Date(change.timestamp), 'PPpp')}.`
-                                :   `This is the most recent version of the course material, currently being used in the Canvas course. It was created ${format(new Date(change.timestamp), 'PPpp')}.`
-                                }
-                            </CardDescription>
-                        </div>
-                        {!hideButton && (
-                            <Button
-                                className='m-0 w-40'
-                                onClick={() => {
-                                    setShowDifference((prev) => !prev);
-                                    onClick?.();
-                                }}
-                                variant='secondary'
-                            >
-                                {version === 'prev' ?
-                                    'Restore this version'
-                                :   `${showDifference ? 'Hide' : 'Show'} changes`}
-                            </Button>
-                        )}
-                    </CardHeader>
-                )}
-                <CardContent className={`flex-grow ${(!change || status !== 'ok') && 'grid place-content-center'}`}>
-                    {!change || status === 'no_changes' ?
+                <CardHeader className='flex-row flex-shrink-0 justify-between gap-4'>
+                    <div className='flex flex-col gap-2'>
+                        <CardTitle>
+                            {version === 'prev' ?
+                                `Previous Version ${status === 'ok' && `(ID: ${change!.id})`}`
+                            :   'Current Version'}
+                        </CardTitle>
+                        <CardDescription className='max-w-[600px] text-justify'>
+                            {version === 'prev' ?
+                                `This is an older version of the course material. It was last in use on ${format(new Date(change.timestamp), 'PPpp')}.`
+                            :   `This is the most recent version of the course material, currently being used in the Canvas course. It was created on ${format(new Date(change.timestamp), 'PPpp')}.`
+                            }
+                        </CardDescription>
+                    </div>
+                    {!hideButton && (
+                        <Button
+                            className='m-0 w-40'
+                            onClick={() => {
+                                setShowDifference((prev) => !prev);
+                                onClick?.();
+                            }}
+                            variant='secondary'
+                        >
+                            {version === 'prev' ?
+                                'Restore this version'
+                            :   `${showDifference ? 'Hide' : 'Show'} changes`}
+                        </Button>
+                    )}
+                </CardHeader>
+                <CardContent className={`flex-grow ${status !== 'ok' && 'grid place-content-center'}`}>
+                    {status === 'no_changes' ?
                         'No changes have been made to this course material.'
                     : status === 'no_selection' ?
                         'Please select a change from the timeline to view the course material.'

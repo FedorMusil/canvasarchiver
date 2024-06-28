@@ -45,34 +45,21 @@ const Material: FC = (): ReactElement => {
     const [highlighter] = useState(rangy.createHighlighter(document, 'TextRange'));
 
     useEffect(() => {
-        console.log('Changes data:', changesData)
         if (changesData) {
             const sortedChanges = changesData.sort(
                 (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
             );
 
             setChanges(sortedChanges);
-            console.log('Sorted changes:', sortedChanges)
 
             // If there is no more than once change, no changes have been made to the material.
             // In this case, the user cannot select a previous change.
-            console.log('Selected change before:', selectedChange)
-            if (changesData.length <= 1) {
-                console.log('Setting selected change to:', sortedChanges[sortedChanges.length - 1].id)
-                setSelectedChange(sortedChanges[sortedChanges.length - 1].id);
-            }
-            else if (selectedChange && selectedChange === sortedChanges[sortedChanges.length - 1].id) {
-                console.log('Setting selected change to:', -1)
+            if (changesData.length <= 1) setSelectedChange(sortedChanges[sortedChanges.length - 1].id);
+            else if (selectedChange && selectedChange === sortedChanges[sortedChanges.length - 1].id)
                 setSelectedChange(-1);
-            }
-            else if (!selectedChange) {
-                console.log('Setting selected change to:', sortedChanges[sortedChanges.length - 2].id)
-                setSelectedChange(sortedChanges[sortedChanges.length - 2].id);
-            }
-            setSelectedChange(7);
-            console.log('Selected change after:', selectedChange)
+            else if (!selectedChange) setSelectedChange(sortedChanges[sortedChanges.length - 2].id);
         }
-    }, [changesData, setSelectedChange]);
+    }, [changesData, selectedChange, highlighter]);
 
     if (isLoading || selectedChange === null) return <div>Loading...</div>;
     if (isError) return <div>Error</div>;

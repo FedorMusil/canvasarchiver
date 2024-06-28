@@ -28,11 +28,10 @@ export type Change = {
 };
 
 export const getChangesByMaterial = async (materialId: string): Promise<Change[]> => {
-    console.log('Requesting ...', `/change/${materialId}`);
     const response = await AxiosWrapper({
         method: 'GET',
         url: `/change/${materialId}`,
-});
+    });
 
     return response;
 };
@@ -57,5 +56,20 @@ export const setHighlight = async ({
         method: 'PUT',
         url: `/change/${changeId}/highlight`,
         data: { highlights },
+    });
+};
+
+export const revertChange = async (change: Change): Promise<void> => {
+    await AxiosWrapper({
+        method: 'POST',
+        url: `/revert`,
+        data: { change },
+    });
+};
+
+export const runCron = async (): Promise<void> => {
+    await AxiosWrapper({
+        method: 'POST',
+        url: '/cron',
     });
 };
