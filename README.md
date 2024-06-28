@@ -18,15 +18,12 @@ Instead of discarding previous versions, our solution allows versions of courses
 
 ## Installation and usage
 
----
 To get started with the project, you will first need to login to the Canvas environment as a Teacher. Once logged in, you can select the Canvas Archiver and install it as an add-on. After successfully installing, the user will need to build the frontend. If the frontend is not built, it will not have access to the necessary dependencies and results in a faulty application.
----
 
 ## Requirements
 
----
 To successfully use the Canvas Archiver, everything from `requirements.txt` and `package.json` is necessary. A bundle of node modules is expected as well. By meeting these requirements, you'll be well-prepared to get started.
----
+
 
 Clone the repo:
 `git clone git@github.com:FedorMusil/canvasarchiver.git`
