@@ -44,3 +44,9 @@ frontend/*.sw?
 
 # coverage
 /frontend/coverage
+
+# build insights
+/frontend/stats.html
+
+# venv
+/venv/

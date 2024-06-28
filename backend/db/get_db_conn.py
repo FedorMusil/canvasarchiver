@@ -1,8 +1,12 @@
 import asyncpg
 from dotenv import load_dotenv
-from os import getenv
+from os import getenv, path
 
-load_dotenv(dotenv_path='../../.env', encoding='utf-8')
+script_dir = path.dirname(path.abspath(__file__))
+dotenv_path = path.join(script_dir, '../.env')
+
+load_dotenv(dotenv_path=dotenv_path, encoding='utf-8')
+
 db_params = {
     'user': getenv('DB_USER'),
     'password': getenv('DB_PASSWORD'),

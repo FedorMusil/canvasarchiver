@@ -8,6 +8,11 @@ export default defineConfig({
     build: {
         outDir: 'dist',
     },
+    resolve: {
+        alias: {
+            '@': path.resolve(__dirname, './'),
+        },
+    },
     server: {
         https: {
             key: fs.readFileSync(path.resolve(__dirname, './localhost-key.pem')),

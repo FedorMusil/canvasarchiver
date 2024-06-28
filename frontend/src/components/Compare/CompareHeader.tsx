@@ -13,12 +13,11 @@ import {
     DropdownMenuTrigger,
 } from '@/src/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
-import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
-import { useCompareWindowStore } from '@/src/stores/CompareWindowStore';
 import { PanelBottomClose, PanelBottomOpen, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { type FC, type ReactElement, type SVGProps } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import TooltipWrapper from '../TooltipWrapper';
+import { useChangeContext, useCompareWindowStore } from '@/src/stores';
 
 const CompareHeader: FC = (): ReactElement => {
     const materialId = useChangeContext(useShallow((state) => state.materialId));
@@ -37,17 +36,12 @@ CompareHeader.displayName = 'CompareHeader';
 export default CompareHeader;
 
 const OpenWindowActionButtons: FC = (): ReactElement => {
-    const { openAnnotations, setOpenAnnotations, openTimeline, setOpenTimeline } = useCompareWindowStore(
+    const { openAnnotations, setOpenAnnotations, openTimeline, setOpenTimeline, setViewMode } = useCompareWindowStore(
         useShallow((state) => ({
             openAnnotations: state.openAnnotations,
             setOpenAnnotations: state.setOpenAnnotations,
             openTimeline: state.openTimeline,
             setOpenTimeline: state.setOpenTimeline,
-        }))
-    );
-
-    const { setViewMode } = useCompareWindowStore(
-        useShallow((state) => ({
             setViewMode: state.setViewMode,
         }))
     );

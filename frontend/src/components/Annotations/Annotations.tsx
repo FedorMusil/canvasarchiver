@@ -14,14 +14,13 @@ import {
 } from '@/src/components/ui/alert-dialog';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/src/components/ui/context-menu';
 import { useHighlight } from '@/src/hooks/useHighlighter';
-import { useAnnotationStore } from '@/src/stores/AnnotationStore';
-import { useChangeContext } from '@/src/stores/ChangeStore/useCompareIdStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { Ban, GitCommitVertical, Reply, Trash2 } from 'lucide-react';
 import { memo, useCallback, useEffect, useState, type FC } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import TooltipWrapper from '../TooltipWrapper';
+import TooltipWrapper from '@/src/components/TooltipWrapper';
+import { useAnnotationStore, useChangeContext } from '@/src/stores';
 
 const Annotations: FC = memo(() => {
     const { selectedChangeId, curChangeId, materialId, highlighter } = useChangeContext(
@@ -76,7 +75,7 @@ const Annotations: FC = memo(() => {
         },
     });
 
-    const deleteAnnotationHandler = useCallback((annotation: Annotation) => {
+    const deleteAnnotationHandler = (annotation: Annotation) => {
         // Check if the annotation is a reply. If it is, set the replyTo state to the parent annotation or null.
         if (annotation.parentId) {
             const parentAnnotation = annotationData.find((a) => a.id === annotation.parentId);
@@ -124,7 +123,7 @@ const Annotations: FC = memo(() => {
         }
 
         mutate(annotation.id);
-    }, []);
+    };
 
     if (isLoading || selfLoading) return <p>Loading...</p>;
     if (isError || selfError || !self) return <p>Error...</p>;

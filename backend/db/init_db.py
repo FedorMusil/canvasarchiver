@@ -24,23 +24,24 @@ async def create_tables(destroy_existing_tables=False):
 
     await conn.execute('''
         CREATE TYPE change_type AS ENUM ('Deletion', 'Addition', 'Modification');
-        CREATE TYPE item_types AS ENUM ('Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections');
+        CREATE TYPE item_types AS ENUM ('Courses', 'Assignments', 'Pages', 'Files', 'Quizzes', 'Modules', 'Sections');
         CREATE TYPE user_role AS ENUM ('TA', 'Teacher');
 
  CREATE TABLE IF NOT EXISTS courses (
         id SERIAL PRIMARY KEY,
+        course_ids integer[] NOT NULL,
         name TEXT NOT NULL,
         course_code TEXT NOT NULL UNIQUE
     );
 
     CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
+        id TEXT PRIMARY KEY,
         email TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS teacher_courses (
-        user_id INT REFERENCES users(id),
+        user_id TEXT REFERENCES users(id),
         course_id INT REFERENCES courses(id),
         role user_role NOT NULL,
         PRIMARY KEY (user_id, course_id)
@@ -54,15 +55,18 @@ async def create_tables(destroy_existing_tables=False):
         timestamp TIMESTAMP NOT NULL,
         item_type item_types NOT NULL,
         older_diff INT REFERENCES changes(id) NULL,
-        diff JSON
+        diff TEXT NOT NULL,
+        highlights TEXT
     );
 
     CREATE TABLE IF NOT EXISTS annotations (
         id SERIAL PRIMARY KEY,
+        user_id TEXT REFERENCES users(id),
         change_id INT REFERENCES changes(id),
-        user_id INT REFERENCES users(id),
-        text TEXT NOT NULL,
-        timestamp TIMESTAMP NOT NULL
+        annotation TEXT NOT NULL,
+        timestamp TIMESTAMP NOT NULL,
+        parentId INT REFERENCES annotations(id) NULL,
+        selectionId TEXT
     );
     ''')
 

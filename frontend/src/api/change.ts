@@ -17,22 +17,22 @@ export enum ItemTypes {
 
 export type Change = {
     id: number;
-    old_id: number;
-
+    item_id: number;
+    course_id: number;
     change_type: ChangeType;
-    item_type: ItemTypes;
-
     timestamp: string;
-    data_object: unknown;
-
-    highlights?: string;
+    item_type: ItemTypes;
+    older_diff: number | null;
+    highlights: string | null;
+    content: unknown;
 };
 
 export const getChangesByMaterial = async (materialId: string): Promise<Change[]> => {
+    console.log('Requesting ...', `/change/${materialId}`);
     const response = await AxiosWrapper({
         method: 'GET',
         url: `/change/${materialId}`,
-    });
+});
 
     return response;
 };
@@ -40,7 +40,7 @@ export const getChangesByMaterial = async (materialId: string): Promise<Change[]
 export const getRecentChanges = async (): Promise<Change[]> => {
     const response = await AxiosWrapper({
         method: 'GET',
-        url: '/change/recent',
+        url: '/changes/recent',
     });
 
     return response;

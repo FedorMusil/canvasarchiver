@@ -35,7 +35,7 @@ const RecentChanges: FC = (): ReactElement => {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <DataTable columns={columns} data={changes} />
+                <DataTable columns={columns} data={changes} messageOnEmpty='No recent changes found' />
             </CardContent>
         </Card>
     );

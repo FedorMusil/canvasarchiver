@@ -9,10 +9,13 @@ from jwt.algorithms import RSAAlgorithm
 from hashlib import sha1
 from db.get_db_conn import get_db_conn
 from controllers.frontend_api import *
+from canvas.canvas import *
+import canvas.connection as canvasconn
 from pydantic import BaseModel
 from typing import Optional
 from db.get_db_conn import create_pool
 import jwt
+from os import getenv
 import uvicorn
 import json
 import subprocess
@@ -22,32 +25,31 @@ import secrets
 import requests
 from typing import Dict, Any
 from dotenv import load_dotenv
+from enum import Enum
+
 
 load_dotenv()
 app = FastAPI()
 
-if os.getenv('ENV') == 'production':
-    origins = ["https://uvadlo-dev.test.instructure.com"]
-else:
-    origins = [
-        "https://localhost:3000",
-        "https://localhost:5000",
-        "https://uvadlo-dev.test.instructure.com",
-    ]
+# if False:
+#     origins = ["https://uvadlo-dev.test.instructure.com"]
+# else:
+#     origins = [
+#         "https://localhost:3000",
+#         "https://localhost:5000",
+#         "https://uvadlo-dev.test.instructure.com",
+#     ]
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["Get", "POST", "PUT", "DELETE"],
-    allow_headers=["*"],
-)
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=origins,
+#     allow_credentials=True,
+#     allow_methods=["Get", "POST", "PUT", "DELETE"],
+#     allow_headers=["*"],
+# )
 
 
 CLIENT_ID = os.getenv('CLIENT_ID')
-SECRET_KEY = os.getenv("JWT-secret")
-
-
 frontend_dist_folder = os.path.join(
     os.path.dirname(__file__), '..', 'frontend', 'dist')
 templates = Jinja2Templates(directory=frontend_dist_folder)
@@ -60,9 +62,8 @@ app.mount(
     name="static")
 
 
-global pool
-
-pool = None  # Declare the pool variable
+# Create a pool of connections to the database
+pool = None
 
 
 async def startup_event():
@@ -76,6 +77,30 @@ async def shutdown_event():
     await pool.close()  # Close the pool when the application shuts down
 
 app.add_event_handler("shutdown", shutdown_event)
+
+ItemTypeNumberToString = {
+    4: "Assignments",
+    2: "Pages",
+    3: "Files",
+    5: "Quizzes",
+    1: "Modules",
+    0: "Sections"
+}
+
+ChangeTypeNumberToString = {
+    1: "Deletion",
+    2: "Addition",
+    3: "Modification"
+}
+
+
+class Material(Enum):
+    Assignments = "Assignments"
+    Pages = "Pages"
+    Files = "Files"
+    Quizzes = "Quizzes"
+    Modules = "Modules"
+    Sections = "Sections"
 
 
 class User(BaseModel):
@@ -92,25 +117,38 @@ class CourseCreate(BaseModel):
     course_code: str
 
 
-class AnnotationCreate(BaseModel):
-    change_id: int
-    user_id: int
-    text: str
-
-
 class ChangeCreate(BaseModel):
-    course_id: int
     item_id: int
+    course_id: int
+    timestamp: datetime
     change_type: str
     item_type: str
     older_diff: int
-    diff: Dict[str, Any]
+    diff: str
+
+
+class Change(BaseModel):
+    id: int
+    older_diff: int
+    change_type: str
+    item_type: str
+    timestamp: datetime
+    content: object
 
 
 class UserCreate(BaseModel):
     email: str
     name: str
     role: str
+
+
+class CreateAnnotation(BaseModel):
+    change_id: int
+    text: str
+
+
+class Puthighlight(BaseModel):
+    highlight: str
 
 
 def get_current_user(request: Request):
@@ -120,16 +158,93 @@ def get_current_user(request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        # Replace 'your-secret-key' with your actual secret key
+        payload = jwt.decode(token, getenv("JWT_secret"), algorithms=["HS256"])
         return payload
     except (jwt.PyJWTError, AttributeError):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-@app.get("/userself", dependencies=[Depends(get_current_user)])
+# For a more clear explanation of the API see:
+# https://github.com/FedorMusil/canvasarchiver/wiki/API
+
+
+def fix_json_formatting(json_data):
+    id = 0
+    old_diff = None
+    
+    formatted_data = []
+    for nested_list in json_data:
+        if not nested_list:
+            continue
+
+        first_obj = nested_list[0]
+        first_obj['id'] = id
+        first_obj['content'] = [first_obj['content']]
+        if old_diff is not None:
+            first_obj['older_diff'] = old_diff
+
+        for obj in nested_list[1:]:
+            first_obj['content'].append(obj['content'])
+
+        formatted_data.append(first_obj)
+        
+        id += 1
+        old_diff = first_obj['id']
+
+    formatted_json = json.dumps(formatted_data, indent=4)
+    return formatted_json
+
+
+
+# Get Routes
+@app.get("/change/{material_id}", dependencies=[Depends(get_current_user)])
+async def return_change_materialid(
+        material_id: int,
+        user: dict = Depends(get_current_user)):
+    '''Get a change of a course by the type of material.'''
+
+    changes = await get_history(pool, user['course_id'], ItemTypeNumberToString[material_id])
+    json_formatterd = fix_json_formatting(json.loads(changes))
+
+    return json.loads(json_formatterd)
+
+
+@app.get("/changes/recent", dependencies=[Depends(get_current_user)])
+async def return_changes_recent(user: dict = Depends(get_current_user)):
+    '''Get the recent changes of a course (last 10 changes))'''
+    return await get_changes_recent(pool, user['course_id'])
+
+
+# @app.get("/change/{item_type}", dependencies=[Depends(get_current_user)])
+# async def return_change_by_id(item_type: int, user: dict = Depends(get_current_user)):
+#     '''Get a change by its change id'''
+# return await get_change_by_id(pool, user['course_id'],
+# ItemTypeNumberToString[item_type])
+
+
+@app.get("/self", dependencies=[Depends(get_current_user)])
 async def return_user_info(user: dict = Depends(get_current_user)):
     '''Get your own information.'''
-    return await get_user_by_id(pool, user['user_id'])
+    data = await get_user_by_id(pool, user['user_id'], user['course_id'])
+    print(data)
+
+    return data
+
+
+@app.get("/self/courses", dependencies=[Depends(get_current_user)])
+async def return_self_courses(user: dict = Depends(get_current_user)):
+    '''Get all courses of the user.'''
+    return await get_courses_by_user(pool, user['user_id'])
+
+
+@app.get("/annotations/{annotation_id}",
+         dependencies=[Depends(get_current_user)])
+async def return_annotation_by_id(
+        annotation_id: int,
+        user: dict = Depends(get_current_user)):
+    '''Get annotation by id'''
+    return await get_annotation_by_id(pool, user['course_id'], annotation_id)
 
 
 @app.get("/course/getinfo", dependencies=[Depends(get_current_user)])
@@ -158,7 +273,12 @@ async def get_changes(course_id: int, user: dict = Depends(get_current_user)):
     '''Get all changes for a course.'''
     return await get_changes_by_courseid(pool, user['course_id'])
 
-# Post Routes
+
+# # Post Routes
+# @app.post("/changes/sync", dependencies=[Depends(get_current_user)])
+# async def sync_changes(user: dict = Depends(get_current_user)):
+#     '''Sync changes from a course.'''
+#     return await ...
 
 
 @app.post("/course/create")
@@ -172,32 +292,53 @@ async def post_course_route(course: CourseCreate):
     raise HTTPException(status_code=400, detail=return_message)
 
 
-@app.post("/course/create/annotation/{change_id}",
-          dependencies=[Depends(get_current_user)])
+@app.post("/annotations", dependencies=[Depends(get_current_user)])
 async def post_annotation_route(
-        change_id: int,
-        annotation: AnnotationCreate,
+        annotationObject: CreateAnnotation,
         user: dict = Depends(get_current_user)):
     '''Create an annotation.'''
-    passed_test, error_message = await check_annotation_create(pool, user['course_id'], change_id, annotation)
+    passed_test, error_message = await check_annotation_create(pool, user['course_id'], annotationObject.change_id, annotationObject.text)
     if not passed_test:
         raise HTTPException(status_code=400, detail=error_message)
-    success, return_message = await post_annotation(pool, change_id, annotation)
+    success, return_message = await post_annotation(pool, annotationObject.change_id, annotationObject.text)
     if success:
         return {"annotation_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
 
 
-@app.post("/course/{course_id}/change")
-async def post_change_route(course_id: int, change: ChangeCreate):
+# Put routes
+@app.put("/changes", dependencies=[Depends(get_current_user)])
+async def put_change_route(
+        change: ChangeCreate,
+        user: dict = Depends(get_current_user)):
     '''Create a change.'''
-    passed_test, error_message = await check_change_create(pool, course_id, change)
+    passed_test, error_message = await check_change_create(pool, user["course_id"], change)
     if not passed_test:
         raise HTTPException(status_code=400, detail=error_message)
-    success, return_message = await post_change(pool, course_id, change)
+    success, return_message = await post_change(pool, user["course_id"], change)
     if success:
         return {"change_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
+
+
+@app.put("/change/{changeId}/highlight",
+         dependencies=[Depends(get_current_user)])
+async def put_highlight_route(
+        changeId: int,
+        request: Puthighlight,
+        user: dict = Depends(get_current_user)):
+    '''edit a highlight'''
+    return await put_highlight(pool, user['course_id'], changeId)
+
+
+# Delete routes
+@app.delete("annotations/{annotation_id}",
+            dependencies=[Depends(get_current_user)])
+async def delete_annotation(
+        annotation_id: int,
+        user: dict = Depends(get_current_user)):
+    '''Delete an annotation.'''
+    return await delete_annotation_by_id(pool, user['course_id'], annotation_id)
 
 
 @app.post("/course/{course_id}/user")
@@ -210,6 +351,60 @@ async def post_user_route(course_id: int, user: UserCreate):
     if success:
         return {"user_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
+
+
+@app.post("/revert", dependencies=[Depends(get_current_user)])
+async def post_revert_changes(change: Change,
+                              user: dict = Depends(get_current_user)):
+    change_data = json.loads(change.content)
+
+    object_map = {
+        "Sections": Section,
+        "Modules": Module,
+        "Pages": Page,
+        "Files": File,
+        "Assignments": Assignment,
+        "Quizzes": Quiz,
+        "Rubrics": Rubric
+    }
+
+    canvas_object_type = object_map.get(change.item_type)
+
+    if not canvas_object_type:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid item type provided.")
+
+    async with canvasconn.ManualCanvasConnection.make_from_environment() as conn:
+        api = Canvas(conn)
+
+        try:
+            canvas_object = canvas_object_type(api).json_init(
+                change_data).set_related(Course(api).set_id(user["course_id"]))
+            await canvas_object.resolve()
+        except ResponseError as e:
+            if e.get_response().status_code == 404:
+                try:
+                    canvas_object = await canvas_object.create(**change_data)
+                except ResponseError as create_error:
+                    raise HTTPException(
+                        status_code=create_error.get_response().status_code,
+                        detail=str(create_error))
+            else:
+                raise HTTPException(
+                    status_code=e.get_response().status_code,
+                    detail=str(e))
+
+        if canvas_object.has_id():
+            try:
+                await canvas_object.edit(**change_data)
+            except ResponseError as edit_error:
+                raise HTTPException(
+                    status_code=edit_error.get_response().status_code,
+                    detail=str(edit_error))
+
+        return {"status": "success", "data": canvas_object.get_data()}
+
 
 state_nonce_store = {}
 
@@ -230,7 +425,10 @@ def create_jwt_token(
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
+    encoded_jwt = jwt.encode(
+        to_encode,
+        'f3104b82021b97756ba5016a19f03d57722f75bd05e79bb596eacaba1e012558',
+        algorithm="HS256")
     return encoded_jwt
 
 
@@ -241,8 +439,6 @@ async def handle_initiation_post(request: Request):
     try:
         form = await request.form()
         data = {key: value for key, value in form.items()}
-
-        print("Request Form Data:", data)
     except Exception as e:
         raise HTTPException(
             status_code=400,
@@ -338,6 +534,33 @@ async def handle_redirect(request: Request):
     course_id = payload.get(
         'https://purl.imsglobal.org/spec/lti/claim/custom',
         {}).get('courseid')
+
+    email = payload.get('email')
+    name = payload.get('name')
+    role = payload.get('https://purl.imsglobal.org/spec/lti/claim/roles')[0]
+
+    course_code = payload.get(
+        'https://purl.imsglobal.org/spec/lti/claim/context',
+        {}).get('label')
+
+    course_name = payload.get(
+        'https://purl.imsglobal.org/spec/lti/claim/context',
+        {}).get('title')
+
+    if "Instructor" in role:
+        role = "Teacher"
+    else:
+        role = "TA"
+
+    print(email, name, role, course_code, course_name, user_id, course_id)
+
+    succes, message = await post_course(pool, course_id, course_name, course_code)
+    print(succes, message)
+    if succes == 200 or succes == 405:
+        succes, message = await post_user(pool, message, user_id, email, name, role)
+        print(succes, message)
+    else:
+        raise HTTPException(status_code=400, detail=message)
 
     token_data = {
         "user_id": user_id,
