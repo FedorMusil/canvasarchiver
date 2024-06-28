@@ -26,6 +26,7 @@ import requests
 from typing import Dict, Any
 from dotenv import load_dotenv
 from enum import Enum
+from cron_job import cron_job_by_course_id
 
 
 load_dotenv()
@@ -332,7 +333,7 @@ async def put_highlight_route(
 
 
 # Delete routes
-@app.delete("annotations/{annotation_id}",
+@app.delete("/annotations/{annotation_id}",
             dependencies=[Depends(get_current_user)])
 async def delete_annotation(
         annotation_id: int,
@@ -341,7 +342,7 @@ async def delete_annotation(
     return await delete_annotation_by_id(pool, user['course_id'], annotation_id)
 
 
-@app.post("/course/{course_id}/user")
+@app.post("/course/{course_id}/user", dependencies=[Depends(get_current_user)])
 async def post_user_route(course_id: int, user: UserCreate):
     '''Create a user.'''
     passed_test, error_message = await check_user_create(pool, course_id, user)
@@ -351,6 +352,16 @@ async def post_user_route(course_id: int, user: UserCreate):
     if success:
         return {"user_id": return_message}
     raise HTTPException(status_code=400, detail=return_message)
+
+
+@app.post("/cron",
+            dependencies=[Depends(get_current_user)])
+async def run_cron_job_route(
+        annotation_id: int,
+        user: dict = Depends(get_current_user)):
+    '''Run a cron job.'''
+    return await cron_job_by_course_id(user['course_id'])
+
 
 
 @app.post("/revert", dependencies=[Depends(get_current_user)])
