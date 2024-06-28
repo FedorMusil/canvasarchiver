@@ -1,14 +1,12 @@
-import path from 'path';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vitest/config';
+import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
     plugins: [react(), visualizer({ template: 'treemap' })],
     build: {
         outDir: 'dist',
-        minify: false,
-        cssMinify: false,
     },
     resolve: {
         alias: {
@@ -22,5 +20,8 @@ export default defineConfig({
         globals: true,
         environment: 'jsdom',
         setupFiles: './src/__tests__/setupTests.ts',
+        coverage: {
+            provider: 'v8',
+        },
     },
 });

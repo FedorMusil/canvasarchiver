@@ -1,5 +1,5 @@
-import type { MaterialInputProps } from './material.types';
 import { memo, type FC, type ReactElement } from 'react';
+import type { MaterialInputProps } from './material.types';
 
 export type Section = {
     id: number;
@@ -17,9 +17,6 @@ export type Section = {
 
 const Section: FC<MaterialInputProps> = memo(({ change }): ReactElement => {
     const sections = change.content as Section[];
-
-    console.log('change', change);
-    console.log('sections', sections);
 
     return (
         <ul className='flex flex-wrap gap-4 justify-start'>

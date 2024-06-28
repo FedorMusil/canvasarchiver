@@ -1,8 +1,9 @@
 import { faker } from '@faker-js/faker/locale/en_US';
 import { addWeeks, setDay, startOfWeek } from 'date-fns';
 import { http, HttpHandler, HttpResponse } from 'msw';
-import { Change, ChangeType, ItemTypes } from '@/src/api/change';
+import { Change, ChangeType, ItemTypes } from '../api/change';
 import type { Assignment } from '../components/Materials/Assignment';
+import type { File, FileFolder, Folder } from '../components/Materials/File';
 import type { Module, ModuleItem } from '../components/Materials/Module';
 import type { Page } from '../components/Materials/Page';
 import type { Quiz } from '../components/Materials/Quiz';
@@ -47,6 +48,24 @@ export const changeHandlers: HttpHandler[] = [
         exampleChanges[index].highlights = highlights.highlights;
 
         return HttpResponse.json<Change>(exampleChanges[index]);
+    }),
+
+    http.post(`${import.meta.env.VITE_BACKEND_URL}/revert`, async ({ request }) => {
+        const change = (await request.json()) as Change;
+
+        // Change the content of the latest change to the content of the reverted change
+        exampleChanges[exampleChanges.length - 1].content = change.content;
+
+        return HttpResponse.json<Change>(exampleChanges[exampleChanges.length - 1]);
+    }),
+
+    http.post(`${import.meta.env.VITE_BACKEND_URL}/cron`, () => {
+        // Mock the cron job by delaying a successful response
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                resolve(HttpResponse.json('Cron job completed'));
+            }, 1000);
+        });
     }),
 ];
 
@@ -164,6 +183,93 @@ const generatePageObject = (): Page => {
     };
 };
 
+enum visibility_level {
+    NONE = 'none',
+    INHERIT = 'inherit',
+    COURSE = 'course',
+    INSTITUTION = 'institution',
+    PUBLIC = 'public',
+}
+
+const generateFileObject = (folderId: number): File => {
+    return {
+        id: faker.number.int(),
+        uuid: faker.string.uuid(),
+        folder_id: folderId,
+        display_name: faker.lorem.words(),
+        filename: faker.system.fileName(),
+        content_type: faker.system.mimeType(),
+        url: faker.internet.url(),
+        size: faker.number.int(),
+        created_at: faker.date.past().toString(),
+        updated_at: faker.date.recent().toString(),
+        unlock_at: faker.date.future().toString(),
+        locked: faker.datatype.boolean(),
+        hidden: faker.datatype.boolean(),
+        lock_at: faker.date.future().toString(),
+        hidden_for_user: faker.datatype.boolean(),
+        visibility_level: faker.helpers.arrayElement(Object.values(visibility_level)),
+        thumbnail_url: 'http://loremflickr.com/50/50/abstract',
+        modified_at: faker.date.recent().toString(),
+        mime_class: faker.lorem.word(),
+        media_entry_id: faker.string.uuid(),
+        locked_for_user: faker.datatype.boolean(),
+        lock_info: faker.lorem.words(),
+        lock_explanation: faker.lorem.words(),
+        preview_url: faker.internet.url(),
+    };
+};
+
+const generateFolderObject = (isChild: boolean = false, parentId?: number): Folder => {
+    if (isChild && !parentId) throw new Error('Parent ID is required for child folder');
+
+    return {
+        context_type: faker.lorem.word(),
+        context_id: faker.number.int(),
+        files_count: faker.number.int(),
+        position: faker.number.int(),
+        updated_at: faker.date.recent().toString(),
+        folders_url: faker.internet.url(),
+        files_url: faker.internet.url(),
+        full_name: faker.lorem.words(),
+        lock_at: faker.date.future().toString(),
+        id: faker.number.int(),
+        folders_count: faker.number.int(),
+        name: faker.lorem.words(),
+        parent_folder_id: isChild ? parentId! : undefined,
+        created_at: faker.date.past().toString(),
+        unlock_at: faker.date.future().toString(),
+        hidden: faker.datatype.boolean(),
+        hidden_for_user: faker.datatype.boolean(),
+        locked: faker.datatype.boolean(),
+        locked_for_user: faker.datatype.boolean(),
+        for_submissions: faker.datatype.boolean(),
+    };
+};
+
+const generateFileFolderObject = (): FileFolder => {
+    const folders = Array.from({ length: faker.number.int({ min: 2, max: 6 }) }, () => generateFolderObject());
+    const files: File[] = [];
+
+    // Ensure each folder has 2 to 6 files
+    folders.forEach((folder) => {
+        const numberOfFiles = faker.number.int({ min: 2, max: 6 });
+        for (let i = 0; i < numberOfFiles; i++) {
+            files.push(generateFileObject(folder.id));
+        }
+    });
+
+    // Make at least one folder a child of another
+    const childFolderIndex = faker.number.int({ min: 1, max: folders.length - 1 });
+    const parentFolderIndex = faker.number.int({ min: 0, max: childFolderIndex - 1 });
+    folders[childFolderIndex].parent_folder_id = folders[parentFolderIndex].id;
+
+    return {
+        file: files,
+        folder: folders,
+    };
+};
+
 const generateObject = (item_type: ItemTypes) => {
     switch (item_type) {
         case ItemTypes.QUIZZES:
@@ -176,6 +282,8 @@ const generateObject = (item_type: ItemTypes) => {
             return Array.from({ length: faker.number.int({ min: 2, max: 6 }) }, () => generateModuleObject());
         case ItemTypes.PAGES:
             return Array.from({ length: faker.number.int({ min: 2, max: 6 }) }, () => generatePageObject());
+        case ItemTypes.FILES:
+            return generateFileFolderObject();
         default:
             return [];
     }
@@ -189,20 +297,20 @@ const generateChange = (old_value: number): Change => {
     const item_type = faker.helpers.arrayElement(Object.values(ItemTypes));
     return {
         id: faker.number.int(),
+        older_diff: old_value,
         item_id: faker.number.int(),
         course_id: faker.number.int(),
         change_type: faker.helpers.arrayElement(Object.values(ChangeType)),
-        timestamp: randomDate.toString(),
         item_type,
-        older_diff: old_value,
-        highlights: null,
+        timestamp: randomDate.toString(),
         content: generateObject(item_type),
+        highlights: null,
     };
 };
 
-let older_diff = faker.number.int();
-export const exampleChanges: Change[] = Array.from({ length: 50 }, () => {
-    const change = generateChange(older_diff);
-    older_diff = change.id;
+let old_id = faker.number.int();
+export const exampleChanges: Change[] = Array.from({ length: 100 }, () => {
+    const change = generateChange(old_id);
+    old_id = change.id;
     return change;
 });
