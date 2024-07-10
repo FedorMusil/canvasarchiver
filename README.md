@@ -1,7 +1,5 @@
 # Project Software Engineering: Canvas Archiver
 
-###### Note: Due to difficulties in communication between group members and multiple deficiencies in the code itself, this project is being gradually abandoned. As a result, development has slowed down significantly and may eventually stop completely.
-
 Our project is an innovative extension of the Canvas course management system, designed to enhance online learning and teaching. Primarily intended for course teachers, this tool leverages the Canvas API to construct a detailed timeline of different versions of the courses linked to the application.
 
 ## What the Project Does
